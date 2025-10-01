@@ -1,0 +1,27 @@
+name: Flutter CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: ves-qc
+      - name: Format check
+        run: flutter format --set-exit-if-changed .
+        working-directory: ves-qc
+      - name: Analyze
+        run: flutter analyze
+        working-directory: ves-qc
+      - name: Test
+        run: flutter test
+        working-directory: ves-qc
