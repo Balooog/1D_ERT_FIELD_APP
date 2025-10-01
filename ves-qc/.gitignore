@@ -1,0 +1,20 @@
+# Flutter/Dart/Pub related
+.dart_tool/
+.packages
+.pub-cache/
+build/
+**/Generated.xcconfig
+**/Flutter.podspec
+**/Pods/
+**/xcuserdata/
+**/DerivedData/
+*.log
+*.lock
+*.iml
+.idea/
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/
+web/wasm/
