@@ -91,11 +91,11 @@ QaSummary summarizeQa(
       point: points[i],
     );
     qaCounts[level] = (qaCounts[level] ?? 0) + 1;
-    rss += math.pow(residual * 100, 2);
+    rss += math.pow(residual * 100, 2).toDouble();
     obsCount += 1;
     final contact = points[i].contactRMax;
     if (contact != null) {
-      worstContact = math.max(worstContact ?? contact, contact);
+      worstContact = math.max(worstContact ?? contact, contact).toDouble();
     }
   }
 
@@ -107,7 +107,7 @@ QaSummary summarizeQa(
           final fit = fitted[index].abs();
           final resid = residuals[index] * fit;
           final weight = sigma == 0 ? 1 : 1 / sigma;
-          return math.pow(resid * weight, 2);
+          return math.pow(resid * weight, 2).toDouble();
         }).fold<double>(0, (a, b) => a + b) /
           obsCount;
   return QaSummary(
