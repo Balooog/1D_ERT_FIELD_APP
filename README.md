@@ -41,7 +41,7 @@ flutter pub get
 Optional—but very helpful when you are editing code—run the built-in checks:
 
 ```
-flutter format .
+dart format .
 flutter analyze
 flutter test
 ```
