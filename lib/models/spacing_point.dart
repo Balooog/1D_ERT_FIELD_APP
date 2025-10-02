@@ -441,7 +441,8 @@ class SpacingPoint {
           spDriftMv == other.spDriftMv &&
           stacks == other.stacks &&
           timestamp == other.timestamp &&
-          excluded == other.excluded;
+          excluded == other.excluded &&
+          _sigmaRhoLegacy == other._sigmaRhoLegacy;
 
   @override
   int get hashCode => Object.hash(
