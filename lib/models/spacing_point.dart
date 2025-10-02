@@ -143,13 +143,13 @@ class SpacingPoint {
     required this.direction,
     double? voltageV,
     double? currentA,
-    ContactResistances? contactR,
+    Map<String, double>? contactR,
     this.spDriftMv,
     required this.stacks,
     List<double>? repeats,
     required this.timestamp,
     this.excluded = false,
-    String? notes,
+    this.notes,
   })  : _aFeet = aFeet,
         _spacingMeters = spacingMeters,
         _rhoAppOhmM = rhoAppOhmM,
@@ -157,8 +157,7 @@ class SpacingPoint {
         _voltageV = voltageV,
         _currentA = currentA,
         contactR = contactR == null ? const {} : Map.unmodifiable(contactR),
-        repeats = repeats == null ? null : List.unmodifiable(repeats),
-        notes = notes;
+        repeats = repeats == null ? null : List.unmodifiable(repeats);
 
   factory SpacingPoint({
     required String id,
@@ -174,7 +173,7 @@ class SpacingPoint {
     double? currentA,
     double? vp,
     double? current,
-    ContactResistances contactR = const {},
+    Map<String, double>? contactR,
     double? spDriftMv,
     int stacks = 1,
     List<double>? repeats,
@@ -302,7 +301,7 @@ class SpacingPoint {
     SoundingDirection direction = SoundingDirection.other,
     double? voltageV,
     double? currentA,
-    ContactResistances contactR = const {},
+    Map<String, double>? contactR,
     double? spDriftMv,
     int stacks = 1,
     List<double>? repeats,
@@ -360,37 +359,67 @@ class SpacingPoint {
   double? get sigmaRhoApp => sigmaRhoOhmM;
   double get geometryFactor => _geometryFactorFor(arrayType, spacingMeters);
   double get resistanceOhm => geometryFactor == 0 ? 0 : rhoAppOhmM / geometryFactor;
-  double? get resistanceStdOhm =>
-      sigmaRhoOhmM != null && geometryFactor != 0 ? sigmaRhoOhmM! / geometryFactor : null;
+  double? get resistanceStdOhm {
+    final sigma = sigmaRhoOhmM;
+    return sigma != null && geometryFactor != 0 ? sigma / geometryFactor : null;
+  }
   double? get voltageV => _voltageV;
   double? get currentA => _currentA;
-  double get vp => _voltageV ?? (currentA != null ? resistanceOhm * currentA! : 0);
-  double get current => _currentA ?? (_voltageV != null && resistanceOhm != 0 ? _voltageV! / resistanceOhm : 0);
-  String? get note => notes;
+  double get vp {
+    final voltage = _voltageV;
+    if (voltage != null) {
+      return voltage;
+    }
+    final current = currentA;
+    return current != null ? resistanceOhm * current : 0;
+  }
+
+  double get current {
+    final current = _currentA;
+    if (current != null) {
+      return current;
+    }
+    final voltage = _voltageV;
+    if (voltage != null && resistanceOhm != 0) {
+      return voltage / resistanceOhm;
+    }
+    return 0;
+  }
 
   double? get rhoFromVi {
-    if (_voltageV == null || _currentA == null || _currentA == 0) {
+    final voltage = _voltageV;
+    final current = _currentA;
+    if (voltage == null || current == null || current == 0) {
       return null;
     }
-    return geometryFactor * (_voltageV! / _currentA!);
+    return geometryFactor * (voltage / current);
   }
 
   double? get resistanceFromVi {
-    if (_voltageV == null || _currentA == null || _currentA == 0) {
+    final voltage = _voltageV;
+    final current = _currentA;
+    if (voltage == null || current == null || current == 0) {
       return null;
     }
-    return _voltageV! / _currentA!;
+    return voltage / current;
   }
 
   double? get rFromVi => resistanceFromVi;
 
-  double? get rhoDiffPercent =>
-      rhoFromVi == null || rhoAppOhmM == 0 ? null : ((rhoFromVi! - rhoAppOhmM).abs() / rhoAppOhmM) * 100;
+  double? get rhoDiffPercent {
+    final viRho = rhoFromVi;
+    if (viRho == null || rhoAppOhmM == 0) {
+      return null;
+    }
+    return ((viRho - rhoAppOhmM).abs() / rhoAppOhmM) * 100;
+  }
 
   double? get resistanceDiffPercent => rhoDiffPercent;
 
-  bool get hasRhoQaWarning =>
-      rhoDiffPercent != null && rhoDiffPercent! > rhoQaThresholdPercent;
+  bool get hasRhoQaWarning {
+    final diff = rhoDiffPercent;
+    return diff != null && diff > rhoQaThresholdPercent;
+  }
 
   bool get hasResistanceQaWarning => hasRhoQaWarning;
 
