@@ -58,7 +58,7 @@ final qaSummaryProvider = Provider<QaSummary>((ref) {
   final residuals = <double>[];
   for (var i = 0; i < points.length; i++) {
     final fit = i < inversion.predictedRho.length ? inversion.predictedRho[i] : inversion.predictedRho.last;
-    residuals.add(points[i].rhoApp == 0 ? 0 : (points[i].rhoApp - fit) / fit);
+    residuals.add(points[i].rhoAppOhmM == 0 ? 0 : (points[i].rhoAppOhmM - fit) / fit);
   }
   return summarizeQa(points, residuals, inversion.predictedRho);
 });
