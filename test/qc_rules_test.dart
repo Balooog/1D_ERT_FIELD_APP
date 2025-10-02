@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ves_qc/models/enums.dart';
@@ -5,12 +7,19 @@ import 'package:ves_qc/models/spacing_point.dart';
 import 'package:ves_qc/services/qc_rules.dart';
 
 SpacingPoint _makePoint(double rho, {double? sigma}) {
+  final spacingMeters = 5.0;
+  final resistance = rho / (2 * math.pi * spacingMeters);
+  final resistanceStd = sigma != null ? sigma / (2 * math.pi * spacingMeters) : null;
   return SpacingPoint(
     id: '1',
     arrayType: ArrayType.wenner,
-    spacingMetric: 5.0,
-    vp: 1.0,
-    current: 0.5,
+    aFeet: metersToFeet(spacingMeters),
+    spacingMetric: spacingMeters,
+    resistanceOhm: resistance,
+    resistanceStdOhm: resistanceStd,
+    direction: SoundingDirection.other,
+    voltageV: 1.0,
+    currentA: 0.5,
     contactR: const {'c1': 100.0, 'c2': 150.0},
     spDriftMv: 1.0,
     stacks: 1,
