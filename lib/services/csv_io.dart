@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:csv/csv.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/enums.dart';
 import '../models/spacing_point.dart';
+import '../utils/units.dart';
 
 class CsvColumns {
   static const aSpacingFt = 'a_spacing_ft';
@@ -12,13 +14,14 @@ class CsvColumns {
   static const spacingLegacy = 'spacing_m';
   static const resistance = 'resistance_ohm';
   static const resistanceStd = 'resistance_std_ohm';
+  static const rho = 'rho_app_ohm_m';
+  static const rhoLegacy = 'rho_app';
+  static const sigmaRho = 'sigma_rho_ohm_m';
+  static const sigmaRhoLegacy = 'sigma_rho_app';
   static const direction = 'direction';
   static const voltage = 'voltage_v';
   static const current = 'current_a';
   static const array = 'array_type';
-  static const mn = 'mn_over_2_m';
-  static const rho = 'rho_app_ohm_m';
-  static const sigma = 'sigma_rho_app';
   static const timestamp = 'timestamp_iso';
 }
 
@@ -27,50 +30,77 @@ class CsvIoService {
     final raw = await file.readAsString();
     final rows = const CsvToListConverter(eol: '\n').convert(raw, shouldParseNumbers: false);
     if (rows.isEmpty) return [];
+
     final header = rows.first.map((e) => e.toString()).toList();
-    final idx = {
-      for (var i = 0; i < header.length; i++) header[i]: i,
-    };
+    final indexMap = <String, int>{};
+    for (var i = 0; i < header.length; i++) {
+      indexMap[_normalizeHeader(header[i])] = i;
+    }
+
     final points = <SpacingPoint>[];
     for (var i = 1; i < rows.length; i++) {
       final row = rows[i];
       if (row.isEmpty) continue;
-      final aFeet = _parseDouble(row, idx[CsvColumns.aSpacingFt]);
-      final aMeters = _parseDouble(row, idx[CsvColumns.aSpacingM]);
-      final spacingLegacy = _parseDouble(row, idx[CsvColumns.spacingLegacy]);
-      final resistance = _parseDouble(row, idx[CsvColumns.resistance]);
-      final resistanceStd = _parseDouble(row, idx[CsvColumns.resistanceStd]);
-      final directionText = _parseString(row, idx[CsvColumns.direction]);
-      final voltage = _parseDouble(row, idx[CsvColumns.voltage]);
-      final current = _parseDouble(row, idx[CsvColumns.current]);
-      final array = _parseArray(row, idx[CsvColumns.array]);
-      final rho = _parseDouble(row, idx[CsvColumns.rho]);
-      final sigma = _parseDouble(row, idx[CsvColumns.sigma]);
-      final timestamp = _parseString(row, idx[CsvColumns.timestamp]);
+
+      double? aFeet = _readDouble(row, indexMap, [CsvColumns.aSpacingFt]);
+      double? aMeters = _readDouble(row, indexMap, [CsvColumns.aSpacingM, CsvColumns.spacingLegacy]);
+      double? resistance = _readDouble(row, indexMap, [CsvColumns.resistance]);
+      double? resistanceStd = _readDouble(row, indexMap, [CsvColumns.resistanceStd]);
+      double? rho = _readDouble(row, indexMap, [CsvColumns.rho, CsvColumns.rhoLegacy]);
+      double? sigmaRho = _readDouble(row, indexMap, [CsvColumns.sigmaRho, CsvColumns.sigmaRhoLegacy]);
+      final voltage = _readDouble(row, indexMap, [CsvColumns.voltage]);
+      final current = _readDouble(row, indexMap, [CsvColumns.current]);
+      final directionText = _readString(row, indexMap, [CsvColumns.direction]);
+      final array = _readArray(row, indexMap, [CsvColumns.array]);
+      final timestampText = _readString(row, indexMap, [CsvColumns.timestamp]);
 
       if (array == null) {
         continue;
       }
 
+      aMeters ??= aFeet != null ? feetToMeters(aFeet) : null;
+      aFeet ??= aMeters != null ? metersToFeet(aMeters) : null;
+
+      if (rho == null && resistance != null && aMeters != null) {
+        rho = 2 * math.pi * aMeters * resistance;
+      }
+
+      if (rho == null && voltage != null && current != null && current != 0 && aMeters != null) {
+        final derivedResistance = voltage / current;
+        rho = 2 * math.pi * aMeters * derivedResistance;
+        resistance ??= derivedResistance;
+      }
+
+      if (sigmaRho == null && resistanceStd != null && aMeters != null) {
+        sigmaRho = 2 * math.pi * aMeters * resistanceStd;
+      }
+
+      DateTime? timestamp;
+      if (timestampText != null) {
+        timestamp = DateTime.tryParse(timestampText);
+      }
+
       try {
-        points.add(SpacingPoint(
-          id: '${i}_${DateTime.now().millisecondsSinceEpoch}',
-          arrayType: array,
-          aFeet: aFeet,
-          spacingMetric: aMeters ?? spacingLegacy,
-          resistanceOhm: resistance,
-          resistanceStdOhm: resistanceStd,
-          direction: parseSoundingDirection(directionText),
-          voltageV: voltage,
-          currentA: current,
-          contactR: const {},
-          spDriftMv: null,
-          stacks: 1,
-          repeats: null,
-          rhoApp: rho,
-          sigmaRhoApp: sigma,
-          timestamp: timestamp != null ? DateTime.parse(timestamp) : DateTime.now(),
-        ));
+        points.add(
+          SpacingPoint(
+            id: '${i}_${DateTime.now().millisecondsSinceEpoch}',
+            arrayType: array,
+            aFeet: aFeet,
+            spacingMetric: aMeters,
+            rhoAppOhmM: rho,
+            sigmaRhoOhmM: sigmaRho,
+            resistanceOhm: resistance,
+            resistanceStdOhm: resistanceStd,
+            direction: parseSoundingDirection(directionText),
+            voltageV: voltage,
+            currentA: current,
+            contactR: const {},
+            spDriftMv: null,
+            stacks: 1,
+            repeats: null,
+            timestamp: timestamp ?? DateTime.now(),
+          ),
+        );
       } catch (_) {
         continue;
       }
@@ -83,15 +113,14 @@ class CsvIoService {
       CsvColumns.aSpacingFt,
       CsvColumns.aSpacingM,
       CsvColumns.spacingLegacy,
-      CsvColumns.resistance,
-      CsvColumns.resistanceStd,
+      CsvColumns.rho,
+      CsvColumns.sigmaRho,
       CsvColumns.direction,
       CsvColumns.voltage,
       CsvColumns.current,
+      CsvColumns.resistance,
+      CsvColumns.resistanceStd,
       CsvColumns.array,
-      CsvColumns.mn,
-      CsvColumns.rho,
-      CsvColumns.sigma,
       CsvColumns.timestamp,
     ];
     final data = <List<dynamic>>[header];
@@ -100,15 +129,14 @@ class CsvIoService {
         point.aFeet,
         point.aMeters,
         point.spacingMetric,
-        point.resistanceOhm,
-        point.resistanceStdOhm,
+        point.rhoAppOhmM,
+        point.sigmaRhoOhmM,
         point.direction.csvValue,
         point.voltageV,
         point.currentA,
+        point.resistanceOhm,
+        point.resistanceStdOhm,
         point.arrayType.name,
-        '',
-        point.rhoAppOhmM,
-        point.sigmaRhoApp,
         point.timestamp.toIso8601String(),
       ]);
     }
@@ -116,6 +144,33 @@ class CsvIoService {
     await file.create(recursive: true);
     await file.writeAsString(csv);
     return file;
+  }
+
+  double? _readDouble(List<dynamic> row, Map<String, int> indexMap, List<String> keys) {
+    for (final key in keys) {
+      final index = indexMap[_normalizeHeader(key)];
+      final value = _parseDouble(row, index);
+      if (value != null) return value;
+    }
+    return null;
+  }
+
+  String? _readString(List<dynamic> row, Map<String, int> indexMap, List<String> keys) {
+    for (final key in keys) {
+      final index = indexMap[_normalizeHeader(key)];
+      final value = _parseString(row, index);
+      if (value != null) return value;
+    }
+    return null;
+  }
+
+  ArrayType? _readArray(List<dynamic> row, Map<String, int> indexMap, List<String> keys) {
+    final text = _readString(row, indexMap, keys);
+    if (text == null) return null;
+    return ArrayType.values.firstWhere(
+      (type) => type.name.toLowerCase() == text.toLowerCase(),
+      orElse: () => ArrayType.custom,
+    );
   }
 
   double? _parseDouble(List<dynamic> row, int? index) {
@@ -129,19 +184,12 @@ class CsvIoService {
     if (index == null || index >= row.length) return null;
     final value = row[index];
     if (value == null) return null;
-    final text = value.toString();
+    final text = value.toString().trim();
     return text.isEmpty ? null : text;
   }
-
-  ArrayType? _parseArray(List<dynamic> row, int? index) {
-    final text = _parseString(row, index);
-    if (text == null) return null;
-    return ArrayType.values.firstWhere(
-      (type) => type.name.toLowerCase() == text.toLowerCase(),
-      orElse: () => ArrayType.custom,
-    );
-  }
 }
+
+String _normalizeHeader(String header) => header.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
 
 Future<File> getDefaultExportFile(String directory, {String? basename}) async {
   final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');

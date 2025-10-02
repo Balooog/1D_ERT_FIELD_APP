@@ -81,8 +81,8 @@ class MockStreamService {
         spDriftMv: spDrift,
         stacks: 3,
         repeats: repeats,
-        rhoApp: rhoApp,
-        sigmaRhoApp: sigma,
+        rhoAppOhmM: rhoApp,
+        sigmaRhoOhmM: sigma,
         timestamp: DateTime.now(),
       );
       listener(point);

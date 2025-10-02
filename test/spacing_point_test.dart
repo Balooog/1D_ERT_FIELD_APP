@@ -10,12 +10,14 @@ void main() {
     expect(feetToMeters(2.0), closeTo(0.6096, 1e-6));
   });
 
-  test('Wenner rho derives from spacing and resistance', () {
+  test('Derived resistance matches Wenner geometry from rho input', () {
+    const rho = 150.0;
+    const aFeet = 12.0;
     final point = SpacingPoint(
       id: 'rho-test',
       arrayType: ArrayType.wenner,
-      aFeet: 12.0,
-      resistanceOhm: 30.0,
+      aFeet: aFeet,
+      rhoAppOhmM: rho,
       direction: SoundingDirection.we,
       contactR: const {},
       spDriftMv: null,
@@ -23,17 +25,18 @@ void main() {
       repeats: null,
       timestamp: DateTime(2024),
     );
-    final expected = 2 * math.pi * point.aMeters * point.resistanceOhm;
-    expect(point.rhoAppOhmM, closeTo(expected, 1e-6));
+    final expectedResistance = rho / (2 * math.pi * point.aMeters);
+    expect(point.resistanceOhm, closeTo(expectedResistance, 1e-6));
   });
 
-  test('Sigma propagation follows 2πa scaling', () {
+  test('Sigma rho propagates from resistance sigma', () {
+    const resistanceStd = 0.8;
     final point = SpacingPoint(
       id: 'sigma-test',
       arrayType: ArrayType.wenner,
       aFeet: 8.0,
-      resistanceOhm: 15.0,
-      resistanceStdOhm: 0.8,
+      rhoAppOhmM: 2 * math.pi * feetToMeters(8.0) * 15.0,
+      resistanceStdOhm: resistanceStd,
       direction: SoundingDirection.other,
       contactR: const {},
       spDriftMv: null,
@@ -41,27 +44,32 @@ void main() {
       repeats: null,
       timestamp: DateTime(2024),
     );
-    final expectedSigma = 2 * math.pi * point.aMeters * 0.8;
-    expect(point.sigmaRhoApp, closeTo(expectedSigma, 1e-6));
+    final expectedSigma = 2 * math.pi * point.aMeters * resistanceStd;
+    expect(point.sigmaRhoOhmM, closeTo(expectedSigma, 1e-6));
   });
 
-  test('Resistance QA diff percent reflects V/I difference', () {
+  test('Rho QA diff percent reflects V/I derived resistivity', () {
+    const aFeet = 10.0;
+    const rho = 200.0;
+    const voltage = 21.1;
+    const current = 2.0;
     final point = SpacingPoint(
       id: 'qa-test',
       arrayType: ArrayType.wenner,
-      aFeet: 10.0,
-      resistanceOhm: 10.0,
+      aFeet: aFeet,
+      rhoAppOhmM: rho,
       direction: SoundingDirection.ns,
-      voltageV: 21.1,
-      currentA: 2.0,
+      voltageV: voltage,
+      currentA: current,
       contactR: const {},
       spDriftMv: null,
       stacks: 1,
       repeats: null,
       timestamp: DateTime(2024),
     );
-    expect(point.rFromVi, closeTo(10.55, 1e-6));
-    expect(point.resistanceDiffPercent, closeTo(5.5, 1e-6));
-    expect(point.hasResistanceQaWarning, isTrue);
+    final expectedRhoFromVi = 2 * math.pi * point.aMeters * (voltage / current);
+    expect(point.rhoFromVi, closeTo(expectedRhoFromVi, 1e-6));
+    expect(point.rhoDiffPercent, closeTo(((expectedRhoFromVi - rho).abs() / rho) * 100, 1e-6));
+    expect(point.hasRhoQaWarning, isTrue);
   });
 }

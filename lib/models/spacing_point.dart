@@ -4,6 +4,8 @@ import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../utils/units.dart';
+export '../utils/units.dart' show feetToMeters, metersToFeet;
 import 'enums.dart';
 
 typedef ContactResistances = Map<String, double>;
@@ -53,78 +55,95 @@ SoundingDirection parseSoundingDirection(String? value) {
   }
 }
 
-const double _metersPerFoot = 0.3048;
-
-double feetToMeters(double feet) => feet * _metersPerFoot;
-
-double metersToFeet(double meters) => meters / _metersPerFoot;
-
 class _ResolvedInputs {
   const _ResolvedInputs({
     required this.aFeet,
-    required this.resistanceOhm,
+    required this.rhoAppOhmM,
+    this.sigmaRhoOhmM,
     this.voltageV,
     this.currentA,
   });
 
   final double aFeet;
-  final double resistanceOhm;
+  final double rhoAppOhmM;
+  final double? sigmaRhoOhmM;
   final double? voltageV;
   final double? currentA;
 
   static _ResolvedInputs resolve({
     double? aFeet,
     double? spacingMeters,
+    double? rhoAppOhmM,
+    double? sigmaRho,
     double? resistanceOhm,
+    double? resistanceStdOhm,
     double? voltageV,
     double? currentA,
-    double? rhoApp,
   }) {
     double? resolvedFeet = aFeet;
     double? resolvedMeters = spacingMeters;
+
     if (resolvedFeet == null && resolvedMeters != null) {
       resolvedFeet = metersToFeet(resolvedMeters);
     }
+    if (resolvedMeters == null && resolvedFeet != null) {
+      resolvedMeters = feetToMeters(resolvedFeet);
+    }
 
     double? resolvedResistance = resistanceOhm;
-    final double? voltage = voltageV;
-    final double? current = currentA;
-
-    if (resolvedResistance == null && rhoApp != null) {
-      resolvedMeters ??= resolvedFeet != null ? feetToMeters(resolvedFeet) : null;
-      if (resolvedMeters != null && resolvedMeters != 0) {
-        resolvedResistance = rhoApp / (2 * math.pi * resolvedMeters);
-      }
+    if (resolvedResistance == null && voltageV != null && currentA != null && currentA != 0) {
+      resolvedResistance = voltageV / currentA;
     }
 
-    if (resolvedResistance == null && voltage != null && current != null && current != 0) {
-      resolvedResistance = voltage / current;
+    double? resolvedRho = rhoApp;
+    if (resolvedRho == null && resolvedResistance != null && resolvedMeters != null) {
+      resolvedRho = 2 * math.pi * resolvedMeters * resolvedResistance;
+    }
+    if (resolvedRho == null && resolvedResistance != null && resolvedFeet != null) {
+      final meters = feetToMeters(resolvedFeet);
+      resolvedRho = 2 * math.pi * meters * resolvedResistance;
+      resolvedMeters ??= meters;
     }
 
-    if (resolvedFeet == null) {
+    if (resolvedRho == null && resolvedResistance == null && voltageV != null && currentA != null && currentA != 0) {
+      final resistanceFromVi = voltageV / currentA;
       if (resolvedMeters != null) {
-        resolvedFeet = metersToFeet(resolvedMeters);
-      } else if (rhoApp != null && resolvedResistance != null && resolvedResistance != 0) {
-        final derivedMeters = rhoApp / (2 * math.pi * resolvedResistance);
-        resolvedMeters = derivedMeters;
-        resolvedFeet = metersToFeet(derivedMeters);
+        resolvedRho = 2 * math.pi * resolvedMeters * resistanceFromVi;
+        resolvedResistance = resistanceFromVi;
+      } else if (resolvedFeet != null) {
+        final meters = feetToMeters(resolvedFeet);
+        resolvedRho = 2 * math.pi * meters * resistanceFromVi;
+        resolvedResistance = resistanceFromVi;
+        resolvedMeters = meters;
       }
     }
 
-    resolvedMeters ??= resolvedFeet != null ? feetToMeters(resolvedFeet) : null;
+    if (resolvedFeet == null && resolvedMeters != null) {
+      resolvedFeet = metersToFeet(resolvedMeters);
+    }
+    if (resolvedMeters == null && resolvedFeet != null) {
+      resolvedMeters = feetToMeters(resolvedFeet);
+    }
 
-    if (resolvedFeet == null) {
+    if (resolvedFeet == null || resolvedMeters == null) {
       throw ArgumentError('A-spacing could not be resolved from the provided inputs.');
     }
-    if (resolvedResistance == null) {
-      throw ArgumentError('Resistance (Ω) could not be resolved from the provided inputs.');
+
+    if (resolvedRho == null) {
+      throw ArgumentError('Apparent resistivity could not be resolved from the provided inputs.');
+    }
+
+    double? resolvedSigmaRho = sigmaRho;
+    if (resolvedSigmaRho == null && resistanceStdOhm != null) {
+      resolvedSigmaRho = 2 * math.pi * resolvedMeters * resistanceStdOhm;
     }
 
     return _ResolvedInputs(
       aFeet: resolvedFeet,
-      resistanceOhm: resolvedResistance,
-      voltageV: voltage,
-      currentA: current,
+      rhoAppOhmM: resolvedRho,
+      sigmaRhoOhmM: resolvedSigmaRho,
+      voltageV: voltageV,
+      currentA: currentA,
     );
   }
 }
@@ -135,8 +154,8 @@ class SpacingPoint {
     required this.id,
     required this.arrayType,
     required double aFeet,
-    required double resistanceOhm,
-    double? resistanceStdOhm,
+    required double rhoAppOhmM,
+    double? sigmaRhoOhmM,
     required this.direction,
     double? voltageV,
     double? currentA,
@@ -144,23 +163,25 @@ class SpacingPoint {
     this.spDriftMv,
     required this.stacks,
     List<double>? repeats,
-    double? sigmaRhoLegacy,
     required this.timestamp,
     this.excluded = false,
   })  : _aFeet = aFeet,
-        _resistanceOhm = resistanceOhm,
-        _resistanceStdOhm = resistanceStdOhm,
+        _rhoAppOhmM = rhoAppOhmM,
+        _sigmaRhoOhmM = sigmaRhoOhmM,
         _voltageV = voltageV,
         _currentA = currentA,
         contactR = Map.unmodifiable(contactR),
-        repeats = repeats != null ? List.unmodifiable(repeats) : null,
-        _sigmaRhoLegacy = sigmaRhoLegacy;
+        repeats = repeats != null ? List.unmodifiable(repeats) : null;
 
   factory SpacingPoint({
     required String id,
     required ArrayType arrayType,
     double? aFeet,
     double? spacingMetric,
+    double? rhoAppOhmM,
+    double? rhoApp,
+    double? sigmaRhoOhmM,
+    double? sigmaRhoApp,
     double? resistanceOhm,
     double? resistanceStdOhm,
     SoundingDirection direction = SoundingDirection.other,
@@ -172,26 +193,26 @@ class SpacingPoint {
     double? spDriftMv,
     int stacks = 1,
     List<double>? repeats,
-    double? rhoApp,
-    double? sigmaRhoApp,
     DateTime? timestamp,
     bool excluded = false,
   }) {
     final resolved = _ResolvedInputs.resolve(
       aFeet: aFeet,
       spacingMeters: spacingMetric,
+      rhoApp: rhoAppOhmM ?? rhoApp,
+      sigmaRho: sigmaRhoOhmM ?? sigmaRhoApp,
       resistanceOhm: resistanceOhm,
+      resistanceStdOhm: resistanceStdOhm,
       voltageV: voltageV ?? vp,
       currentA: currentA ?? current,
-      rhoApp: rhoApp,
     );
 
     return SpacingPoint._(
       id: id,
       arrayType: arrayType,
       aFeet: resolved.aFeet,
-      resistanceOhm: resolved.resistanceOhm,
-      resistanceStdOhm: resistanceStdOhm,
+      rhoAppOhmM: resolved.rhoAppOhmM,
+      sigmaRhoOhmM: resolved.sigmaRhoOhmM,
       direction: direction,
       voltageV: resolved.voltageV,
       currentA: resolved.currentA,
@@ -199,7 +220,6 @@ class SpacingPoint {
       spDriftMv: spDriftMv,
       stacks: stacks,
       repeats: repeats,
-      sigmaRhoLegacy: sigmaRhoApp,
       timestamp: timestamp ?? DateTime.now(),
       excluded: excluded,
     );
@@ -208,8 +228,8 @@ class SpacingPoint {
   factory SpacingPoint.newPoint({
     required ArrayType arrayType,
     required double aFeet,
-    required double resistanceOhm,
-    double? resistanceStdOhm,
+    required double rhoAppOhmM,
+    double? sigmaRhoOhmM,
     SoundingDirection direction = SoundingDirection.other,
     double? voltageV,
     double? currentA,
@@ -217,7 +237,6 @@ class SpacingPoint {
     double? spDriftMv,
     int stacks = 1,
     List<double>? repeats,
-    double? sigmaRhoApp,
     DateTime? timestamp,
     bool excluded = false,
   }) {
@@ -225,8 +244,8 @@ class SpacingPoint {
       id: const Uuid().v4(),
       arrayType: arrayType,
       aFeet: aFeet,
-      resistanceOhm: resistanceOhm,
-      resistanceStdOhm: resistanceStdOhm,
+      rhoAppOhmM: rhoAppOhmM,
+      sigmaRhoOhmM: sigmaRhoOhmM,
       direction: direction,
       voltageV: voltageV,
       currentA: currentA,
@@ -234,8 +253,6 @@ class SpacingPoint {
       spDriftMv: spDriftMv,
       stacks: stacks,
       repeats: repeats,
-      rhoApp: null,
-      sigmaRhoApp: sigmaRhoApp,
       timestamp: timestamp,
       excluded: excluded,
     );
@@ -244,8 +261,8 @@ class SpacingPoint {
   final String id;
   final ArrayType arrayType;
   final double _aFeet;
-  final double _resistanceOhm;
-  final double? _resistanceStdOhm;
+  final double _rhoAppOhmM;
+  final double? _sigmaRhoOhmM;
   final SoundingDirection direction;
   final double? _voltageV;
   final double? _currentA;
@@ -253,38 +270,51 @@ class SpacingPoint {
   final double? spDriftMv;
   final int stacks;
   final List<double>? repeats;
-  final double? _sigmaRhoLegacy;
   final DateTime timestamp;
   final bool excluded;
 
-  static const double resistanceQaThresholdPercent = 5;
+  static const double rhoQaThresholdPercent = 5;
 
   double get aFeet => _aFeet;
   double get aMeters => feetToMeters(_aFeet);
   double get spacingMetric => aMeters;
-  double get resistanceOhm => _resistanceOhm;
-  double? get resistanceStdOhm => _resistanceStdOhm;
-  double get rhoAppOhmM => 2 * math.pi * aMeters * resistanceOhm;
+  double get rhoAppOhmM => _rhoAppOhmM;
   double get rhoApp => rhoAppOhmM;
-  double? get sigmaRhoApp => _resistanceStdOhm != null
-      ? 2 * math.pi * aMeters * _resistanceStdOhm!
-      : _sigmaRhoLegacy;
-  double? get sigmaRhoAppFromResistance =>
-      _resistanceStdOhm != null ? 2 * math.pi * aMeters * _resistanceStdOhm! : null;
+  double? get sigmaRhoOhmM => _sigmaRhoOhmM;
+  double? get sigmaRhoApp => sigmaRhoOhmM;
+  double get resistanceOhm => rhoAppOhmM / (2 * math.pi * aMeters);
+  double? get resistanceStdOhm =>
+      sigmaRhoOhmM != null ? sigmaRhoOhmM! / (2 * math.pi * aMeters) : null;
   double? get voltageV => _voltageV;
   double? get currentA => _currentA;
   double get vp => _voltageV ?? (currentA != null ? resistanceOhm * currentA! : 0);
   double get current => _currentA ?? (_voltageV != null && resistanceOhm != 0 ? _voltageV! / resistanceOhm : 0);
 
-  double? get rFromVi =>
-      (_voltageV != null && _currentA != null && _currentA != 0) ? _voltageV! / _currentA! : null;
+  double? get rhoFromVi {
+    if (_voltageV == null || _currentA == null || _currentA == 0) {
+      return null;
+    }
+    return 2 * math.pi * aMeters * (_voltageV! / _currentA!);
+  }
 
-  double? get resistanceDiffPercent => rFromVi == null || resistanceOhm == 0
-      ? null
-      : ((rFromVi! - resistanceOhm).abs() / resistanceOhm) * 100;
+  double? get resistanceFromVi {
+    if (_voltageV == null || _currentA == null || _currentA == 0) {
+      return null;
+    }
+    return _voltageV! / _currentA!;
+  }
 
-  bool get hasResistanceQaWarning =>
-      resistanceDiffPercent != null && resistanceDiffPercent! > resistanceQaThresholdPercent;
+  double? get rFromVi => resistanceFromVi;
+
+  double? get rhoDiffPercent =>
+      rhoFromVi == null || rhoAppOhmM == 0 ? null : ((rhoFromVi! - rhoAppOhmM).abs() / rhoAppOhmM) * 100;
+
+  double? get resistanceDiffPercent => rhoDiffPercent;
+
+  bool get hasRhoQaWarning =>
+      rhoDiffPercent != null && rhoDiffPercent! > rhoQaThresholdPercent;
+
+  bool get hasResistanceQaWarning => hasRhoQaWarning;
 
   double? get contactRMax =>
       contactR.values.isEmpty ? null : contactR.values.reduce((a, b) => a > b ? a : b);
@@ -292,8 +322,8 @@ class SpacingPoint {
   SpacingPoint copyWith({
     ArrayType? arrayType,
     double? aFeet,
-    double? resistanceOhm,
-    double? resistanceStdOhm,
+    double? rhoAppOhmM,
+    double? sigmaRhoOhmM,
     SoundingDirection? direction,
     double? voltageV,
     double? currentA,
@@ -301,7 +331,6 @@ class SpacingPoint {
     double? spDriftMv,
     int? stacks,
     List<double>? repeats,
-    double? sigmaRhoApp,
     DateTime? timestamp,
     bool? excluded,
   }) {
@@ -309,8 +338,8 @@ class SpacingPoint {
       id: id,
       arrayType: arrayType ?? this.arrayType,
       aFeet: aFeet ?? this.aFeet,
-      resistanceOhm: resistanceOhm ?? this.resistanceOhm,
-      resistanceStdOhm: resistanceStdOhm ?? this.resistanceStdOhm,
+      rhoAppOhmM: rhoAppOhmM ?? this.rhoAppOhmM,
+      sigmaRhoOhmM: sigmaRhoOhmM ?? this.sigmaRhoOhmM,
       direction: direction ?? this.direction,
       voltageV: voltageV ?? _voltageV,
       currentA: currentA ?? _currentA,
@@ -318,7 +347,6 @@ class SpacingPoint {
       spDriftMv: spDriftMv ?? this.spDriftMv,
       stacks: stacks ?? this.stacks,
       repeats: repeats != null ? List.unmodifiable(repeats) : this.repeats,
-      sigmaRhoLegacy: sigmaRhoApp ?? _sigmaRhoLegacy,
       timestamp: timestamp ?? this.timestamp,
       excluded: excluded ?? this.excluded,
     );
@@ -329,20 +357,20 @@ class SpacingPoint {
         'arrayType': arrayType.name,
         'aFeet': aFeet,
         'spacingMetric': spacingMetric,
+        'aMeters': aMeters,
+        'rhoApp': rhoAppOhmM,
+        'rhoAppOhmM': rhoAppOhmM,
+        'sigmaRhoOhmM': sigmaRhoOhmM,
+        'sigmaRhoApp': sigmaRhoOhmM,
         'resistanceOhm': resistanceOhm,
         'resistanceStdOhm': resistanceStdOhm,
         'direction': direction.name,
-        'vp': vp,
         'voltageV': voltageV,
-        'current': current,
         'currentA': currentA,
         'contactR': contactR,
         'spDriftMv': spDriftMv,
         'stacks': stacks,
         'repeats': repeats,
-        'rhoApp': rhoAppOhmM,
-        'rhoAppOhmM': rhoAppOhmM,
-        'sigmaRhoApp': sigmaRhoApp,
         'timestamp': timestamp.toIso8601String(),
         'excluded': excluded,
       };
@@ -355,12 +383,14 @@ class SpacingPoint {
         orElse: () => ArrayType.custom,
       ),
       aFeet: (json['aFeet'] as num?)?.toDouble(),
-      spacingMetric: (json['spacingMetric'] as num?)?.toDouble(),
+      spacingMetric: (json['spacingMetric'] as num?)?.toDouble() ?? (json['aMeters'] as num?)?.toDouble(),
+      rhoApp: (json['rhoAppOhmM'] as num?)?.toDouble() ?? (json['rhoApp'] as num?)?.toDouble(),
+      sigmaRhoOhmM: (json['sigmaRhoOhmM'] as num?)?.toDouble() ?? (json['sigmaRhoApp'] as num?)?.toDouble(),
       resistanceOhm: (json['resistanceOhm'] as num?)?.toDouble(),
       resistanceStdOhm: (json['resistanceStdOhm'] as num?)?.toDouble(),
       direction: parseSoundingDirection(json['direction'] as String?),
-      voltageV: (json['voltageV'] as num?)?.toDouble() ?? (json['vp'] as num?)?.toDouble(),
-      currentA: (json['currentA'] as num?)?.toDouble() ?? (json['current'] as num?)?.toDouble(),
+      voltageV: (json['voltageV'] as num?)?.toDouble(),
+      currentA: (json['currentA'] as num?)?.toDouble(),
       contactR: Map.unmodifiable((json['contactR'] as Map?)?.map(
             (key, value) => MapEntry(key as String, (value as num).toDouble()),
           ) ??
@@ -368,8 +398,6 @@ class SpacingPoint {
       spDriftMv: (json['spDriftMv'] as num?)?.toDouble(),
       stacks: json['stacks'] as int? ?? 1,
       repeats: (json['repeats'] as List?)?.map((e) => (e as num).toDouble()).toList(),
-      rhoApp: (json['rhoAppOhmM'] as num?)?.toDouble() ?? (json['rhoApp'] as num?)?.toDouble(),
-      sigmaRhoApp: (json['sigmaRhoApp'] as num?)?.toDouble(),
       timestamp: DateTime.parse(json['timestamp'] as String),
       excluded: json['excluded'] as bool? ?? false,
     );
@@ -385,8 +413,8 @@ class SpacingPoint {
           const ListEquality<double>().equals(repeats, other.repeats) &&
           arrayType == other.arrayType &&
           aFeet == other.aFeet &&
-          resistanceOhm == other.resistanceOhm &&
-          resistanceStdOhm == other.resistanceStdOhm &&
+          rhoAppOhmM == other.rhoAppOhmM &&
+          sigmaRhoOhmM == other.sigmaRhoOhmM &&
           direction == other.direction &&
           voltageV == other.voltageV &&
           currentA == other.currentA &&
@@ -401,8 +429,8 @@ class SpacingPoint {
         id,
         arrayType,
         aFeet,
-        resistanceOhm,
-        resistanceStdOhm,
+        rhoAppOhmM,
+        sigmaRhoOhmM,
         direction,
         voltageV,
         currentA,
@@ -410,7 +438,6 @@ class SpacingPoint {
         spDriftMv,
         stacks,
         const ListEquality<double>().hash(repeats),
-        _sigmaRhoLegacy,
         timestamp,
         excluded,
       );

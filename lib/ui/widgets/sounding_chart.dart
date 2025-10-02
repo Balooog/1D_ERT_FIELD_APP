@@ -32,12 +32,12 @@ class SoundingChart extends StatelessWidget {
     for (var i = 0; i < points.length; i++) {
       final p = points[i];
       final x = _log10(p.spacingMetric);
-      final y = _log10(p.rhoApp);
+      final y = _log10(p.rhoAppOhmM);
       spots.add(FlSpot(x, y));
       double? residual;
       if (i < predicted.length) {
         final fit = predicted[i];
-        residual = fit == 0 ? 0 : (p.rhoApp - fit) / fit;
+        residual = fit == 0 ? 0 : (p.rhoAppOhmM - fit) / fit;
         predictedSpots.add(FlSpot(x, _log10(fit)));
         if (i < sigma.length) {
           final frac = sigma[i];
@@ -45,10 +45,10 @@ class SoundingChart extends StatelessWidget {
           upperSpots.add(FlSpot(x, _log10(upper)));
         }
       }
-      if (p.sigmaRhoApp != null && p.sigmaRhoApp! > 0) {
+      if (p.sigmaRhoOhmM != null && p.sigmaRhoOhmM! > 0) {
         final rho = p.rhoAppOhmM;
-        final upper = math.max(rho + p.sigmaRhoApp!, 1e-6);
-        final lower = math.max(rho - p.sigmaRhoApp!, 1e-6);
+        final upper = math.max(rho + p.sigmaRhoOhmM!, 1e-6);
+        final lower = math.max(rho - p.sigmaRhoOhmM!, 1e-6);
         errorBars.add(
           LineChartBarData(
             spots: [
@@ -65,7 +65,7 @@ class SoundingChart extends StatelessWidget {
       final level = classifyPoint(
         residual: residual ?? 0,
         coefficientOfVariation:
-            p.sigmaRhoApp == null || p.rhoApp == 0 ? null : (p.sigmaRhoApp! / p.rhoApp),
+            p.sigmaRhoOhmM == null || p.rhoAppOhmM == 0 ? null : (p.sigmaRhoOhmM! / p.rhoAppOhmM),
         point: p,
       );
       colors.add(_qaColor(level));
@@ -77,11 +77,11 @@ class SoundingChart extends StatelessWidget {
         LineChartBarData(
           spots: upperSpots,
           isCurved: true,
-          color: Colors.blue.withOpacity(0.2),
+          color: Colors.blue.withValues(alpha: 0.2),
           dotData: const FlDotData(show: false),
           belowBarData: BarAreaData(
             show: true,
-            color: Colors.blue.withOpacity(0.1),
+            color: Colors.blue.withValues(alpha: 0.1),
           ),
         ),
       );
@@ -130,14 +130,14 @@ class SoundingChart extends StatelessWidget {
             leftTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                getTitlesWidget: (value, meta) => Text('${math.pow(10, value).toStringAsFixed(1)}'),
+                getTitlesWidget: (value, meta) => Text(math.pow(10, value).toStringAsFixed(1)),
                 reservedSize: 60,
               ),
             ),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
-                getTitlesWidget: (value, meta) => Text('${math.pow(10, value).toStringAsFixed(1)}'),
+                getTitlesWidget: (value, meta) => Text(math.pow(10, value).toStringAsFixed(1)),
               ),
             ),
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),

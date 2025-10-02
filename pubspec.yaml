@@ -1,5 +1,5 @@
 name: ves_qc
-description: Field-ready 1-D ERT/VES QC companion for geophysicists.
+description: ResiCheck — field-ready 1-D ERT/VES resistivity QC companion for geophysicists.
 version: 0.1.0+1
 publish_to: 'none'
 

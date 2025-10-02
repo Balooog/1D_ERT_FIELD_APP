@@ -12,7 +12,7 @@ class PointDetailsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final excluded = point.excluded;
-    final diffPercent = point.resistanceDiffPercent;
+    final diffPercent = point.rhoDiffPercent;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -22,31 +22,31 @@ class PointDetailsSheet extends ConsumerWidget {
           Text(
             'A-Spacing: ${point.aFeet.toStringAsFixed(2)} ft (${point.aMeters.toStringAsFixed(2)} m)',
           ),
-          Text('Resistance R: ${point.resistanceOhm.toStringAsFixed(2)} Ω'),
-          if (point.resistanceStdOhm != null)
-            Text('StdDev σR: ${point.resistanceStdOhm!.toStringAsFixed(2)} Ω'),
           Text('ρa: ${point.rhoAppOhmM.toStringAsFixed(2)} Ω·m'),
-          if (point.sigmaRhoApp != null)
-            Text('σρ: ${point.sigmaRhoApp!.toStringAsFixed(2)} Ω·m'),
+          if (point.sigmaRhoOhmM != null)
+            Text('σρ: ${point.sigmaRhoOhmM!.toStringAsFixed(2)} Ω·m'),
+          Text('R (derived): ${point.resistanceOhm.toStringAsFixed(2)} Ω'),
+          if (point.resistanceStdOhm != null)
+            Text('σR (derived): ${point.resistanceStdOhm!.toStringAsFixed(2)} Ω'),
           Text('Direction: ${point.direction.label}'),
           if (point.voltageV != null)
             Text('Voltage: ${point.voltageV!.toStringAsFixed(3)} V'),
           if (point.currentA != null)
             Text('Current: ${point.currentA!.toStringAsFixed(3)} A'),
-          if (point.rFromVi != null)
-            Text('R (V/I): ${point.rFromVi!.toStringAsFixed(2)} Ω'),
+          if (point.rhoFromVi != null)
+            Text('ρ (from V/I): ${point.rhoFromVi!.toStringAsFixed(2)} Ω·m'),
           if (diffPercent != null)
             Row(
               children: [
                 Icon(
-                  point.hasResistanceQaWarning ? Icons.warning_amber_rounded : Icons.info_outline,
-                  color: point.hasResistanceQaWarning
+                  point.hasRhoQaWarning ? Icons.warning_amber_rounded : Icons.info_outline,
+                  color: point.hasRhoQaWarning
                       ? Colors.orange
                       : Theme.of(context).colorScheme.primary,
                   size: 18,
                 ),
                 const SizedBox(width: 6),
-                Text('ΔR vs V/I: ${diffPercent.toStringAsFixed(1)}%'),
+                Text('Δρ vs V/I: ${diffPercent.toStringAsFixed(1)}%'),
               ],
             ),
           Text('Stacks: ${point.stacks}'),

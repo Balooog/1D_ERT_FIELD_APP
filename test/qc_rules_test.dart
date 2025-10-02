@@ -7,16 +7,14 @@ import 'package:ves_qc/models/spacing_point.dart';
 import 'package:ves_qc/services/qc_rules.dart';
 
 SpacingPoint _makePoint(double rho, {double? sigma}) {
-  final spacingMeters = 5.0;
-  final resistance = rho / (2 * math.pi * spacingMeters);
-  final resistanceStd = sigma != null ? sigma / (2 * math.pi * spacingMeters) : null;
+  const spacingMeters = 5.0;
   return SpacingPoint(
     id: '1',
     arrayType: ArrayType.wenner,
     aFeet: metersToFeet(spacingMeters),
     spacingMetric: spacingMeters,
-    resistanceOhm: resistance,
-    resistanceStdOhm: resistanceStd,
+    rhoAppOhmM: rho,
+    sigmaRhoOhmM: sigma,
     direction: SoundingDirection.other,
     voltageV: 1.0,
     currentA: 0.5,
@@ -24,8 +22,6 @@ SpacingPoint _makePoint(double rho, {double? sigma}) {
     spDriftMv: 1.0,
     stacks: 1,
     repeats: null,
-    rhoApp: rho,
-    sigmaRhoApp: sigma,
     timestamp: DateTime.now(),
   );
 }
