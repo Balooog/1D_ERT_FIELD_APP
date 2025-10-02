@@ -27,7 +27,7 @@ class HomeScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('VES QC'),
+        title: const Text('ResiCheck'),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) => _handleMenu(value, context, ref),
@@ -134,8 +134,8 @@ class HomeScreen extends ConsumerWidget {
 
   Future<void> _showAddPointDialog(BuildContext context, WidgetRef ref) async {
     final aFeetController = TextEditingController();
-    final resistanceController = TextEditingController();
-    final resistanceStdController = TextEditingController();
+    final rhoController = TextEditingController();
+    final sigmaRhoController = TextEditingController();
     final voltageController = TextEditingController();
     final currentController = TextEditingController();
     ArrayType arrayType = ArrayType.wenner;
@@ -153,23 +153,24 @@ class HomeScreen extends ConsumerWidget {
           }
 
           final aFeet = parseValue(aFeetController);
-          final resistance = parseValue(resistanceController);
-          final resistanceStd = parseValue(resistanceStdController);
+          final rho = parseValue(rhoController);
+          final sigmaRho = parseValue(sigmaRhoController);
           final aMeters = aFeet != null ? feetToMeters(aFeet) : null;
-          final rho = (aMeters != null && resistance != null)
-              ? 2 * math.pi * aMeters * resistance
-              : null;
-          final sigmaRho = (aMeters != null && resistanceStd != null)
-              ? 2 * math.pi * aMeters * resistanceStd
-              : null;
           final voltage = parseValue(voltageController);
           final current = parseValue(currentController);
-          final resistanceFromVi = (voltage != null && current != null && current != 0)
-              ? voltage / current
+          final rhoFromVi = (voltage != null && current != null && current != 0 && aMeters != null)
+              ? 2 * math.pi * aMeters * (voltage / current)
               : null;
-          final resistanceDiffPercent = (resistance != null && resistanceFromVi != null && resistance != 0)
-              ? ((resistanceFromVi - resistance).abs() / resistance) * 100
+          final rhoDiffPercent = (rho != null && rhoFromVi != null && rho != 0)
+              ? ((rhoFromVi - rho).abs() / rho) * 100
               : null;
+          final hasVoltage = voltageController.text.trim().isNotEmpty;
+          final hasCurrent = currentController.text.trim().isNotEmpty;
+          final bool baseValid = aFeet != null && aFeet > 0 && rho != null && rho > 0;
+          final bool sigmaValid = sigmaRho == null || sigmaRho >= 0;
+          final bool advancedPaired = hasVoltage == hasCurrent;
+          final bool advancedCurrentValid = current == null || current > 0;
+          final bool isAddEnabled = baseValid && sigmaValid && advancedPaired && advancedCurrentValid;
 
           return AlertDialog(
             title: const Text('Add manual point'),
@@ -191,14 +192,14 @@ class HomeScreen extends ConsumerWidget {
                     onChanged: (_) => setState(() {}),
                   ),
                   TextField(
-                    controller: resistanceController,
-                    decoration: const InputDecoration(labelText: 'Resistance R (Ω)'),
+                    controller: rhoController,
+                    decoration: const InputDecoration(labelText: 'Apparent Resistivity ρ (Ω·m)'),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     onChanged: (_) => setState(() {}),
                   ),
                   TextField(
-                    controller: resistanceStdController,
-                    decoration: const InputDecoration(labelText: 'StdDev σR (Ω)'),
+                    controller: sigmaRhoController,
+                    decoration: const InputDecoration(labelText: 'StdDev σρ (Ω·m)'),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -217,14 +218,15 @@ class HomeScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Spacing (m): ${aMeters != null ? aMeters.toStringAsFixed(3) : '—'}'),
-                        Text('Apparent ρ (Ω·m): ${rho != null ? rho.toStringAsFixed(2) : '—'}'),
+                        if (rho != null)
+                          Text('Apparent ρ (Ω·m): ${rho.toStringAsFixed(2)}'),
                         if (sigmaRho != null)
                           Text('σρ (Ω·m): ${sigmaRho.toStringAsFixed(2)}'),
-                        if (resistanceDiffPercent != null)
+                        if (rhoDiffPercent != null)
                           Text(
-                            'ΔR vs V/I: ${resistanceDiffPercent.toStringAsFixed(1)}%',
+                            'Δρ vs V/I: ${rhoDiffPercent.toStringAsFixed(1)}%',
                             style: TextStyle(
-                              color: resistanceDiffPercent > SpacingPoint.resistanceQaThresholdPercent
+                              color: rhoDiffPercent > SpacingPoint.rhoQaThresholdPercent
                                   ? Colors.orange
                                   : Theme.of(context).colorScheme.onSurface,
                             ),
@@ -251,12 +253,12 @@ class HomeScreen extends ConsumerWidget {
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         onChanged: (_) => setState(() {}),
                       ),
-                      if (resistanceFromVi != null)
+                      if (rhoFromVi != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 8.0, bottom: 12),
                           child: Align(
                             alignment: Alignment.centerLeft,
-                            child: Text('R (V/I): ${resistanceFromVi.toStringAsFixed(2)} Ω'),
+                            child: Text('ρ (from V/I): ${rhoFromVi.toStringAsFixed(2)} Ω·m'),
                           ),
                         ),
                     ],
@@ -267,96 +269,92 @@ class HomeScreen extends ConsumerWidget {
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
               FilledButton(
-                onPressed: () {
-                  String? invalidField;
-                  double? parseRequired(TextEditingController controller, String label) {
-                    final text = controller.text.trim();
-                    final value = double.tryParse(text);
-                    if (text.isEmpty || value == null) {
-                      invalidField = label;
-                      return null;
-                    }
-                    if (value < 0) {
-                      invalidField = '$label must be ≥ 0';
-                      return null;
-                    }
-                    return value;
-                  }
+                onPressed: isAddEnabled
+                    ? () {
+                      String? invalidField;
+                      double? parseRequired(TextEditingController controller, String label) {
+                        final text = controller.text.trim();
+                        final value = double.tryParse(text);
+                        if (text.isEmpty || value == null) {
+                          invalidField = label;
+                          return null;
+                        }
+                        if (value <= 0) {
+                          invalidField = '$label must be > 0';
+                          return null;
+                        }
+                        return value;
+                      }
 
-                  double? parseOptional(TextEditingController controller, {bool allowNegative = false}) {
-                    final text = controller.text.trim();
-                    if (text.isEmpty) return null;
-                    final value = double.tryParse(text);
-                    if (value == null) {
-                      invalidField = 'Invalid number "${controller.text}"';
-                      return null;
-                    }
-                    if (!allowNegative && value < 0) {
-                      invalidField = 'Values must be ≥ 0';
-                      return null;
-                    }
-                    return value;
-                  }
+                      double? parseOptional(TextEditingController controller, {bool allowNegative = false}) {
+                        final text = controller.text.trim();
+                        if (text.isEmpty) return null;
+                        final value = double.tryParse(text);
+                        if (value == null) {
+                          invalidField = 'Invalid number "${controller.text}"';
+                          return null;
+                        }
+                        if (!allowNegative && value < 0) {
+                          invalidField = 'Values must be ≥ 0';
+                          return null;
+                        }
+                        return value;
+                      }
 
-                  final aFeetValue = parseRequired(aFeetController, 'A-Spacing (ft)');
-                  final resistanceValue = parseRequired(resistanceController, 'Resistance R (Ω)');
-                  final resistanceStdValue = parseOptional(resistanceStdController);
-                  final voltageValue = parseOptional(voltageController);
-                  final currentValue = parseOptional(currentController);
+                      final aFeetValue = parseRequired(aFeetController, 'A-Spacing (ft)');
+                      final rhoValue = parseRequired(rhoController, 'Apparent Resistivity ρ (Ω·m)');
+                      final sigmaRhoValue = parseOptional(sigmaRhoController);
+                      final voltageValue = parseOptional(voltageController);
+                      final currentValue = parseOptional(currentController);
 
-                  if ((voltageController.text.trim().isNotEmpty) !=
-                      (currentController.text.trim().isNotEmpty)) {
-                    invalidField = 'Provide both Potential and Current for advanced QA.';
-                  }
+                      if ((voltageController.text.trim().isNotEmpty) !=
+                          (currentController.text.trim().isNotEmpty)) {
+                        invalidField = 'Provide both Potential and Current for advanced QA.';
+                      }
 
-                  if (invalidField != null || aFeetValue == null || resistanceValue == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(invalidField ?? 'Please fill required fields.')),
-                    );
-                    return;
-                  }
-
-                  if (currentValue != null && currentValue == 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Current must be greater than zero.')),
-                    );
-                    return;
-                  }
-
-                  final aMetersValue = feetToMeters(aFeetValue);
-                  final rhoValue = 2 * math.pi * aMetersValue * resistanceValue;
-                  final sigmaRhoValue = resistanceStdValue != null
-                      ? 2 * math.pi * aMetersValue * resistanceStdValue
-                      : null;
-                  final manualId = DateFormat('yyyyMMddHHmmss').format(DateTime.now());
-                  final point = SpacingPoint(
-                    id: manualId,
-                    arrayType: arrayType,
-                    aFeet: aFeetValue,
-                    spacingMetric: aMetersValue,
-                    resistanceOhm: resistanceValue,
-                    resistanceStdOhm: resistanceStdValue,
-                    direction: direction,
-                    voltageV: voltageValue,
-                    currentA: currentValue,
-                    contactR: const {},
-                    spDriftMv: null,
-                    stacks: 1,
-                    repeats: null,
-                    rhoApp: rhoValue,
-                    sigmaRhoApp: sigmaRhoValue,
-                    timestamp: DateTime.now(),
-                  );
-
-                  ref.read(spacingPointsProvider.notifier).addPoint(point);
-                  if (voltageValue != null && currentValue != null) {
-                    ref.read(telemetryProvider.notifier).addSample(
-                          current: currentValue,
-                          voltage: voltageValue,
+                      if (invalidField != null || aFeetValue == null || rhoValue == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(invalidField ?? 'Please fill required fields.')),
                         );
-                  }
-                  Navigator.pop(ctx);
-                },
+                        return;
+                      }
+
+                      if (currentValue != null && currentValue == 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Current must be greater than zero.')),
+                        );
+                        return;
+                      }
+
+                      final aMetersValue = feetToMeters(aFeetValue);
+                      final manualId = DateFormat('yyyyMMddHHmmss').format(DateTime.now());
+                      final point = SpacingPoint(
+                        id: manualId,
+                        arrayType: arrayType,
+                        aFeet: aFeetValue,
+                        spacingMetric: aMetersValue,
+                    rhoAppOhmM: rhoValue,
+                    sigmaRhoOhmM: sigmaRhoValue,
+                        direction: direction,
+                        voltageV: voltageValue,
+                        currentA: currentValue,
+                        contactR: const {},
+                        spDriftMv: null,
+                        stacks: 1,
+                        repeats: null,
+                        timestamp: DateTime.now(),
+                      );
+
+                      ref.read(spacingPointsProvider.notifier).addPoint(point);
+                      if (voltageValue != null && currentValue != null) {
+                        ref.read(telemetryProvider.notifier).addSample(
+                              current: currentValue,
+                              voltage: voltageValue,
+                            );
+                      }
+                      Navigator.pop(ctx);
+                    }
+                    : null,
                 child: const Text('Add'),
               ),
             ],

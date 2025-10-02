@@ -1,6 +1,6 @@
-# VES QC — 1D ERT Field App
+# ResiCheck — 1D ERT Field App
 
-VES QC is a field-ready, offline-first Flutter companion for geophysicists validating 1-D ERT/VES soundings in real time. It focuses on quick situational awareness, defensive QA, and rapid iteration while staying lightweight for remote use.
+ResiCheck is a field-ready, offline-first Flutter companion for geophysicists validating 1-D ERT/VES soundings in real time. It focuses on quick situational awareness, defensive QA, and rapid iteration while staying lightweight for remote use.
 
 ## Repository layout
 
@@ -116,21 +116,20 @@ A sample file lives at `assets/samples/sample_wenner.csv`.
 
 | Column | Unit | Description |
 | --- | --- | --- |
-| `a_spacing_ft` | ft | Wenner A-spacing in feet (as entered in the field). |
+| `a_spacing_ft` | ft | Wenner A-spacing in feet (field input). |
 | `a_spacing_m` | m | A-spacing converted to meters (export convenience). |
 | `spacing_m` | m | Legacy spacing column; treated the same as `a_spacing_m` on import. |
-| `resistance_ohm` | Ω | Measured line resistance from the instrument. |
-| `resistance_std_ohm` | Ω | Optional standard deviation of the resistance reading. |
+| `rho_app_ohm_m` | Ω·m | Apparent resistivity captured in the field; recomputed during import if absent. |
+| `sigma_rho_ohm_m` | Ω·m | Optional standard deviation for apparent resistivity. |
+| `resistance_ohm` | Ω | Derived/legacy line resistance (exported for compatibility). |
+| `resistance_std_ohm` | Ω | Derived standard deviation when `sigma_rho_ohm_m` is present. |
 | `direction` | text | `ns`, `we`, or `other` (sounding orientation). |
 | `voltage_v` | V | Optional potential measurement for QA (advanced). |
 | `current_a` | A | Optional injected current for QA (advanced). |
 | `array_type` | text | `wenner`, `schlumberger`, `dipole_dipole`, `pole_dipole`, or `custom`. |
-| `mn_over_2_m` | m | Optional MN/2 spacing for Schlumberger geometries. |
-| `rho_app_ohm_m` | Ω·m | Apparent resistivity; derived as `2π a(m) · R`. |
-| `sigma_rho_app` | Ω·m | Propagated standard deviation of apparent resistivity. |
 | `timestamp_iso` | ISO8601 | Timestamp of acquisition. |
 
-`rho_app_ohm_m` is recomputed during import if not present, and legacy files with only `spacing_m`, `voltage_v`, and `current_a` remain supported.
+Legacy files that provide only `spacing_m`, `voltage_v`, and `current_a` are still accepted; ResiCheck derives `a_spacing_ft`, `rho_app_ohm_m`, and resistance terms automatically. Exports always include both feet and meter spacing columns for downstream workflows.
 
 ## QA thresholds
 

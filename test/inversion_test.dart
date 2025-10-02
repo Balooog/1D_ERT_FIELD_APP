@@ -17,14 +17,13 @@ void main() {
         arrayType: ArrayType.wenner,
         aFeet: metersToFeet(spacing),
         spacingMetric: spacing,
-        resistanceOhm: resistance,
+        rhoAppOhmM: rho,
+        sigmaRhoOhmM: 2.0,
         direction: SoundingDirection.other,
         contactR: const {},
         spDriftMv: 0.0,
         stacks: 1,
         repeats: null,
-        rhoApp: rho,
-        sigmaRhoApp: 2.0,
         timestamp: DateTime.now(),
       );
     });

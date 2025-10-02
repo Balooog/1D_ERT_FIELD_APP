@@ -20,13 +20,13 @@ class ResidualStrip extends StatelessWidget {
     final bars = <Widget>[];
     for (var i = 0; i < points.length; i++) {
       final fit = i < predicted.length ? predicted[i] : predicted.last;
-      final residual = fit == 0 ? 0.0 : (points[i].rhoApp - fit) / fit;
+      final residual = fit == 0 ? 0.0 : (points[i].rhoAppOhmM - fit) / fit;
       final level = classifyPoint(
         residual: residual,
         coefficientOfVariation:
-            points[i].sigmaRhoApp == null || points[i].rhoApp == 0
+            points[i].sigmaRhoOhmM == null || points[i].rhoAppOhmM == 0
                 ? null
-                : (points[i].sigmaRhoApp! / points[i].rhoApp),
+                : (points[i].sigmaRhoOhmM! / points[i].rhoAppOhmM),
         point: points[i],
       );
       bars.add(Expanded(
@@ -46,7 +46,7 @@ class ResidualStrip extends StatelessWidget {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
