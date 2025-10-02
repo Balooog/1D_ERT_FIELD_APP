@@ -49,6 +49,7 @@ flutter test
 ### 3. Daily development workflow
 
 ```
+flutter create .   # regenerate platform wrappers when missing
 flutter run        # attach to a connected device or emulator
 flutter build apk  # assemble a release APK
 
