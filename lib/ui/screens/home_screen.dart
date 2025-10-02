@@ -9,7 +9,6 @@ import '../../models/enums.dart';
 import '../../models/spacing_point.dart';
 import '../../services/csv_io.dart';
 import '../../services/geometry_factors.dart';
-import '../../services/qc_rules.dart';
 import '../../state/providers.dart';
 import '../widgets/header_badges.dart';
 import '../widgets/residual_strip.dart';
