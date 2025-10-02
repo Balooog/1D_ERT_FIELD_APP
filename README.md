@@ -1,6 +1,6 @@
 # ResiCheck — 1D ERT Field App
 
-ResiCheck is a field-ready, offline-first Flutter companion for geophysicists validating 1-D ERT/VES soundings in real time. It focuses on quick situational awareness, defensive QA, and rapid iteration while staying lightweight for remote use.
+ResiCheck (formerly VES QC) is a field-ready, offline-first Flutter companion for geophysicists validating 1-D ERT/VES soundings in real time. It focuses on quick situational awareness, defensive QA, and rapid iteration while staying lightweight for remote use.
 
 ## Repository layout
 
@@ -12,6 +12,22 @@ ResiCheck is a field-ready, offline-first Flutter companion for geophysicists va
 ├── Makefile                # Helper commands for common Flutter workflows
 ├── pubspec.yaml            # Flutter project manifest and dependencies
 └── analysis_options.yaml   # Lint configuration
+```
+
+## Quick build on Windows (PowerShell)
+
+```
+cd C:\Users\abalo\Desktop\1D_ERT_FIELD_APP
+$env:PATH += ";C:\src\flutter\bin"
+git stash push -u -m "WIP"   # optional, avoids pull conflicts
+git checkout main
+git pull --rebase origin main
+flutter clean
+flutter pub get
+dart format . --set-exit-if-changed
+flutter analyze
+flutter test -x widget_dialog
+flutter run -d windows
 ```
 
 ## Getting started on Android
@@ -109,6 +125,8 @@ When the emulator is running, `flutter devices` should list an `android-x64` dev
 - **Simulation mode** for training/validation and offline demonstrations.
 - **CSV import/export** using the schema below.
 - **Manual data entry** for ad-hoc measurements.
+
+> **Simulate note:** The Simulate button drives the UI with synthetic mock streams for demos and training; it does not compute an SP profile from your last manual point.
 
 ## CSV schema
 
