@@ -15,7 +15,7 @@ class LiteInversionService {
       return InversionModel.empty;
     }
     final spacings = usable.map((e) => e.spacingMetric).toList();
-    final observations = usable.map((e) => e.rhoApp).toList();
+    final observations = usable.map((e) => e.rhoAppOhmM).toList();
     final seeds = _seedModel(spacings, observations);
     var logRhos = seeds.rhos.map(math.log).toList();
     final thicknesses = seeds.thicknesses;
@@ -219,7 +219,7 @@ class LiteInversionService {
     if (residuals.isEmpty) return 0;
     double chi = 0;
     for (var i = 0; i < residuals.length; i++) {
-      final sigma = points[i].sigmaRhoApp ?? (0.05 * points[i].rhoApp.abs());
+      final sigma = points[i].sigmaRhoOhmM ?? (0.05 * points[i].rhoAppOhmM.abs());
       final weight = sigma == 0 ? 1 : 1 / sigma;
       chi += math.pow(residuals[i] * weight, 2).toDouble();
     }
