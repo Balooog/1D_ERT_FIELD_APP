@@ -8,19 +8,19 @@ void main() {
   test('Lite inversion returns model', () {
     final points = List.generate(5, (index) {
       final spacing = 1.0 + index;
-      final rho = 100 + index * 5;
+      final rho = 100.0 + index * 5;
       return SpacingPoint(
         id: '$index',
         arrayType: ArrayType.wenner,
         spacingMetric: spacing,
-        vp: 1,
+        vp: 1.0,
         current: 0.5,
         contactR: const {},
-        spDriftMv: 0,
+        spDriftMv: 0.0,
         stacks: 1,
         repeats: null,
         rhoApp: rho,
-        sigmaRhoApp: 2,
+        sigmaRhoApp: 2.0,
         timestamp: DateTime.now(),
       );
     });
