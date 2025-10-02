@@ -7,7 +7,7 @@ test:
 flutter test
 
 format:
-flutter format .
+dart format .
 
 analyze:
 flutter analyze
