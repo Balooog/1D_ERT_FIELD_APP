@@ -65,12 +65,18 @@ class MockStreamService {
         3,
         (_) => rhoApp + rng.nextGaussian() * sigma,
       );
+      final resistance = voltage / options.current;
+      final sigmaR = sigma / (2 * math.pi * _spacing);
       final point = SpacingPoint(
         id: _uuid.v4(),
         arrayType: options.arrayType,
+        aFeet: metersToFeet(_spacing),
         spacingMetric: _spacing,
-        vp: voltage,
-        current: options.current,
+        resistanceOhm: resistance,
+        resistanceStdOhm: sigmaR,
+        direction: SoundingDirection.other,
+        voltageV: voltage,
+        currentA: options.current,
         contactR: contactR,
         spDriftMv: spDrift,
         stacks: 3,

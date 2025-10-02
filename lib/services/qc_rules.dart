@@ -35,6 +35,7 @@ QaLevel classifyPoint({
       (absResidual > QaThresholds.greenResidual && absResidual <= QaThresholds.yellowResidual);
 
   if (isRed()) return QaLevel.red;
+  if (point.hasResistanceQaWarning) return QaLevel.yellow;
   if (isYellow()) return QaLevel.yellow;
   return QaLevel.green;
 }

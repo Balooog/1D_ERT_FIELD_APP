@@ -7,7 +7,12 @@ import '../models/enums.dart';
 import '../models/spacing_point.dart';
 
 class CsvColumns {
-  static const spacing = 'spacing_m';
+  static const aSpacingFt = 'a_spacing_ft';
+  static const aSpacingM = 'a_spacing_m';
+  static const spacingLegacy = 'spacing_m';
+  static const resistance = 'resistance_ohm';
+  static const resistanceStd = 'resistance_std_ohm';
+  static const direction = 'direction';
   static const voltage = 'voltage_v';
   static const current = 'current_a';
   static const array = 'array_type';
@@ -30,37 +35,57 @@ class CsvIoService {
     for (var i = 1; i < rows.length; i++) {
       final row = rows[i];
       if (row.isEmpty) continue;
-      final spacing = _parseDouble(row, idx[CsvColumns.spacing]);
+      final aFeet = _parseDouble(row, idx[CsvColumns.aSpacingFt]);
+      final aMeters = _parseDouble(row, idx[CsvColumns.aSpacingM]);
+      final spacingLegacy = _parseDouble(row, idx[CsvColumns.spacingLegacy]);
+      final resistance = _parseDouble(row, idx[CsvColumns.resistance]);
+      final resistanceStd = _parseDouble(row, idx[CsvColumns.resistanceStd]);
+      final directionText = _parseString(row, idx[CsvColumns.direction]);
       final voltage = _parseDouble(row, idx[CsvColumns.voltage]);
       final current = _parseDouble(row, idx[CsvColumns.current]);
       final array = _parseArray(row, idx[CsvColumns.array]);
       final rho = _parseDouble(row, idx[CsvColumns.rho]);
       final sigma = _parseDouble(row, idx[CsvColumns.sigma]);
       final timestamp = _parseString(row, idx[CsvColumns.timestamp]);
-      if (spacing == null || voltage == null || current == null || array == null || rho == null) {
+
+      if (array == null) {
         continue;
       }
-      points.add(SpacingPoint(
-        id: '${i}_${DateTime.now().millisecondsSinceEpoch}',
-        arrayType: array,
-        spacingMetric: spacing,
-        vp: voltage,
-        current: current,
-        contactR: const {},
-        spDriftMv: null,
-        stacks: 1,
-        repeats: null,
-        rhoApp: rho,
-        sigmaRhoApp: sigma,
-        timestamp: timestamp != null ? DateTime.parse(timestamp) : DateTime.now(),
-      ));
+
+      try {
+        points.add(SpacingPoint(
+          id: '${i}_${DateTime.now().millisecondsSinceEpoch}',
+          arrayType: array,
+          aFeet: aFeet,
+          spacingMetric: aMeters ?? spacingLegacy,
+          resistanceOhm: resistance,
+          resistanceStdOhm: resistanceStd,
+          direction: parseSoundingDirection(directionText),
+          voltageV: voltage,
+          currentA: current,
+          contactR: const {},
+          spDriftMv: null,
+          stacks: 1,
+          repeats: null,
+          rhoApp: rho,
+          sigmaRhoApp: sigma,
+          timestamp: timestamp != null ? DateTime.parse(timestamp) : DateTime.now(),
+        ));
+      } catch (_) {
+        continue;
+      }
     }
     return points;
   }
 
   Future<File> writeFile(File file, List<SpacingPoint> points) async {
     final header = [
-      CsvColumns.spacing,
+      CsvColumns.aSpacingFt,
+      CsvColumns.aSpacingM,
+      CsvColumns.spacingLegacy,
+      CsvColumns.resistance,
+      CsvColumns.resistanceStd,
+      CsvColumns.direction,
       CsvColumns.voltage,
       CsvColumns.current,
       CsvColumns.array,
@@ -72,12 +97,17 @@ class CsvIoService {
     final data = <List<dynamic>>[header];
     for (final point in points) {
       data.add([
+        point.aFeet,
+        point.aMeters,
         point.spacingMetric,
-        point.vp,
-        point.current,
+        point.resistanceOhm,
+        point.resistanceStdOhm,
+        point.direction.csvValue,
+        point.voltageV,
+        point.currentA,
         point.arrayType.name,
         '',
-        point.rhoApp,
+        point.rhoAppOhmM,
         point.sigmaRhoApp,
         point.timestamp.toIso8601String(),
       ]);
