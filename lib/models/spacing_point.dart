@@ -71,76 +71,31 @@ class _ResolvedInputs {
   final double? currentA;
 
   static _ResolvedInputs resolve({
-    double? aFeet,
-    double? spacingMeters,
-    double? rhoAppOhmM,
-    double? sigmaRho,
+    required double aFeet,
+    required double spacingMeters,
+    required double rhoAppOhmM,
+    double? sigmaRhoOhmM,
     double? resistanceOhm,
     double? resistanceStdOhm,
     double? voltageV,
     double? currentA,
   }) {
-    double? resolvedFeet = aFeet;
-    double? resolvedMeters = spacingMeters;
-
-    if (resolvedFeet == null && resolvedMeters != null) {
-      resolvedFeet = metersToFeet(resolvedMeters);
-    }
-    if (resolvedMeters == null && resolvedFeet != null) {
-      resolvedMeters = feetToMeters(resolvedFeet);
-    }
+    final double normalizedMeters = spacingMeters;
+    final double normalizedFeet = aFeet;
 
     double? resolvedResistance = resistanceOhm;
     if (resolvedResistance == null && voltageV != null && currentA != null && currentA != 0) {
       resolvedResistance = voltageV / currentA;
     }
 
-    double? resolvedRho = rhoApp;
-    if (resolvedRho == null && resolvedResistance != null && resolvedMeters != null) {
-      resolvedRho = 2 * math.pi * resolvedMeters * resolvedResistance;
-    }
-    if (resolvedRho == null && resolvedResistance != null && resolvedFeet != null) {
-      final meters = feetToMeters(resolvedFeet);
-      resolvedRho = 2 * math.pi * meters * resolvedResistance;
-      resolvedMeters ??= meters;
-    }
-
-    if (resolvedRho == null && resolvedResistance == null && voltageV != null && currentA != null && currentA != 0) {
-      final resistanceFromVi = voltageV / currentA;
-      if (resolvedMeters != null) {
-        resolvedRho = 2 * math.pi * resolvedMeters * resistanceFromVi;
-        resolvedResistance = resistanceFromVi;
-      } else if (resolvedFeet != null) {
-        final meters = feetToMeters(resolvedFeet);
-        resolvedRho = 2 * math.pi * meters * resistanceFromVi;
-        resolvedResistance = resistanceFromVi;
-        resolvedMeters = meters;
-      }
-    }
-
-    if (resolvedFeet == null && resolvedMeters != null) {
-      resolvedFeet = metersToFeet(resolvedMeters);
-    }
-    if (resolvedMeters == null && resolvedFeet != null) {
-      resolvedMeters = feetToMeters(resolvedFeet);
-    }
-
-    if (resolvedFeet == null || resolvedMeters == null) {
-      throw ArgumentError('A-spacing could not be resolved from the provided inputs.');
-    }
-
-    if (resolvedRho == null) {
-      throw ArgumentError('Apparent resistivity could not be resolved from the provided inputs.');
-    }
-
-    double? resolvedSigmaRho = sigmaRho;
+    double? resolvedSigmaRho = sigmaRhoOhmM;
     if (resolvedSigmaRho == null && resistanceStdOhm != null) {
-      resolvedSigmaRho = 2 * math.pi * resolvedMeters * resistanceStdOhm;
+      resolvedSigmaRho = 2 * math.pi * normalizedMeters * resistanceStdOhm;
     }
 
     return _ResolvedInputs(
-      aFeet: resolvedFeet,
-      rhoAppOhmM: resolvedRho,
+      aFeet: normalizedFeet,
+      rhoAppOhmM: rhoAppOhmM,
       sigmaRhoOhmM: resolvedSigmaRho,
       voltageV: voltageV,
       currentA: currentA,
@@ -179,9 +134,7 @@ class SpacingPoint {
     double? aFeet,
     double? spacingMetric,
     double? rhoAppOhmM,
-    double? rhoApp,
     double? sigmaRhoOhmM,
-    double? sigmaRhoApp,
     double? resistanceOhm,
     double? resistanceStdOhm,
     SoundingDirection direction = SoundingDirection.other,
@@ -196,15 +149,82 @@ class SpacingPoint {
     DateTime? timestamp,
     bool excluded = false,
   }) {
+    final combinedVoltage = voltageV ?? vp;
+    final combinedCurrent = currentA ?? current;
+
+    double? resolvedFeet = aFeet;
+    double? resolvedMeters = spacingMetric;
+
+    if (resolvedFeet == null && resolvedMeters != null) {
+      resolvedFeet = metersToFeet(resolvedMeters);
+    }
+    if (resolvedMeters == null && resolvedFeet != null) {
+      resolvedMeters = feetToMeters(resolvedFeet);
+    }
+
+    double? resolvedResistance = resistanceOhm;
+    if (resolvedResistance == null && combinedVoltage != null && combinedCurrent != null && combinedCurrent != 0) {
+      resolvedResistance = combinedVoltage / combinedCurrent;
+    }
+
+    double? resolvedRho = rhoAppOhmM;
+    double? spacingForRho = resolvedMeters ?? (resolvedFeet != null ? feetToMeters(resolvedFeet) : null);
+    if (resolvedRho == null && resolvedResistance != null && spacingForRho != null) {
+      resolvedRho = 2 * math.pi * spacingForRho * resolvedResistance;
+      resolvedMeters ??= spacingForRho;
+      resolvedFeet ??= metersToFeet(spacingForRho);
+    }
+
+    if (resolvedRho == null && resolvedResistance == null && combinedVoltage != null && combinedCurrent != null && combinedCurrent != 0) {
+      final resistanceFromVi = combinedVoltage / combinedCurrent;
+      if (spacingForRho != null) {
+        resolvedRho = 2 * math.pi * spacingForRho * resistanceFromVi;
+        resolvedResistance = resistanceFromVi;
+      }
+    }
+
+    if (resolvedFeet == null && resolvedMeters != null) {
+      resolvedFeet = metersToFeet(resolvedMeters);
+    }
+    if (resolvedMeters == null && resolvedFeet != null) {
+      resolvedMeters = feetToMeters(resolvedFeet);
+    }
+
+    spacingForRho = resolvedMeters ?? (resolvedFeet != null ? feetToMeters(resolvedFeet) : null);
+
+    if (resolvedFeet == null && resolvedMeters == null && resolvedRho != null && resolvedResistance != null && resolvedResistance != 0) {
+      final derivedMeters = resolvedRho / (2 * math.pi * resolvedResistance);
+      resolvedMeters = derivedMeters;
+      resolvedFeet = metersToFeet(derivedMeters);
+      spacingForRho = derivedMeters;
+    }
+
+    if (resolvedFeet == null || resolvedMeters == null) {
+      throw ArgumentError('A-spacing could not be resolved from the provided inputs.');
+    }
+
+    resolvedRho ??= resolvedResistance != null
+        ? 2 * math.pi * resolvedMeters * resolvedResistance
+        : null;
+
+    if (resolvedRho == null) {
+      throw ArgumentError('Apparent resistivity could not be resolved from the provided inputs.');
+    }
+
+    double? resolvedSigmaRho = sigmaRhoOhmM;
+    if (resolvedSigmaRho == null && resistanceStdOhm != null) {
+      resolvedSigmaRho = 2 * math.pi * resolvedMeters * resistanceStdOhm;
+    }
+
     final resolved = _ResolvedInputs.resolve(
-      aFeet: aFeet,
-      spacingMeters: spacingMetric,
-      rhoAppOhmM: rhoAppOhmM ?? rhoApp,
-      sigmaRhoOhmM: sigmaRhoOhmM ?? sigmaRhoApp,
-      resistanceOhm: resistanceOhm,
+      aFeet: resolvedFeet!,
+      spacingMeters: resolvedMeters!,
+      rhoAppOhmM: resolvedRho!,
+      sigmaRhoOhmM: resolvedSigmaRho,
+      resistanceOhm: resolvedResistance,
       resistanceStdOhm: resistanceStdOhm,
-      voltageV: voltageV ?? vp,
-      currentA: currentA ?? current,
+      voltageV: combinedVoltage,
+      currentA: combinedCurrent,
     );
 
     return SpacingPoint._(
@@ -384,7 +404,7 @@ class SpacingPoint {
       ),
       aFeet: (json['aFeet'] as num?)?.toDouble(),
       spacingMetric: (json['spacingMetric'] as num?)?.toDouble() ?? (json['aMeters'] as num?)?.toDouble(),
-      rhoApp: (json['rhoAppOhmM'] as num?)?.toDouble() ?? (json['rhoApp'] as num?)?.toDouble(),
+      rhoAppOhmM: (json['rhoAppOhmM'] as num?)?.toDouble() ?? (json['rhoApp'] as num?)?.toDouble(),
       sigmaRhoOhmM: (json['sigmaRhoOhmM'] as num?)?.toDouble() ?? (json['sigmaRhoApp'] as num?)?.toDouble(),
       resistanceOhm: (json['resistanceOhm'] as num?)?.toDouble(),
       resistanceStdOhm: (json['resistanceStdOhm'] as num?)?.toDouble(),
