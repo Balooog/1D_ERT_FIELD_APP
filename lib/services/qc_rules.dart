@@ -78,38 +78,45 @@ QaSummary summarizeQa(
 
   double rss = 0.0;
   var obsCount = 0;
+  var chiAccum = 0.0;
+  var chiCount = 0;
   final qaCounts = {QaLevel.green: 0, QaLevel.yellow: 0, QaLevel.red: 0};
   double? worstContact;
 
   for (var i = 0; i < points.length; i++) {
-    final residual = residuals[i];
+    final point = points[i];
+    final hasResidual = i < residuals.length;
+    final residual = hasResidual ? residuals[i] : 0.0;
     final level = classifyPoint(
       residual: residual,
-      coefficientOfVariation: points[i].sigmaRhoApp == null || points[i].rhoApp == 0
-          ? null
-          : (points[i].sigmaRhoApp! / points[i].rhoApp),
-      point: points[i],
+      coefficientOfVariation:
+          point.sigmaRhoApp == null || point.rhoApp == 0 ? null : (point.sigmaRhoApp! / point.rhoApp),
+      point: point,
     );
     qaCounts[level] = (qaCounts[level] ?? 0) + 1;
-    rss += math.pow(residual * 100, 2).toDouble();
-    obsCount += 1;
-    final contact = points[i].contactRMax;
+
+    if (hasResidual) {
+      rss += math.pow(residual * 100, 2).toDouble();
+      obsCount += 1;
+    }
+
+    if (hasResidual && fitted.isNotEmpty) {
+      final fit = i < fitted.length ? fitted[i].abs() : fitted.last.abs();
+      final sigma = point.sigmaRhoApp ?? (0.05 * point.rhoApp.abs());
+      final resid = residual * fit;
+      final weight = sigma == 0 ? 1 : 1 / sigma;
+      chiAccum += math.pow(resid * weight, 2).toDouble();
+      chiCount += 1;
+    }
+
+    final contact = point.contactRMax;
     if (contact != null) {
       worstContact = math.max(worstContact ?? contact, contact).toDouble();
     }
   }
 
   final rms = obsCount == 0 ? 0.0 : math.sqrt(rss / obsCount);
-  final chiSq = obsCount == 0
-      ? 0.0
-      : List.generate(points.length, (index) {
-          final sigma = points[index].sigmaRhoApp ?? (0.05 * points[index].rhoApp.abs());
-          final fit = fitted[index].abs();
-          final resid = residuals[index] * fit;
-          final weight = sigma == 0 ? 1 : 1 / sigma;
-          return math.pow(resid * weight, 2).toDouble();
-        }).fold<double>(0.0, (a, b) => a + b) /
-          obsCount;
+  final chiSq = chiCount == 0 ? 0.0 : chiAccum / chiCount;
   return QaSummary(
     green: qaCounts[QaLevel.green]!,
     yellow: qaCounts[QaLevel.yellow]!,
