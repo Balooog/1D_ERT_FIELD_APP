@@ -35,6 +35,7 @@ QaLevel classifyPoint({
       (absResidual > QaThresholds.greenResidual && absResidual <= QaThresholds.yellowResidual);
 
   if (isRed()) return QaLevel.red;
+  if (point.hasRhoQaWarning) return QaLevel.yellow;
   if (isYellow()) return QaLevel.yellow;
   return QaLevel.green;
 }
@@ -90,7 +91,7 @@ QaSummary summarizeQa(
     final level = classifyPoint(
       residual: residual,
       coefficientOfVariation:
-          point.sigmaRhoApp == null || point.rhoApp == 0 ? null : (point.sigmaRhoApp! / point.rhoApp),
+          point.sigmaRhoOhmM == null || point.rhoAppOhmM == 0 ? null : (point.sigmaRhoOhmM! / point.rhoAppOhmM),
       point: point,
     );
     qaCounts[level] = (qaCounts[level] ?? 0) + 1;
@@ -102,7 +103,7 @@ QaSummary summarizeQa(
 
     if (hasResidual && fitted.isNotEmpty) {
       final fit = i < fitted.length ? fitted[i].abs() : fitted.last.abs();
-      final sigma = point.sigmaRhoApp ?? (0.05 * point.rhoApp.abs());
+      final sigma = point.sigmaRhoOhmM ?? (0.05 * point.rhoAppOhmM.abs());
       final resid = residual * fit;
       final weight = sigma == 0 ? 1 : 1 / sigma;
       chiAccum += math.pow(resid * weight, 2).toDouble();
