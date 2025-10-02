@@ -46,4 +46,18 @@ void main() {
     expect(summary.green, greaterThanOrEqualTo(1));
     expect(summary.red, greaterThanOrEqualTo(1));
   });
+
+  test('Summary handles mismatched series lengths gracefully', () {
+    final points = [
+      _makePoint(110.0, sigma: 3.0),
+      _makePoint(120.0, sigma: 4.0),
+      _makePoint(130.0, sigma: 5.0),
+    ];
+    final residuals = [0.05];
+    final fitted = [100.0, 105.0];
+    final summary = summarizeQa(points, residuals, fitted);
+    expect(summary.green + summary.yellow + summary.red, points.length);
+    expect(summary.rms, greaterThanOrEqualTo(0));
+    expect(summary.chiSq, greaterThanOrEqualTo(0));
+  });
 }
