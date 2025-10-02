@@ -76,8 +76,8 @@ QaSummary summarizeQa(
     );
   }
 
-  double rss = 0;
-  double obsCount = 0;
+  double rss = 0.0;
+  var obsCount = 0;
   final qaCounts = {QaLevel.green: 0, QaLevel.yellow: 0, QaLevel.red: 0};
   double? worstContact;
 
@@ -99,16 +99,16 @@ QaSummary summarizeQa(
     }
   }
 
-  final rms = obsCount == 0 ? 0 : math.sqrt(rss / obsCount);
+  final rms = obsCount == 0 ? 0.0 : math.sqrt(rss / obsCount);
   final chiSq = obsCount == 0
-      ? 0
+      ? 0.0
       : List.generate(points.length, (index) {
           final sigma = points[index].sigmaRhoApp ?? (0.05 * points[index].rhoApp.abs());
           final fit = fitted[index].abs();
           final resid = residuals[index] * fit;
           final weight = sigma == 0 ? 1 : 1 / sigma;
           return math.pow(resid * weight, 2).toDouble();
-        }).fold<double>(0, (a, b) => a + b) /
+        }).fold<double>(0.0, (a, b) => a + b) /
           obsCount;
   return QaSummary(
     green: qaCounts[QaLevel.green]!,

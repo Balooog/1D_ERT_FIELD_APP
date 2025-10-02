@@ -16,8 +16,6 @@ class LiteInversionService {
     }
     final spacings = usable.map((e) => e.spacingMetric).toList();
     final observations = usable.map((e) => e.rhoApp).toList();
-    final logSpacing = spacings.map((e) => math.log(e)).toList();
-
     final seeds = _seedModel(spacings, observations);
     var logRhos = seeds.rhos.map(math.log).toList();
     final thicknesses = seeds.thicknesses;
@@ -249,11 +247,18 @@ class LiteInversionService {
     if (slopes.isEmpty) {
       return List<double>.filled(count, spacing.first);
     }
-    final absSlopes = List<double>.from(slopes.map((e) => e.abs()))..sort((a, b) => b.compareTo(a));
+    final sortedIndices = List<int>.generate(slopes.length, (i) => i)
+      ..sort((a, b) => slopes[b].abs().compareTo(slopes[a].abs()));
     final breaks = <double>[];
     for (var i = 0; i < count; i++) {
-      final idx = math.min(i, spacing.length - 1);
-      breaks.add(spacing[idx]);
+      if (sortedIndices.isEmpty) {
+        final idx = math.min(i, spacing.length - 1);
+        breaks.add(spacing[idx]);
+      } else {
+        final slopeIndex = sortedIndices[math.min(i, sortedIndices.length - 1)] + 1;
+        final idx = math.min(slopeIndex, spacing.length - 1);
+        breaks.add(spacing[idx]);
+      }
     }
     return breaks;
   }
