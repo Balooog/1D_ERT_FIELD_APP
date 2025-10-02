@@ -199,8 +199,8 @@ class SpacingPoint {
     final resolved = _ResolvedInputs.resolve(
       aFeet: aFeet,
       spacingMeters: spacingMetric,
-      rhoApp: rhoAppOhmM ?? rhoApp,
-      sigmaRho: sigmaRhoOhmM ?? sigmaRhoApp,
+      rhoAppOhmM: rhoAppOhmM ?? rhoApp,
+      sigmaRhoOhmM: sigmaRhoOhmM ?? sigmaRhoApp,
       resistanceOhm: resistanceOhm,
       resistanceStdOhm: resistanceStdOhm,
       voltageV: voltageV ?? vp,
