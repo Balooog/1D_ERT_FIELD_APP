@@ -33,8 +33,8 @@ class PointDetailsSheet extends ConsumerWidget {
             Text('Voltage: ${point.voltageV!.toStringAsFixed(3)} V'),
           if (point.currentA != null)
             Text('Current: ${point.currentA!.toStringAsFixed(3)} A'),
-          if (point.note != null && point.note!.isNotEmpty)
-            Text('Notes: ${point.note}'),
+          if (point.notes != null && point.notes!.isNotEmpty)
+            Text('Notes: ${point.notes}'),
           if (point.rhoFromVi != null)
             Text('ρ (from V/I): ${point.rhoFromVi!.toStringAsFixed(2)} Ω·m'),
           if (diffPercent != null)
