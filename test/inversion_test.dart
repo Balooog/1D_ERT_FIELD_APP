@@ -12,15 +12,15 @@ void main() {
       return SpacingPoint(
         id: '$index',
         arrayType: ArrayType.wenner,
+        aFeet: metersToFeet(spacing),
         spacingMetric: spacing,
-        vp: 1.0,
-        current: 0.5,
+        rhoAppOhmM: rho,
+        sigmaRhoOhmM: 2.0,
+        direction: SoundingDirection.other,
         contactR: const {},
         spDriftMv: 0.0,
         stacks: 1,
         repeats: null,
-        rhoApp: rho,
-        sigmaRhoApp: 2.0,
         timestamp: DateTime.now(),
       );
     });
