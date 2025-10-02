@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ves_qc/models/enums.dart';
@@ -9,6 +11,7 @@ void main() {
     final points = List.generate(5, (index) {
       final spacing = 1.0 + index;
       final rho = 100.0 + index * 5;
+      final resistance = rho / (2 * math.pi * spacing);
       return SpacingPoint(
         id: '$index',
         arrayType: ArrayType.wenner,
