@@ -1,0 +1,8 @@
+gradle-wrapper.jar
+/local.properties
+GeneratedPluginRegistrant.java
+GeneratedPluginRegistrant.swift
+GeneratedPluginRegistrant.m
+**/GeneratedPluginRegistrant.java
+**/GeneratedPluginRegistrant.swift
+**/GeneratedPluginRegistrant.m
