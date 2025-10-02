@@ -27,7 +27,7 @@ class SoundingChart extends StatelessWidget {
     final colors = <Color>[];
     final predictedSpots = <FlSpot>[];
     final upperSpots = <FlSpot>[];
-    final lowerSpots = <FlSpot>[];
+    final errorBars = <LineChartBarData>[];
 
     for (var i = 0; i < points.length; i++) {
       final p = points[i];
@@ -42,10 +42,25 @@ class SoundingChart extends StatelessWidget {
         if (i < sigma.length) {
           final frac = sigma[i];
           final upper = fit * (1 + frac.abs());
-          final lower = fit * (1 - frac.abs());
           upperSpots.add(FlSpot(x, _log10(upper)));
-          lowerSpots.add(FlSpot(x, _log10(math.max(lower, 1e-6))));
         }
+      }
+      if (p.sigmaRhoApp != null && p.sigmaRhoApp! > 0) {
+        final rho = p.rhoAppOhmM;
+        final upper = math.max(rho + p.sigmaRhoApp!, 1e-6);
+        final lower = math.max(rho - p.sigmaRhoApp!, 1e-6);
+        errorBars.add(
+          LineChartBarData(
+            spots: [
+              FlSpot(x, _log10(lower)),
+              FlSpot(x, _log10(upper)),
+            ],
+            isCurved: false,
+            color: Colors.grey,
+            barWidth: 1.5,
+            dotData: const FlDotData(show: false),
+          ),
+        );
       }
       final level = classifyPoint(
         residual: residual ?? 0,
@@ -55,6 +70,52 @@ class SoundingChart extends StatelessWidget {
       );
       colors.add(_qaColor(level));
     }
+
+    final lineBars = <LineChartBarData>[];
+    if (upperSpots.isNotEmpty) {
+      lineBars.add(
+        LineChartBarData(
+          spots: upperSpots,
+          isCurved: true,
+          color: Colors.blue.withOpacity(0.2),
+          dotData: const FlDotData(show: false),
+          belowBarData: BarAreaData(
+            show: true,
+            color: Colors.blue.withOpacity(0.1),
+          ),
+        ),
+      );
+    }
+    if (predictedSpots.isNotEmpty) {
+      lineBars.add(
+        LineChartBarData(
+          spots: predictedSpots,
+          isCurved: true,
+          color: Colors.blue,
+          dotData: const FlDotData(show: false),
+        ),
+      );
+    }
+    lineBars.addAll(errorBars);
+    final pointsBarIndex = lineBars.length;
+    lineBars.add(
+      LineChartBarData(
+        spots: spots,
+        isCurved: false,
+        barWidth: 0,
+        showingIndicators: List.generate(spots.length, (index) => index),
+        dotData: FlDotData(
+          show: true,
+          checkToShowDot: (spot, data) => true,
+          getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+            color: colors[index],
+            radius: 4,
+            strokeWidth: 1.5,
+            strokeColor: Colors.black,
+          ),
+        ),
+      ),
+    );
 
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -82,51 +143,40 @@ class SoundingChart extends StatelessWidget {
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
-          lineBarsData: [
-            if (upperSpots.isNotEmpty && lowerSpots.isNotEmpty)
-              LineChartBarData(
-                spots: upperSpots,
-                isCurved: true,
-                color: Colors.blue.withOpacity(0.2),
-                dotData: const FlDotData(show: false),
-                belowBarData: BarAreaData(
-                  show: true,
-                  color: Colors.blue.withOpacity(0.1),
-                ),
-              ),
-            LineChartBarData(
-              spots: predictedSpots,
-              isCurved: true,
-              color: Colors.blue,
-              dotData: const FlDotData(show: false),
-            ),
-            LineChartBarData(
-              spots: spots,
-              isCurved: false,
-              barWidth: 0,
-              showingIndicators: List.generate(spots.length, (index) => index),
-              dotData: FlDotData(
-                show: true,
-                checkToShowDot: (spot, data) => true,
-                getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
-                  color: colors[index],
-                  radius: 4,
-                  strokeWidth: 1.5,
-                  strokeColor: Colors.black,
-                ),
-              ),
-            ),
-          ],
+          lineBarsData: lineBars,
           gridData: FlGridData(show: true, drawVerticalLine: true, drawHorizontalLine: true),
           lineTouchData: LineTouchData(
             handleBuiltInTouches: true,
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipItems: (touchedSpots) {
+                return touchedSpots.map((spot) {
+                  if (spot.barIndex != pointsBarIndex) {
+                    return null;
+                  }
+                  final point = points[spot.spotIndex];
+                  final spacingFt = point.aFeet.toStringAsFixed(2);
+                  final spacingM = point.aMeters.toStringAsFixed(2);
+                  final rhoValue = point.rhoAppOhmM.toStringAsFixed(2);
+                  return LineTooltipItem(
+                    'a: $spacingFt ft ($spacingM m)\nρa: $rhoValue Ω·m',
+                    const TextStyle(color: Colors.white),
+                  );
+                }).whereType<LineTooltipItem>().toList();
+              },
+            ),
             touchCallback: (event, response) {
               if (event is FlTapUpEvent && response?.lineBarSpots != null) {
-                final index = response!.lineBarSpots!.first.spotIndex;
-                showModalBottomSheet(
-                  context: context,
-                  builder: (ctx) => PointDetailsSheet(point: points[index]),
-                );
+                final spotsData = response!.lineBarSpots!;
+                for (final barSpot in spotsData) {
+                  if (barSpot.barIndex == pointsBarIndex) {
+                    final index = barSpot.spotIndex;
+                    showModalBottomSheet(
+                      context: context,
+                      builder: (ctx) => PointDetailsSheet(point: points[index]),
+                    );
+                    break;
+                  }
+                }
               }
             },
           ),

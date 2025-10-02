@@ -116,14 +116,21 @@ A sample file lives at `assets/samples/sample_wenner.csv`.
 
 | Column | Unit | Description |
 | --- | --- | --- |
-| `spacing_m` | m | Electrode spacing metric (a or AB/2). |
-| `voltage_v` | V | Measured potential difference. |
-| `current_a` | A | Injected current magnitude. |
+| `a_spacing_ft` | ft | Wenner A-spacing in feet (as entered in the field). |
+| `a_spacing_m` | m | A-spacing converted to meters (export convenience). |
+| `spacing_m` | m | Legacy spacing column; treated the same as `a_spacing_m` on import. |
+| `resistance_ohm` | Ω | Measured line resistance from the instrument. |
+| `resistance_std_ohm` | Ω | Optional standard deviation of the resistance reading. |
+| `direction` | text | `ns`, `we`, or `other` (sounding orientation). |
+| `voltage_v` | V | Optional potential measurement for QA (advanced). |
+| `current_a` | A | Optional injected current for QA (advanced). |
 | `array_type` | text | `wenner`, `schlumberger`, `dipole_dipole`, `pole_dipole`, or `custom`. |
 | `mn_over_2_m` | m | Optional MN/2 spacing for Schlumberger geometries. |
-| `rho_app_ohm_m` | Ω·m | Apparent resistivity. |
-| `sigma_rho_app` | Ω·m | Standard deviation from repeats. |
+| `rho_app_ohm_m` | Ω·m | Apparent resistivity; derived as `2π a(m) · R`. |
+| `sigma_rho_app` | Ω·m | Propagated standard deviation of apparent resistivity. |
 | `timestamp_iso` | ISO8601 | Timestamp of acquisition. |
+
+`rho_app_ohm_m` is recomputed during import if not present, and legacy files with only `spacing_m`, `voltage_v`, and `current_a` remain supported.
 
 ## QA thresholds
 
