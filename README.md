@@ -14,6 +14,22 @@ ResiCheck (formerly VES QC) is a field-ready, offline-first Flutter companion fo
 └── analysis_options.yaml   # Lint configuration
 ```
 
+## Data model & persistence
+
+ResiCheck now centralizes survey data in `lib/models/project_models.dart` using
+immutable, JSON-serializable types:
+
+- `Project` → project-level metadata, canonical spacings, and `Site` entries.
+- `Site` → unique sounding with paired `DirectionReadings` for directions A/B.
+- `SpacingPoint` → individual spacing measurement including rho, exclusion flag,
+  and operator note.
+
+`lib/state/project_controller.dart` manages the active project/site selection,
+data edits, and autosave throttling, while `lib/qc/qc.dart` computes residual
+statistics against a log-linear model. Project files are saved under
+`ResiCheckProjects/<name>.resicheck.json` via `lib/services/persistence.dart` and
+load seamlessly on all supported platforms.
+
 ## Quick build on Windows (PowerShell)
 
 ```
@@ -59,7 +75,7 @@ Optional—but very helpful when you are editing code—run the built-in checks:
 ```
 dart format .
 flutter analyze
-flutter test
+flutter test -x widget_dialog
 ```
 
 ### 3. Daily development workflow
