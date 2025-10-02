@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import '../models/enums.dart';
 import '../models/spacing_point.dart';
+import '../services/geometry_factors.dart' as geom;
 import '../utils/units.dart';
 
 class CsvColumns {
@@ -62,17 +63,26 @@ class CsvIoService {
       aFeet ??= aMeters != null ? metersToFeet(aMeters) : null;
 
       if (rho == null && resistance != null && aMeters != null) {
-        rho = 2 * math.pi * aMeters * resistance;
+        final k = _geometryFactorForArray(array, aMeters);
+        if (k > 0) {
+          rho = resistance * k;
+        }
       }
 
       if (rho == null && voltage != null && current != null && current != 0 && aMeters != null) {
         final derivedResistance = voltage / current;
-        rho = 2 * math.pi * aMeters * derivedResistance;
-        resistance ??= derivedResistance;
+        final k = _geometryFactorForArray(array, aMeters);
+        if (k > 0) {
+          rho = derivedResistance * k;
+          resistance ??= derivedResistance;
+        }
       }
 
       if (sigmaRho == null && resistanceStd != null && aMeters != null) {
-        sigmaRho = 2 * math.pi * aMeters * resistanceStd;
+        final k = _geometryFactorForArray(array, aMeters);
+        if (k > 0) {
+          sigmaRho = k * resistanceStd;
+        }
       }
 
       DateTime? timestamp;
@@ -190,6 +200,30 @@ class CsvIoService {
 }
 
 String _normalizeHeader(String header) => header.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+
+double _geometryFactorForArray(ArrayType arrayType, double spacingMeters) {
+  if (spacingMeters <= 0) {
+    return 0;
+  }
+  switch (arrayType) {
+    case ArrayType.wenner:
+      return geom.geometryFactor(
+        array: geom.GeometryArray.wenner,
+        spacing: spacingMeters,
+      );
+    case ArrayType.schlumberger:
+      final mn = spacingMeters / 3;
+      return geom.geometryFactor(
+        array: geom.GeometryArray.schlumberger,
+        spacing: spacingMeters,
+        mn: mn,
+      );
+    case ArrayType.dipoleDipole:
+    case ArrayType.poleDipole:
+    case ArrayType.custom:
+      return 2 * math.pi * spacingMeters;
+  }
+}
 
 Future<File> getDefaultExportFile(String directory, {String? basename}) async {
   final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
