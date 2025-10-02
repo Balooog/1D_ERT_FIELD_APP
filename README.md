@@ -14,52 +14,31 @@ VES QC is a field-ready, offline-first Flutter companion for geophysicists valid
 └── analysis_options.yaml   # Lint configuration
 ```
 
-## Getting started (brand-new Android & Flutter setup)
+## Getting started on Android
 
-If you have never shipped an Android app before, work through each section in order. Every command runs from the repository root unless noted otherwise.
+### 1. One-time prerequisites
 
-### 1. Install prerequisites
+If this is your first Flutter + Android install, work through the list and check off each item before opening the project.
 
-1. **Flutter SDK** (3.19 or newer)
-   - Follow the official installation guide for your platform: <https://docs.flutter.dev/get-started/install>.
-   - Extract Flutter, add `flutter/bin` to your system `PATH`, then restart your terminal.
-2. **Android Studio**
-   - Download from <https://developer.android.com/studio>.
-   - During the first launch, keep the default components (Android SDK, Android SDK Platform, Android Virtual Device).
-3. **Android command-line tools**
-   - From Android Studio, open **More Actions → SDK Manager**.
-   - Install at least one Android SDK platform (Android 14 or Android 13 recommended) and the **Android SDK Command-line Tools** package.
-4. **Enable virtualization (for emulators)**
-   - Windows: enable Hyper-V or Windows Hypervisor Platform via "Turn Windows features on or off".
-   - macOS: Apple Silicon requires Rosetta + virtualization framework (usually already enabled).
-5. **Git** (already included on macOS/Linux; Windows users can install from <https://git-scm.com/downloads>).
+- **Flutter SDK** (3.19 or newer). Follow the platform guide at <https://docs.flutter.dev/get-started/install>, unzip the SDK, and add `flutter/bin` to your `PATH`.
+- **Android Studio** with the default components (Android SDK, platform tools, and Android Virtual Device). Download from <https://developer.android.com/studio>.
+- **Android SDK Platform + command-line tools.** In Android Studio open **More Actions → SDK Manager**, then install Android 14 (API 34) or Android 13 (API 33) and the "Android SDK Command-line Tools" package.
+- **Virtualization** if you plan to use emulators. Enable Hyper-V or Windows Hypervisor Platform on Windows, and ensure Apple Virtualization is enabled/Rosetta installed on Apple Silicon Macs.
+- **Git** (already available on macOS/Linux; Windows installers live at <https://git-scm.com/downloads>).
 
-### 2. Verify your Flutter environment
+Run `flutter doctor` afterwards and accept any pending Android licenses with `flutter doctor --android-licenses`.
 
-```
-flutter doctor
-```
+### 2. Project bootstrap
 
-- Resolve every reported issue. For Android licenses, run:
-
-```
-flutter doctor --android-licenses
-```
-
-### 3. Clone the project
+Clone the repository and pull dependencies:
 
 ```
 git clone https://github.com/Balooog/1D_ERT_FIELD_APP.git
 cd 1D_ERT_FIELD_APP
-```
-
-### 4. Fetch dependencies and run static checks
-
-```
 flutter pub get
 ```
 
-Optional but recommended checks:
+Optional—but very helpful when you are editing code—run the built-in checks:
 
 ```
 flutter format .
@@ -67,48 +46,57 @@ flutter analyze
 flutter test
 ```
 
-### 5. Prepare a device
-
-You need either a hardware Android device or an emulator.
-
-- **Physical device**
-  1. Enable *Developer options* (tap the build number 7 times in Settings → About phone).
-  2. Turn on *USB debugging*.
-  3. Connect via USB and accept the RSA fingerprint prompt.
-
-- **Android emulator**
-  1. Launch Android Studio → **More Actions → Virtual Device Manager**.
-  2. Create a new device (Pixel 6 / Android 14 works well) and start it.
-
-Verify that Flutter can see the device:
+### 3. Daily development workflow
 
 ```
-flutter devices
+flutter run        # attach to a connected device or emulator
+flutter build apk  # assemble a release APK
+
+make dev           # convenience wrapper around flutter run
+make test          # widget + unit tests
+make apk           # release build
 ```
 
-### 6. Run the app
+Hot reload stays available inside the `flutter run` session via `r` (reload) and `R` (restart).
 
-```
-flutter run
-```
+### 4. Device & emulator setup
 
-Hot reload is available with `r` (hot reload) or `R` (hot restart) while the command is running.
+#### Samsung Tab Active4 Pro (field hardware)
 
-### 7. Build a release APK
+We target the Samsung Tab Active4 Pro (Android 12/13, 10.1" 1920×1200) for on-site validation. To prepare a tablet:
 
-```
-flutter build apk --release
-```
+1. Enable **Developer options** (Settings → About tablet → tap *Build number* seven times).
+2. Inside **Developer options**, toggle **USB debugging** and (optionally) **Stay awake** to keep the display on while charging.
+3. Under **Developer options → Input**, enable **Show taps** while testing glove/wet-touch gestures.
+4. Connect over USB-C and accept the computer's RSA fingerprint prompt.
+5. Confirm visibility with `flutter devices`. The output should list a device with `android-arm64` architecture.
 
-You will find the generated APK at `build/app/outputs/flutter-apk/app-release.apk`.
+Reference hardware highlights for the crew in the field:
 
-### 8. Common Makefile shortcuts
+| Spec / feature | Samsung Tab Active4 Pro |
+| --- | --- |
+| OS | Android 12 / 13 |
+| Screen | 10.1", glove & wet-touch, 1920×1200 |
+| Rugged rating | IP68, MIL-STD-810H |
+| Hot-swappable battery | Yes (7,600 mAh equivalent) |
+| Replaceable | Easy slide & swap |
+| Weight | ~670 g (1.5 lbs) |
+| Connectivity | Wi-Fi, optional LTE, Bluetooth |
+| Built-in GNSS | GPS, GLONASS, BeiDou, Galileo |
 
-```
-make dev   # flutter run with hot reload flags
-make test  # flutter test
-make apk   # flutter build apk --release
-```
+The integrated GNSS is ideal for QA/inspection workflows even though it is not survey grade. Verify `Settings → Location` is enabled before heading to the field.
+
+#### Emulator configuration (Samsung-class tablet)
+
+1. Launch Android Studio → **More Actions → Virtual Device Manager**.
+2. Create a **Tablet** profile. If the Tab Active4 Pro image is unavailable, the "Galaxy Tab S7 FE" or "Pixel Tablet" profile approximates the 10.1" 1920×1200 layout.
+3. Choose a system image that matches field devices—Android 13 (API 33) works well because it aligns with the Tab Active4 Pro shipping version. Download the Google Play image so you can test location services and Play-dependent libraries.
+4. Edit the hardware profile before creating the device: set RAM to **4 GB**, storage to **16 GB**, and enable **Use Host GPU** for responsive OpenGL rendering.
+5. After the virtual device boots, open **Extended controls → Display** and set the resolution to **1920 × 1200**, 60 Hz, landscape orientation. Lock the orientation and disable automatic screen sleep under **Settings → Display** inside the emulator.
+6. Configure sensors in **Extended controls → Settings**: enable **Multi-touch**, set **Pressure** to "Uniform," and toggle **Simulate wet fingers** to mimic the rugged tablet digitizer.
+7. (Optional) In **Extended controls → Battery**, enable a custom profile (e.g., 40% with performance throttling) to validate hot-swap scenarios, and in **Location**, load GPX/KML tracks that match survey routes.
+
+When the emulator is running, `flutter devices` should list an `android-x64` device. Launch the app with `flutter run`, press `M` to toggle multi-touch emulation, and use `Ctrl` + `Shift` + `L` (or `Cmd` + `Shift` + `L`) to rotate between landscape orientations.
 
 ## Features snapshot
 

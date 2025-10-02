@@ -1,0 +1,30 @@
+plugins {
+    id "com.android.application"
+    id "org.jetbrains.kotlin.android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace "com.vesqc.ves_qc"
+    compileSdkVersion flutter.compileSdkVersion
+    ndkVersion flutter.ndkVersion
+
+    defaultConfig {
+        applicationId "com.vesqc.ves_qc"
+        minSdkVersion flutter.minSdkVersion
+        targetSdkVersion flutter.targetSdkVersion
+        versionCode (flutter.versionCode != null ? flutter.versionCode.toInteger() : 1)
+        versionName (flutter.versionName ?: "1.0.0").toString()
+    }
+
+    buildTypes {
+        release {
+            // TODO: configure signing for production builds.
+            signingConfig signingConfigs.debug
+        }
+    }
+}
+
+flutter {
+    source '../..'
+}
