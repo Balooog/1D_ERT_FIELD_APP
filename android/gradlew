@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+set -e
+if command -v gradle >/dev/null 2>&1; then
+  gradle "$@"
+else
+  echo "Gradle is required but was not found in PATH. Install Gradle or generate the wrapper via 'flutter create .'" >&2
+  exit 1
+fi
