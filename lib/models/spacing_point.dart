@@ -133,7 +133,7 @@ class _ResolvedInputs {
 
 @immutable
 class SpacingPoint {
-  const SpacingPoint._({
+  SpacingPoint._({
     required this.id,
     required this.arrayType,
     required double aFeet,
@@ -143,22 +143,22 @@ class SpacingPoint {
     required this.direction,
     double? voltageV,
     double? currentA,
-    required ContactResistances contactR,
+    ContactResistances? contactR,
     this.spDriftMv,
     required this.stacks,
     List<double>? repeats,
     required this.timestamp,
     this.excluded = false,
-    String? note,
+    String? notes,
   })  : _aFeet = aFeet,
         _spacingMeters = spacingMeters,
         _rhoAppOhmM = rhoAppOhmM,
         _sigmaRhoOhmM = sigmaRhoOhmM,
         _voltageV = voltageV,
         _currentA = currentA,
-        contactR = Map.unmodifiable(contactR),
-        repeats = repeats != null ? List.unmodifiable(repeats) : null,
-        _note = note;
+        contactR = contactR == null ? const {} : Map.unmodifiable(contactR),
+        repeats = repeats == null ? null : List.unmodifiable(repeats),
+        notes = notes;
 
   factory SpacingPoint({
     required String id,
@@ -290,7 +290,7 @@ class SpacingPoint {
       repeats: repeats,
       timestamp: timestamp ?? DateTime.now(),
       excluded: excluded,
-      note: notes,
+      notes: notes,
     );
   }
 
@@ -327,7 +327,7 @@ class SpacingPoint {
       repeats: repeats,
       timestamp: timestamp,
       excluded: excluded,
-      note: notes,
+      notes: notes,
     );
   }
 
@@ -346,7 +346,7 @@ class SpacingPoint {
   final List<double>? repeats;
   final DateTime timestamp;
   final bool excluded;
-  final String? _note;
+  final String? notes;
 
   static const double rhoQaThresholdPercent = 5;
 
@@ -366,8 +366,7 @@ class SpacingPoint {
   double? get currentA => _currentA;
   double get vp => _voltageV ?? (currentA != null ? resistanceOhm * currentA! : 0);
   double get current => _currentA ?? (_voltageV != null && resistanceOhm != 0 ? _voltageV! / resistanceOhm : 0);
-  String? get note => _note;
-  String? get notes => _note;
+  String? get note => notes;
 
   double? get rhoFromVi {
     if (_voltageV == null || _currentA == null || _currentA == 0) {
@@ -398,8 +397,6 @@ class SpacingPoint {
   double? get contactRMax =>
       contactR.values.isEmpty ? null : contactR.values.reduce((a, b) => a > b ? a : b);
 
-  double? get _sigmaRhoLegacy => sigmaRhoOhmM;
-
   SpacingPoint copyWith({
     ArrayType? arrayType,
     double? aFeet,
@@ -415,7 +412,7 @@ class SpacingPoint {
     List<double>? repeats,
     DateTime? timestamp,
     bool? excluded,
-    String? note,
+    String? notes,
   }) {
     final updatedFeet = aFeet ?? this.aFeet;
     final updatedSpacing = spacingMeters ?? (aFeet != null ? feetToMeters(aFeet) : this.spacingMeters);
@@ -429,13 +426,13 @@ class SpacingPoint {
       direction: direction ?? this.direction,
       voltageV: voltageV ?? _voltageV,
       currentA: currentA ?? _currentA,
-      contactR: contactR != null ? Map.unmodifiable(contactR) : this.contactR,
+      contactR: contactR ?? this.contactR,
       spDriftMv: spDriftMv ?? this.spDriftMv,
       stacks: stacks ?? this.stacks,
-      repeats: repeats != null ? List.unmodifiable(repeats) : this.repeats,
+      repeats: repeats ?? this.repeats,
       timestamp: timestamp ?? this.timestamp,
       excluded: excluded ?? this.excluded,
-      note: note ?? this.note,
+      notes: notes ?? this.notes,
     );
   }
 
@@ -460,7 +457,7 @@ class SpacingPoint {
         'repeats': repeats,
         'timestamp': timestamp.toIso8601String(),
         'excluded': excluded,
-        'notes': note,
+        'notes': notes,
       };
 
   factory SpacingPoint.fromJson(Map<String, dynamic> json) {
@@ -479,16 +476,15 @@ class SpacingPoint {
       direction: parseSoundingDirection(json['direction'] as String?),
       voltageV: (json['voltageV'] as num?)?.toDouble(),
       currentA: (json['currentA'] as num?)?.toDouble(),
-      contactR: Map.unmodifiable((json['contactR'] as Map?)?.map(
-            (key, value) => MapEntry(key as String, (value as num).toDouble()),
-          ) ??
-          {}),
+      contactR: (json['contactR'] as Map?)?.map(
+        (key, value) => MapEntry(key as String, (value as num).toDouble()),
+      ),
       spDriftMv: (json['spDriftMv'] as num?)?.toDouble(),
       stacks: json['stacks'] as int? ?? 1,
       repeats: (json['repeats'] as List?)?.map((e) => (e as num).toDouble()).toList(),
       timestamp: DateTime.parse(json['timestamp'] as String),
       excluded: json['excluded'] as bool? ?? false,
-      note: json['notes'] as String?,
+      notes: json['notes'] as String?,
     );
   }
 
@@ -512,8 +508,7 @@ class SpacingPoint {
           stacks == other.stacks &&
           timestamp == other.timestamp &&
           excluded == other.excluded &&
-          _sigmaRhoLegacy == other._sigmaRhoLegacy &&
-          _note == other._note;
+          notes == other.notes;
 
   @override
   int get hashCode => Object.hash(
@@ -532,6 +527,6 @@ class SpacingPoint {
         const ListEquality<double>().hash(repeats),
         timestamp,
         excluded,
-        _note,
+        notes,
       );
 }
