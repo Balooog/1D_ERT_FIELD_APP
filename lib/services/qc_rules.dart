@@ -69,8 +69,8 @@ QaSummary summarizeQa(
       green: 0,
       yellow: 0,
       red: 0,
-      rms: 0,
-      chiSq: 0,
+      rms: 0.0,
+      chiSq: 0.0,
       lastSpDrift: null,
       worstContact: null,
     );
