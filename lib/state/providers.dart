@@ -26,6 +26,13 @@ class SpacingPointsNotifier extends StateNotifier<List<SpacingPoint>> {
     ];
   }
 
+  void removePoint(String id) {
+    state = [
+      for (final point in state)
+        if (point.id != id) point,
+    ];
+  }
+
   void clear() => state = const [];
 }
 
