@@ -19,8 +19,8 @@ class _FakePersistence extends PersistenceService {
   }
 
   @override
-  Future<void> saveProject(Project project) async {
-    store[project.projectName] = project;
+  Future<void> saveProject(Project project, {String? fileId}) async {
+    store[fileId ?? project.projectName] = project;
   }
 }
 

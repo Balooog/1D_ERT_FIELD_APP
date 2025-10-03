@@ -6,13 +6,20 @@ import 'package:flutter/material.dart';
 import '../../models/inversion_model.dart';
 import '../../models/spacing_point.dart';
 import '../../services/qc_rules.dart';
+import '../../utils/distance_unit.dart';
 import 'point_details_sheet.dart';
 
 class SoundingChart extends StatelessWidget {
-  const SoundingChart({super.key, required this.points, required this.inversion});
+  const SoundingChart({
+    super.key,
+    required this.points,
+    required this.inversion,
+    required this.distanceUnit,
+  });
 
   final List<SpacingPoint> points;
   final InversionModel inversion;
+  final DistanceUnit distanceUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -117,39 +124,89 @@ class SoundingChart extends StatelessWidget {
       ),
     );
 
+    final spacingMeters = points.map((e) => e.spacingMeters).toList();
+    final rhoValues = points.map((e) => e.rhoAppOhmM).toList();
+    final minXValue = spacingMeters.map(_log10).reduce(math.min);
+    final maxXValue = spacingMeters.map(_log10).reduce(math.max);
+    final minYValue = rhoValues.map(_log10).reduce(math.min);
+    final maxYValue = rhoValues.map(_log10).reduce(math.max);
+    final bottomTicks = _generateTicks(minXValue, maxXValue);
+    final leftTicks = _generateTicks(minYValue, maxYValue);
+
+    final theme = Theme.of(context);
+    final gridColor = theme.colorScheme.outlineVariant.withValues(alpha: 0.4);
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: LineChart(
         LineChartData(
           clipData: const FlClipData.all(),
-          minX: spots.map((e) => e.x).reduce(math.min) - 0.1,
-          maxX: spots.map((e) => e.x).reduce(math.max) + 0.1,
-          minY: spots.map((e) => e.y).reduce(math.min) - 0.2,
-          maxY: spots.map((e) => e.y).reduce(math.max) + 0.2,
+          minX: minXValue - 0.1,
+          maxX: maxXValue + 0.1,
+          minY: minYValue - 0.2,
+          maxY: maxYValue + 0.2,
           titlesData: FlTitlesData(
             leftTitles: AxisTitles(
+              axisNameWidget: const Padding(
+                padding: EdgeInsets.only(bottom: 4.0),
+                child: Text('ρₐ (Ω·m)'),
+              ),
+              axisNameSize: 28,
               sideTitles: SideTitles(
                 showTitles: true,
-                getTitlesWidget: (value, meta) => Text(math.pow(10, value).toStringAsFixed(1)),
-                reservedSize: 60,
+                reservedSize: 62,
+                getTitlesWidget: (value, meta) {
+                  if (!_isTick(value, leftTicks)) {
+                    return const SizedBox.shrink();
+                  }
+                  final rho = math.pow(10, value).toDouble();
+                  final label = _formatRho(rho);
+                  return Text(label, style: const TextStyle(fontSize: 11));
+                },
               ),
             ),
             bottomTitles: AxisTitles(
+              axisNameWidget: Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(distanceUnit.axisLabel),
+              ),
+              axisNameSize: 32,
               sideTitles: SideTitles(
                 showTitles: true,
-                getTitlesWidget: (value, meta) => Text(math.pow(10, value).toStringAsFixed(1)),
+                reservedSize: 38,
+                getTitlesWidget: (value, meta) {
+                  if (!_isTick(value, bottomTicks)) {
+                    return const SizedBox.shrink();
+                  }
+                  final spacing = math.pow(10, value).toDouble();
+                  final label = distanceUnit.formatSpacing(spacing);
+                  return Text(label, style: const TextStyle(fontSize: 11));
+                },
               ),
             ),
             rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
           lineBarsData: lineBars,
-          gridData: FlGridData(show: true, drawVerticalLine: true, drawHorizontalLine: true),
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: true,
+            drawHorizontalLine: true,
+            verticalInterval: bottomTicks.length > 1
+                ? (bottomTicks.last - bottomTicks.first) / (bottomTicks.length - 1)
+                : null,
+            horizontalInterval: leftTicks.length > 1
+                ? (leftTicks.last - leftTicks.first) / (leftTicks.length - 1)
+                : null,
+            getDrawingVerticalLine: (_) => FlLine(color: gridColor, strokeWidth: 0.5),
+            getDrawingHorizontalLine: (_) => FlLine(color: gridColor, strokeWidth: 0.5),
+          ),
           lineTouchData: LineTouchData(
             handleBuiltInTouches: true,
             touchTooltipData: LineTouchTooltipData(
               getTooltipItems: (touchedSpots) {
-                return touchedSpots.map((spot) {
+                return List<LineTooltipItem?>.generate(touchedSpots.length, (index) {
+                  final spot = touchedSpots[index];
                   if (spot.barIndex != pointsBarIndex) {
                     return null;
                   }
@@ -159,9 +216,9 @@ class SoundingChart extends StatelessWidget {
                   final rhoValue = point.rhoAppOhmM.toStringAsFixed(2);
                   return LineTooltipItem(
                     'a: $spacingFt ft ($spacingM m)\nρa: $rhoValue Ω·m',
-                    const TextStyle(color: Colors.white),
+                    const TextStyle(color: Colors.white, fontSize: 11),
                   );
-                }).whereType<LineTooltipItem>().toList();
+                });
               },
             ),
             touchCallback: (event, response) {
@@ -186,6 +243,43 @@ class SoundingChart extends StatelessWidget {
   }
 
   double _log10(double value) => math.log(value) / math.ln10;
+
+  List<double> _generateTicks(double min, double max) {
+    if ((max - min).abs() < 1e-6) {
+      return [min];
+    }
+    const desiredCount = 5;
+    final span = max - min;
+    final step = span / (desiredCount - 1);
+    if (step.abs() < 1e-6) {
+      return [min, max];
+    }
+    return List<double>.generate(desiredCount, (index) => min + step * index);
+  }
+
+  bool _isTick(double value, List<double> ticks) {
+    const epsilon = 1e-2;
+    for (final tick in ticks) {
+      if ((tick - value).abs() <= epsilon) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  String _formatRho(double value) {
+    final absValue = value.abs();
+    if (absValue >= 1000) {
+      return value.toStringAsFixed(0);
+    }
+    if (absValue >= 100) {
+      return value.toStringAsFixed(0);
+    }
+    if (absValue >= 10) {
+      return value.toStringAsFixed(1);
+    }
+    return value.toStringAsFixed(2);
+  }
 
   Color _qaColor(QaLevel level) {
     switch (level) {

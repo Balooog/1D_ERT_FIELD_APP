@@ -15,6 +15,8 @@ class PersistenceService {
 
   final DirectoryProvider _directoryProvider;
 
+  static const String defaultProjectFileId = 'lastUsed';
+
   Future<Project> loadProject(String name) async {
     final file = await _resolveProjectFile(name);
     if (!await file.exists()) {
@@ -25,8 +27,19 @@ class PersistenceService {
     return Project.fromJson(data);
   }
 
-  Future<void> saveProject(Project project) async {
-    final file = await _resolveProjectFile(project.projectName, ensureDir: true);
+  Future<Project?> tryLoadDefault() async {
+    final file = await _resolveProjectFile(defaultProjectFileId);
+    if (!await file.exists()) {
+      return null;
+    }
+    final contents = await file.readAsString();
+    final data = jsonDecode(contents) as Map<String, dynamic>;
+    return Project.fromJson(data);
+  }
+
+  Future<void> saveProject(Project project, {String? fileId}) async {
+    final fileIdOrName = fileId ?? project.projectName;
+    final file = await _resolveProjectFile(fileIdOrName, ensureDir: true);
     final encoder = const JsonEncoder.withIndent('  ');
     final data = encoder.convert(project.toJson());
     await file.writeAsString(data);
