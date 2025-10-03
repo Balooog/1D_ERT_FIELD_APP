@@ -44,23 +44,62 @@ class ResidualStrip extends StatelessWidget {
             const Text('Residuals', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    const _GuideLine(value: 0.15),
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: bars,
+              child: Row(
+                children: [
+                  RotatedBox(
+                    quarterTurns: 3,
+                    child: Text(
+                      'Residuals (%)',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _ResidualGridPainter(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outlineVariant
+                                    .withValues(alpha: 0.5),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            child: Column(
+                              children: [
+                                Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Text('+15%', style: Theme.of(context).textTheme.bodySmall),
+                                ),
+                                const SizedBox(height: 4),
+                                Expanded(
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: bars,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Align(
+                                  alignment: Alignment.bottomLeft,
+                                  child: Text('-15%', style: Theme.of(context).textTheme.bodySmall),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const _GuideLine(value: -0.15),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -115,19 +154,38 @@ class _ResidualBar extends StatelessWidget {
   }
 }
 
-class _GuideLine extends StatelessWidget {
-  const _GuideLine({required this.value});
+class _ResidualGridPainter extends CustomPainter {
+  const _ResidualGridPainter({required this.color});
 
-  final double value;
+  final Color color;
+
+  static const double _limit = 0.15;
+  static const List<double> _lines = [-_limit, -0.1, -0.05, 0, 0.05, 0.1, _limit];
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 20,
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Text('${(value * 100).toStringAsFixed(0)}%'),
-    );
+  void paint(Canvas canvas, Size size) {
+    if (size.height <= 0) return;
+    final paint = Paint()..color = color;
+
+    for (final value in _lines) {
+      final position = _mapValueToY(value, size.height);
+      final isMajor = value == 0 || value.abs() == _limit;
+      paint
+        ..strokeWidth = isMajor ? 0.8 : 0.5
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(Offset(0, position), Offset(size.width, position), paint);
+    }
+  }
+
+  double _mapValueToY(double value, double height) {
+    final clamped = value.clamp(-_limit, _limit);
+    final ratio = (_limit - clamped) / (_limit * 2);
+    return ratio * height;
+  }
+
+  @override
+  bool shouldRepaint(covariant _ResidualGridPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 

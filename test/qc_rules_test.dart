@@ -27,9 +27,13 @@ SpacingPoint _makePoint(double rho, {double? sigma}) {
 }
 
 void main() {
-  test('Green classification', () {
+  test('Green classification stays below thresholds', () {
     final point = _makePoint(100.0, sigma: 2.0);
-    final level = classifyPoint(residual: 0.02, coefficientOfVariation: 0.02, point: point);
+    final level = classifyPoint(
+      residual: kQaGreenResidualLimit / 2,
+      coefficientOfVariation: kQaGreenCvLimit / 2,
+      point: point,
+    );
     expect(level, QaLevel.green);
   });
 
@@ -48,8 +52,9 @@ void main() {
     final residuals = [0.02, 0.07, 0.2];
     final fitted = [100.0, 95.0, 140.0];
     final summary = summarizeQa(points, residuals, fitted);
-    expect(summary.green, greaterThanOrEqualTo(1));
-    expect(summary.red, greaterThanOrEqualTo(1));
+    expect(summary.green, 1);
+    expect(summary.yellow, 1);
+    expect(summary.red, 1);
   });
 
   test('Summary handles mismatched series lengths gracefully', () {
