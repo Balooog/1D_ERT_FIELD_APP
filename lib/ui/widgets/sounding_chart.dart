@@ -205,18 +205,28 @@ class SoundingChart extends StatelessWidget {
             handleBuiltInTouches: true,
             touchTooltipData: LineTouchTooltipData(
               getTooltipItems: (touchedSpots) {
-                return List<LineTooltipItem?>.generate(touchedSpots.length, (index) {
+                const textStyle = TextStyle(color: Colors.white, fontSize: 11);
+                final unitSuffix = distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
+                return List<LineTooltipItem>.generate(touchedSpots.length, (index) {
                   final spot = touchedSpots[index];
-                  if (spot.barIndex != pointsBarIndex) {
-                    return null;
+                  final spacingMetersValue = math.pow(10, spot.x).toDouble();
+                  final rhoValueLinear = math.pow(10, spot.y).toDouble();
+                  if (spot.barIndex == pointsBarIndex) {
+                    final point = points[spot.spotIndex];
+                    final spacingFt = point.aFeet.toStringAsFixed(2);
+                    final spacingM = point.aMeters.toStringAsFixed(2);
+                    final rhoValue = point.rhoAppOhmM.toStringAsFixed(2);
+                    return LineTooltipItem(
+                      'Obs • a: $spacingFt ft ($spacingM m)\nρₐ: $rhoValue Ω·m',
+                      textStyle,
+                    );
                   }
-                  final point = points[spot.spotIndex];
-                  final spacingFt = point.aFeet.toStringAsFixed(2);
-                  final spacingM = point.aMeters.toStringAsFixed(2);
-                  final rhoValue = point.rhoAppOhmM.toStringAsFixed(2);
+
+                  final spacingLabel = distanceUnit.formatSpacing(spacingMetersValue);
+                  final labelPrefix = spot.barIndex < pointsBarIndex ? 'Model' : 'Band';
                   return LineTooltipItem(
-                    'a: $spacingFt ft ($spacingM m)\nρa: $rhoValue Ω·m',
-                    const TextStyle(color: Colors.white, fontSize: 11),
+                    '$labelPrefix • a: $spacingLabel $unitSuffix\nρₐ: ${rhoValueLinear.toStringAsFixed(2)} Ω·m',
+                    textStyle,
                   );
                 });
               },
