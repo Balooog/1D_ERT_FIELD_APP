@@ -48,6 +48,17 @@ flutter create --platforms=windows .
 flutter run -d windows
 ```
 
+## Getting started
+
+### Run on desktop
+
+The first time you target Windows, enable the desktop tooling and regenerate the platform wrappers:
+
+```
+flutter config --enable-windows-desktop
+flutter create --platforms=windows .
+```
+
 ## Getting started on Android
 
 ### 1. One-time prerequisites

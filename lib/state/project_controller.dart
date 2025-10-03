@@ -81,7 +81,16 @@ class ProjectController extends StateNotifier<ProjectState> {
     _setProject(project, markSaved: true);
   }
 
-  Future<void> saveProject({String? asName}) async {
+  Future<bool> loadDefaultIfAvailable() async {
+    final project = await _persistence.tryLoadDefault();
+    if (project == null) {
+      return false;
+    }
+    _setProject(project, markSaved: true);
+    return true;
+  }
+
+  Future<void> saveProject({String? asName, String? fileId}) async {
     final project = state.project;
     if (project == null) return;
     final projectToSave = asName != null
@@ -89,7 +98,7 @@ class ProjectController extends StateNotifier<ProjectState> {
         : project;
     state = state.copyWith(isSaving: true);
     try {
-      await _persistence.saveProject(projectToSave);
+      await _persistence.saveProject(projectToSave, fileId: fileId);
       _setProject(projectToSave, markSaved: true);
     } finally {
       state = state.copyWith(isSaving: false);
