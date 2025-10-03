@@ -51,7 +51,7 @@ void main() {
   test('Rho QA diff percent reflects V/I derived resistivity', () {
     const aFeet = 10.0;
     const rho = 200.0;
-    const voltage = 21.1;
+    const voltage = 40.0;
     const current = 2.0;
     final point = SpacingPoint(
       id: 'qa-test',
@@ -68,8 +68,10 @@ void main() {
       timestamp: DateTime(2024),
     );
     final expectedRhoFromVi = 2 * math.pi * point.aMeters * (voltage / current);
+    final expectedDiff = ((expectedRhoFromVi - rho).abs() / rho) * 100;
     expect(point.rhoFromVi, closeTo(expectedRhoFromVi, 1e-6));
-    expect(point.rhoDiffPercent, closeTo(((expectedRhoFromVi - rho).abs() / rho) * 100, 1e-6));
+    expect(point.rhoDiffPercent, closeTo(expectedDiff, 1e-6));
+    expect(expectedDiff, greaterThan(SpacingPoint.rhoQaThresholdPercent));
     expect(point.hasRhoQaWarning, isTrue);
   });
 }

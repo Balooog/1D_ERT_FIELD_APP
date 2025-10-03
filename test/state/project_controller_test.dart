@@ -20,8 +20,8 @@ class InMemoryPersistence extends PersistenceService {
   }
 
   @override
-  Future<void> saveProject(Project project) async {
-    _store[project.projectName] = project;
+  Future<void> saveProject(Project project, {String? fileId}) async {
+    _store[fileId ?? project.projectName] = project;
   }
 }
 

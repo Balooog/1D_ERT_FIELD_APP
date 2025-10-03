@@ -4,15 +4,22 @@ import '../models/spacing_point.dart';
 
 enum QaLevel { green, yellow, red }
 
+const double kQaGreenCvLimit = 0.03;
+const double kQaYellowCvLimit = 0.10;
+const double kQaGreenResidualLimit = 0.05;
+const double kQaYellowResidualLimit = 0.15;
+const double kQaSpLimitMv = 5;
+const double kQaContactLimitOhm = 5000;
+
 class QaThresholds {
   const QaThresholds();
 
-  static const double greenCv = 0.03;
-  static const double yellowCv = 0.10;
-  static const double greenResidual = 0.05;
-  static const double yellowResidual = 0.15;
-  static const double spLimitMv = 5;
-  static const double contactLimit = 5000;
+  static const double greenCv = kQaGreenCvLimit;
+  static const double yellowCv = kQaYellowCvLimit;
+  static const double greenResidual = kQaGreenResidualLimit;
+  static const double yellowResidual = kQaYellowResidualLimit;
+  static const double spLimitMv = kQaSpLimitMv;
+  static const double contactLimit = kQaContactLimitOhm;
 }
 
 QaLevel classifyPoint({
@@ -26,13 +33,13 @@ QaLevel classifyPoint({
   final maxContact = point.contactRMax ?? 0;
 
   bool isRed() =>
-      cv > QaThresholds.yellowCv ||
-      absResidual > QaThresholds.yellowResidual ||
-      spDrift > QaThresholds.spLimitMv ||
-      maxContact > QaThresholds.contactLimit;
+      cv > kQaYellowCvLimit ||
+      absResidual > kQaYellowResidualLimit ||
+      spDrift > kQaSpLimitMv ||
+      maxContact > kQaContactLimitOhm;
   bool isYellow() =>
-      (cv > QaThresholds.greenCv && cv <= QaThresholds.yellowCv) ||
-      (absResidual > QaThresholds.greenResidual && absResidual <= QaThresholds.yellowResidual);
+      (cv > kQaGreenCvLimit && cv <= kQaYellowCvLimit) ||
+      (absResidual > kQaGreenResidualLimit && absResidual <= kQaYellowResidualLimit);
 
   if (isRed()) return QaLevel.red;
   if (point.hasRhoQaWarning) return QaLevel.yellow;
