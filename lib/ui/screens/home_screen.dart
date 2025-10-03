@@ -37,6 +37,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   late final FocusNode _lineFocus;
   late final FocusNode _operatorFocus;
   late final FocusNode _notesFocus;
+  late final ProviderSubscription<ProjectState> _projectSubscription;
   bool _projectExpanded = false;
   DistanceUnit _distanceUnit = DistanceUnit.feet;
 
@@ -53,15 +54,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _notesFocus = FocusNode();
     final projectState = ref.read(projectControllerProvider);
     _applyProjectState(projectState);
-    ref.listen<ProjectState>(projectControllerProvider, (previous, next) {
-      if (previous?.project != next.project) {
-        _applyProjectState(next);
-      }
-    });
+    _projectSubscription = ref.listenManual<ProjectState>(
+      projectControllerProvider,
+      (previous, next) {
+        if (previous?.project != next.project) {
+          _applyProjectState(next);
+        }
+      },
+    );
   }
 
   @override
   void dispose() {
+    _projectSubscription.close();
     _projectNameController.dispose();
     _lineController.dispose();
     _operatorController.dispose();
