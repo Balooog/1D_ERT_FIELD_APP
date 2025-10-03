@@ -43,6 +43,8 @@ flutter pub get
 dart format . --set-exit-if-changed
 flutter analyze
 flutter test -x widget_dialog
+flutter config --enable-windows-desktop
+flutter create --platforms=windows .
 flutter run -d windows
 ```
 
