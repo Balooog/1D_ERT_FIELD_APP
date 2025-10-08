@@ -24,6 +24,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/samples/
+    - assets/templates/
 
 dev_dependencies:
   flutter_test:
