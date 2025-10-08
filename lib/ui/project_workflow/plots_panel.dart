@@ -77,12 +77,13 @@ class PlotsPanel extends StatelessWidget {
 
   Widget _buildChartForSite(BuildContext context, SiteRecord site,
       {required bool compact}) {
+    final theme = Theme.of(context);
     final data = buildSeriesForSite(site, showOutliers: showOutliers);
     if (data.aSeries.isEmpty && data.bSeries.isEmpty) {
       return Center(
         child: Text(
           'No readings yet for ${site.displayName}.',
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: theme.textTheme.bodyMedium,
         ),
       );
     }
@@ -102,11 +103,12 @@ class PlotsPanel extends StatelessWidget {
               _log(point.apparentResistivityOhmM),
             ))
         .toList();
-    return LineChart(
+    final averageColor = theme.colorScheme.outline;
+    final chart = LineChart(
       LineChartData(
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: Theme.of(context).colorScheme.surface.withValues(
+            tooltipBgColor: theme.colorScheme.surface.withValues(
                   alpha: (0.9 * 255).round().toDouble(),
                 ),
             getTooltipItems: (touchedSpots) {
@@ -115,7 +117,7 @@ class PlotsPanel extends StatelessWidget {
                 final rho = math.pow(10, spot.y);
                 return LineTooltipItem(
                   'a=${spacing.toStringAsFixed(1)} ft\nρa=${rho.toStringAsFixed(1)} Ω·m',
-                  Theme.of(context).textTheme.bodyMedium!,
+                  theme.textTheme.bodyMedium!,
                 );
               }).toList();
             },
@@ -165,7 +167,7 @@ class PlotsPanel extends StatelessWidget {
             LineChartBarData(
               spots: data.aSeries,
               barWidth: 3,
-              color: Theme.of(context).colorScheme.primary,
+              color: theme.colorScheme.primary,
               isCurved: false,
               dotData: const FlDotData(show: true),
             ),
@@ -173,7 +175,7 @@ class PlotsPanel extends StatelessWidget {
             LineChartBarData(
               spots: data.bSeries,
               barWidth: 3,
-              color: Theme.of(context).colorScheme.secondary,
+              color: theme.colorScheme.secondary,
               isCurved: false,
               dotData: const FlDotData(show: true),
             ),
@@ -181,7 +183,7 @@ class PlotsPanel extends StatelessWidget {
             LineChartBarData(
               spots: ghostSpots,
               barWidth: 2,
-              color: Theme.of(context).colorScheme.tertiary,
+              color: averageColor,
               dashArray: [6, 6],
               dotData: const FlDotData(show: false),
             ),
@@ -196,6 +198,40 @@ class PlotsPanel extends StatelessWidget {
         ],
       ),
       duration: compact ? Duration.zero : const Duration(milliseconds: 300),
+    );
+    final legend = <Widget>[];
+    if (data.aSeries.isNotEmpty) {
+      legend.add(_LegendEntry(label: 'N–S', color: theme.colorScheme.primary));
+    }
+    if (data.bSeries.isNotEmpty) {
+      legend.add(_LegendEntry(label: 'W–E', color: theme.colorScheme.secondary));
+    }
+    if (ghostSpots.isNotEmpty) {
+      legend.add(_LegendEntry(label: 'Average', color: averageColor, dashed: true));
+    }
+    if (legend.isEmpty) {
+      return chart;
+    }
+    return Stack(
+      children: [
+        chart,
+        Positioned(
+          top: 8,
+          left: 8,
+          child: Card(
+            elevation: 1,
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 6,
+                children: legend,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -287,4 +323,71 @@ class _AxisRanges {
   final double maxX;
   final double minY;
   final double maxY;
+}
+
+class _LegendEntry extends StatelessWidget {
+  const _LegendEntry({
+    required this.label,
+    required this.color,
+    this.dashed = false,
+  });
+
+  final String label;
+  final Color color;
+  final bool dashed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 18,
+          height: 10,
+          child: CustomPaint(
+            painter: _LegendLinePainter(color: color, dashed: dashed),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _LegendLinePainter extends CustomPainter {
+  _LegendLinePainter({required this.color, required this.dashed});
+
+  final Color color;
+  final bool dashed;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final y = size.height / 2;
+    if (!dashed) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+      return;
+    }
+    const dashWidth = 4.0;
+    const dashGap = 3.0;
+    var start = 0.0;
+    while (start < size.width) {
+      final end = math.min(start + dashWidth, size.width);
+      canvas.drawLine(Offset(start, y), Offset(end, y), paint);
+      start += dashWidth + dashGap;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _LegendLinePainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.dashed != dashed;
+  }
 }

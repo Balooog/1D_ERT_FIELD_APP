@@ -11,6 +11,7 @@ import '../../models/site.dart';
 import '../../services/export_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/templates_service.dart';
+import '../../utils/distance_unit.dart';
 import 'depth_profile_tab.dart';
 import 'plots_panel.dart';
 import 'shortcuts.dart';
@@ -48,6 +49,7 @@ class _ProjectShellState extends State<ProjectShell> {
   int _historyIndex = -1;
   double? _focusedSpacing;
   OrientationKind? _focusedOrientation;
+  DistanceUnit _distanceUnit = DistanceUnit.feet;
 
   @override
   void initState() {
@@ -604,6 +606,7 @@ class _ProjectShellState extends State<ProjectShell> {
                                 width: 420,
                                 child: TablePanel(
                                   site: site,
+                                  projectDefaultStacks: _project.defaultStacks,
                                   showOutliers: _showOutliers,
                                   onResistanceChanged: _handleReadingSubmitted,
                                   onSdChanged: _handleSdChanged,
@@ -622,7 +625,10 @@ class _ProjectShellState extends State<ProjectShell> {
                   ),
                   SizedBox(
                     height: 220,
-                    child: DepthProfileTab(site: site),
+                    child: DepthProfileTab(
+                      site: site,
+                      distanceUnit: _distanceUnit,
+                    ),
                   ),
                 ],
               ),
@@ -636,12 +642,30 @@ class _ProjectShellState extends State<ProjectShell> {
         for (final site in _project.sites)
           ListTile(
             title: Text(site.displayName),
-            subtitle: Text('${site.spacings.length} spacings'),
+            subtitle: Text(
+              'Valid ${_validSpacingCount(site)}/${site.spacings.length} spacings',
+            ),
             selected: _selectedSite?.siteId == site.siteId,
             onTap: () => _selectSite(site),
           ),
       ],
     );
+  }
+
+  int _validSpacingCount(SiteRecord site) {
+    var valid = 0;
+    for (final spacing in site.spacings) {
+      final a = spacing.orientationA.latest;
+      final b = spacing.orientationB.latest;
+      final hasValidA =
+          a != null && !a.isBad && a.resistanceOhm != null;
+      final hasValidB =
+          b != null && !b.isBad && b.resistanceOhm != null;
+      if (hasValidA || hasValidB) {
+        valid++;
+      }
+    }
+    return valid;
   }
 }
 

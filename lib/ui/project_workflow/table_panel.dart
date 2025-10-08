@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/calc.dart';
 import '../../models/direction_reading.dart';
@@ -8,6 +12,7 @@ class TablePanel extends StatefulWidget {
   const TablePanel({
     super.key,
     required this.site,
+    required this.projectDefaultStacks,
     required this.showOutliers,
     required this.onResistanceChanged,
     required this.onSdChanged,
@@ -19,6 +24,7 @@ class TablePanel extends StatefulWidget {
   });
 
   final SiteRecord site;
+  final int projectDefaultStacks;
   final bool showOutliers;
   final void Function(
     double spacingFt,
@@ -125,6 +131,9 @@ class _TablePanelState extends State<TablePanel> {
   final Map<_FieldKey, TextEditingController> _controllers = {};
   final Map<_FieldKey, FocusNode> _focusNodes = {};
   Map<_FieldKey, _FieldKey?> _tabOrder = {};
+  final Map<_FieldKey, double> _tabRanks = {};
+  final ScrollController _verticalController = ScrollController();
+  final ScrollController _horizontalController = ScrollController();
 
   @override
   void dispose() {
@@ -134,6 +143,8 @@ class _TablePanelState extends State<TablePanel> {
     for (final focusNode in _focusNodes.values) {
       focusNode.dispose();
     }
+    _verticalController.dispose();
+    _horizontalController.dispose();
     super.dispose();
   }
   @override
@@ -145,7 +156,6 @@ class _TablePanelState extends State<TablePanel> {
     final rowConfigs = <_RowConfig>[];
     final requiredKeys = <_FieldKey>[];
     final values = <_FieldKey, String>{};
-    final focusOrder = <_FieldKey>[];
     double? previousAverage;
 
     for (final record in spacings) {
@@ -209,12 +219,6 @@ class _TablePanelState extends State<TablePanel> {
           record.interpretation ?? record.computeAutoInterpretation() ?? '';
       values[interpretationKey] = interpretationText;
 
-      focusOrder
-        ..add(aResKey)
-        ..add(aSdKey)
-        ..add(bResKey)
-        ..add(bSdKey);
-
       final hideA = !widget.showOutliers && (aSample?.isBad ?? false);
       final hideB = !widget.showOutliers && (bSample?.isBad ?? false);
       final sdWarningA =
@@ -246,12 +250,10 @@ class _TablePanelState extends State<TablePanel> {
     }
 
     _syncControllers(requiredKeys, values);
-    _tabOrder = {};
-    for (var i = 0; i < focusOrder.length; i++) {
-      final current = focusOrder[i];
-      final next = i + 1 < focusOrder.length ? focusOrder[i + 1] : null;
-      _tabOrder[current] = next;
-    }
+    _tabOrder = _buildTabOrder(rowConfigs);
+    _tabRanks
+      ..clear()
+      ..addAll(_buildTabRanks(rowConfigs));
 
     final theme = Theme.of(context);
     final orientationALabel =
@@ -290,30 +292,134 @@ class _TablePanelState extends State<TablePanel> {
     String orientationALabel,
     String orientationBLabel,
   ) {
-    return Scrollbar(
-      thumbVisibility: true,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            headingTextStyle:
-                theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold),
-            dataRowMinHeight: 76,
-            dataRowMaxHeight: 120,
-            columns: [
-              const DataColumn(label: Text('a-spacing (ft)')),
-              DataColumn(label: Text('Res $orientationALabel (Ω)')),
-              const DataColumn(label: Text('SD (%)')),
-              DataColumn(label: Text('Res $orientationBLabel (Ω)')),
-              const DataColumn(label: Text('SD (%)')),
-              const DataColumn(label: Text('Interpretation')),
-            ],
-            rows: rows.map((row) => _buildDataRow(context, theme, row)).toList(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxHeight = constraints.hasBoundedHeight
+            ? math.min(constraints.maxHeight, 420.0)
+            : 420.0;
+        final headingStyle = theme.textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          height: 1.1,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        );
+        final dataStyle = theme.textTheme.bodySmall?.copyWith(
+          fontSize: 11,
+          height: 1.1,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        );
+        return Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            height: maxHeight,
+            child: Scrollbar(
+              controller: _verticalController,
+              thumbVisibility: true,
+              child: SingleChildScrollView(
+                controller: _verticalController,
+                scrollDirection: Axis.vertical,
+                child: SingleChildScrollView(
+                  controller: _horizontalController,
+                  scrollDirection: Axis.horizontal,
+                  child: FocusTraversalGroup(
+                    policy: OrderedTraversalPolicy(),
+                    child: DataTable(
+                      headingTextStyle: headingStyle,
+                      dataTextStyle: dataStyle,
+                      dataRowMinHeight: 40,
+                      dataRowMaxHeight: 44,
+                      headingRowHeight: 40,
+                      columnSpacing: 16,
+                      horizontalMargin: 8,
+                      columns: [
+                        const DataColumn(
+                          label: Center(child: Text('a-spacing (ft)')),
+                        ),
+                        const DataColumn(
+                          label: Center(child: Text('Inside / Outside (ft)')),
+                        ),
+                        DataColumn(
+                          label: Center(child: Text('Res $orientationALabel (Ω)')),
+                        ),
+                        const DataColumn(
+                          label: Center(child: Text('SD (%)')),
+                        ),
+                        DataColumn(
+                          label: Center(child: Text('Res $orientationBLabel (Ω)')),
+                        ),
+                        const DataColumn(
+                          label: Center(child: Text('SD (%)')),
+                        ),
+                        const DataColumn(
+                          label: Center(child: Text('Interpretation')),
+                        ),
+                      ],
+                      rows: rows
+                          .map((row) => _buildDataRow(context, theme, row))
+                          .toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
+  }
+
+  Map<_FieldKey, _FieldKey?> _buildTabOrder(List<_RowConfig> rows) {
+    final orderedKeys = <_FieldKey>[];
+    final orientationADesc = [...rows]
+      ..sort((a, b) => b.record.spacingFeet.compareTo(a.record.spacingFeet));
+    for (final row in orientationADesc) {
+      orderedKeys
+        ..add(row.aResKey)
+        ..add(row.aSdKey);
+    }
+    final orientationBAsc = [...rows]
+      ..sort((a, b) => a.record.spacingFeet.compareTo(b.record.spacingFeet));
+    for (final row in orientationBAsc) {
+      orderedKeys
+        ..add(row.bResKey)
+        ..add(row.bSdKey);
+    }
+    for (final row in rows) {
+      orderedKeys.add(row.interpretationKey);
+    }
+    final map = <_FieldKey, _FieldKey?>{};
+    for (var i = 0; i < orderedKeys.length; i++) {
+      final current = orderedKeys[i];
+      final next = i + 1 < orderedKeys.length ? orderedKeys[i + 1] : null;
+      map[current] = next;
+    }
+    return map;
+  }
+
+  Map<_FieldKey, double> _buildTabRanks(List<_RowConfig> rows) {
+    final ranks = <_FieldKey, double>{};
+    var order = 0;
+    void addKey(_FieldKey key) {
+      ranks[key] = order.toDouble();
+      order++;
+    }
+
+    final orientationADesc = [...rows]
+      ..sort((a, b) => b.record.spacingFeet.compareTo(a.record.spacingFeet));
+    for (final row in orientationADesc) {
+      addKey(row.aResKey);
+      addKey(row.aSdKey);
+    }
+    final orientationBAsc = [...rows]
+      ..sort((a, b) => a.record.spacingFeet.compareTo(b.record.spacingFeet));
+    for (final row in orientationBAsc) {
+      addKey(row.bResKey);
+      addKey(row.bSdKey);
+    }
+    for (final row in rows) {
+      addKey(row.interpretationKey);
+    }
+    return ranks;
   }
 
   DataRow _buildDataRow(BuildContext context, ThemeData theme, _RowConfig row) {
@@ -326,70 +432,92 @@ class _TablePanelState extends State<TablePanel> {
     return DataRow(
       color: color,
       cells: [
-        DataCell(_buildSpacingCell(theme, row)),
+        DataCell(_wrapCentered(_buildSpacingCell(theme, row))),
+        DataCell(_wrapCentered(_buildTapeCell(theme, row))),
         DataCell(
-          _buildResistanceCell(
-            theme,
-            row,
-            row.aResKey,
-            row.aSample,
-            OrientationKind.a,
-            row.hideA,
+          _wrapCentered(
+            _buildResistanceCell(
+              theme,
+              row,
+              row.aResKey,
+              row.aSample,
+              OrientationKind.a,
+              row.hideA,
+            ),
           ),
         ),
         DataCell(
-          _buildSdCell(
-            theme,
-            row,
-            row.aSdKey,
-            row.hideA,
-            row.sdWarningA,
+          _wrapCentered(
+            _buildSdCell(
+              theme,
+              row,
+              row.aSdKey,
+              row.hideA,
+              row.sdWarningA,
+            ),
           ),
         ),
         DataCell(
-          _buildResistanceCell(
-            theme,
-            row,
-            row.bResKey,
-            row.bSample,
-            OrientationKind.b,
-            row.hideB,
+          _wrapCentered(
+            _buildResistanceCell(
+              theme,
+              row,
+              row.bResKey,
+              row.bSample,
+              OrientationKind.b,
+              row.hideB,
+            ),
           ),
         ),
         DataCell(
-          _buildSdCell(
-            theme,
-            row,
-            row.bSdKey,
-            row.hideB,
-            row.sdWarningB,
+          _wrapCentered(
+            _buildSdCell(
+              theme,
+              row,
+              row.bSdKey,
+              row.hideB,
+              row.sdWarningB,
+            ),
           ),
         ),
-        DataCell(_buildInterpretationCell(row)),
+        DataCell(_wrapCentered(_buildInterpretationCell(row))),
       ],
     );
   }
 
+  Widget _wrapCentered(Widget child) {
+    return Align(alignment: Alignment.center, child: child);
+  }
+
   Widget _buildSpacingCell(ThemeData theme, _RowConfig row) {
-    final spacingText = row.record.spacingFeet.toStringAsFixed(2);
+    final spacingText = _formatDistance(row.record.spacingFeet);
     final tooltip =
-        'Inside: ${row.insideFeet.toStringAsFixed(2)} ft (${row.insideMeters.toStringAsFixed(2)} m)\n'
-        'Outside: ${row.outsideFeet.toStringAsFixed(2)} ft (${row.outsideMeters.toStringAsFixed(2)} m)';
+        'Inside: ${_formatDistance(row.insideFeet)} ft (${_formatMeters(row.insideMeters)} m)\n'
+        'Outside: ${_formatDistance(row.outsideFeet)} ft (${_formatMeters(row.outsideMeters)} m)';
 
     return Tooltip(
       message: tooltip,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text('$spacingText ft', style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 4),
-          Text(
-            'Inside ${row.insideFeet.toStringAsFixed(2)} ft • Outside ${row.outsideFeet.toStringAsFixed(2)} ft',
-            style: theme.textTheme.bodySmall,
-          ),
-        ],
+      child: Text(
+        '$spacingText ft',
+        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
       ),
+    );
+  }
+
+  Widget _buildTapeCell(ThemeData theme, _RowConfig row) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Inside ${_formatDistance(row.insideFeet)} ft',
+          style: theme.textTheme.bodySmall,
+        ),
+        Text(
+          'Outside ${_formatDistance(row.outsideFeet)} ft',
+          style: theme.textTheme.bodySmall,
+        ),
+      ],
     );
   }
   Widget _buildResistanceCell(
@@ -406,66 +534,93 @@ class _TablePanelState extends State<TablePanel> {
     final label = orientation == OrientationKind.a
         ? row.record.orientationA.label
         : row.record.orientationB.label;
+    final showLabel = controller.text.trim().isNotEmpty || focusNode.hasFocus;
+    final rank = _tabRanks[key] ?? 0;
 
     return Opacity(
       opacity: hide ? 0.45 : 1.0,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: theme.textTheme.labelSmall),
-          TextField(
-            controller: controller,
-            focusNode: focusNode,
-            enabled: !hide,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            textInputAction: TextInputAction.next,
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              isDense: true,
-              hintText: hide ? 'Hidden while outliers hidden' : null,
-              contentPadding: EdgeInsets.zero,
+          if (showLabel)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                label,
+                style: theme.textTheme.labelSmall,
+              ),
             ),
-            onSubmitted: (value) => _submitResistance(key, value),
-            onEditingComplete: () => _submitResistance(key, controller.text),
-          ),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              SizedBox(
+                width: 88,
+                child: FocusTraversalOrder(
+                  order: NumericFocusOrder(rank * 2),
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    enabled: !hide,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    textInputAction: TextInputAction.next,
+                    textAlign: TextAlign.right,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding:
+                          const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                      hintText: hide ? 'Hidden' : null,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (value) => _submitResistance(key, value),
+                    onEditingComplete: () =>
+                        _submitResistance(key, controller.text),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
               Tooltip(
                 message: isBad
                     ? 'Marked bad — tap to clear flag'
                     : 'Mark reading bad',
-                child: Checkbox(
-                  value: isBad,
-                  onChanged: sample == null
+                child: IconButton(
+                  iconSize: 18,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: hide
                       ? null
-                      : (value) => widget.onToggleBad(
+                      : () => widget.onToggleBad(
                             row.record.spacingFeet,
                             orientation,
-                            value ?? false,
+                            !isBad,
                           ),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    isBad ? Icons.flag : Icons.outlined_flag,
+                    color: isBad
+                        ? theme.colorScheme.error
+                        : theme.colorScheme.outline,
+                  ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.history, size: 18),
-                tooltip: 'Show $label history',
-                onPressed: () => widget.onShowHistory(
-                  row.record.spacingFeet,
-                  orientation,
+              const SizedBox(width: 4),
+              Tooltip(
+                message: 'Show edit history',
+                child: IconButton(
+                  iconSize: 18,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => widget.onShowHistory(
+                    row.record.spacingFeet,
+                    orientation,
+                  ),
+                  icon: const Icon(Icons.history),
                 ),
               ),
             ],
           ),
-          if (isBad)
-            Text(
-              'Marked bad',
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: theme.colorScheme.error,
-              ),
-            ),
         ],
       ),
     );
@@ -480,25 +635,62 @@ class _TablePanelState extends State<TablePanel> {
   ) {
     final controller = _controllers[key]!;
     final focusNode = _focusNodes[key]!;
+    final showLabel = controller.text.trim().isNotEmpty || focusNode.hasFocus;
+    final rank = _tabRanks[key] ?? 0;
     return Opacity(
       opacity: hide ? 0.45 : 1.0,
-      child: TextField(
-        controller: controller,
-        focusNode: focusNode,
-        enabled: !hide,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        textInputAction: TextInputAction.next,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-          suffixText: warning ? '⚠' : null,
-          suffixStyle: theme.textTheme.labelMedium?.copyWith(
-            color: theme.colorScheme.error,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showLabel)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'SD',
+                style: theme.textTheme.labelSmall,
+              ),
+            ),
+          SizedBox(
+            width: 56,
+            child: FocusTraversalOrder(
+              order: NumericFocusOrder(rank * 2 + 1),
+              child: TextField(
+                controller: controller,
+                focusNode: focusNode,
+                enabled: !hide,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                textInputAction: TextInputAction.next,
+                textAlign: TextAlign.right,
+                inputFormatters: const [
+                  LengthLimitingTextInputFormatter(4),
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'^[0-9]{0,2}(\.[0-9])?$'),
+                  ),
+                ],
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                  suffixText: warning ? '!' : null,
+                  suffixStyle: TextStyle(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  hintText: hide ? 'Hidden' : null,
+                  border: const OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (value) => _submitSd(key, value),
+                onEditingComplete: () => _submitSd(key, controller.text),
+              ),
+            ),
           ),
-        ),
-        onSubmitted: (value) => _submitSd(key, value),
-        onEditingComplete: () => _submitSd(key, controller.text),
+        ],
       ),
     );
   }
@@ -506,27 +698,36 @@ class _TablePanelState extends State<TablePanel> {
   Widget _buildInterpretationCell(_RowConfig row) {
     final controller = _controllers[row.interpretationKey]!;
     final focusNode = _focusNodes[row.interpretationKey]!;
-    return TextField(
-      controller: controller,
-      focusNode: focusNode,
-      maxLines: 2,
-      textInputAction: TextInputAction.done,
-      decoration: const InputDecoration(
-        border: InputBorder.none,
-        isDense: true,
-        hintText: 'Add interpretation notes',
-      ),
-      onSubmitted: (value) =>
-          widget.onInterpretationChanged(row.record.spacingFeet, value),
-      onEditingComplete: () => widget.onInterpretationChanged(
-        row.record.spacingFeet,
-        controller.text,
+    final rank = _tabRanks[row.interpretationKey] ?? _tabRanks.length.toDouble();
+    return FocusTraversalOrder(
+      order: NumericFocusOrder(rank * 2 + 1),
+      child: SizedBox(
+        width: 160,
+        child: TextField(
+          controller: controller,
+          focusNode: focusNode,
+          maxLines: 2,
+          minLines: 1,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(
+            isDense: true,
+            hintText: 'Notes',
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+          ),
+          onSubmitted: (value) =>
+              widget.onInterpretationChanged(row.record.spacingFeet, value),
+          onEditingComplete: () => widget.onInterpretationChanged(
+            row.record.spacingFeet,
+            controller.text,
+          ),
+        ),
       ),
     );
   }
   Widget _buildMetadata(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.all(12.0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -534,7 +735,7 @@ class _TablePanelState extends State<TablePanel> {
             widget.site.displayName,
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -553,22 +754,14 @@ class _TablePanelState extends State<TablePanel> {
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  initialValue: widget.site.stacks.toString(),
-                  decoration: const InputDecoration(labelText: 'Stacks'),
-                  keyboardType: TextInputType.number,
-                  onFieldSubmitted: (value) {
-                    final parsed = int.tryParse(value);
-                    if (parsed != null) {
-                      widget.onMetadataChanged(stacks: parsed);
-                    }
-                  },
-                ),
+              Chip(
+                avatar: const Icon(Icons.lock_outline, size: 16),
+                label: Text('Project default: ${widget.projectDefaultStacks} stacks'),
+                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
@@ -628,13 +821,13 @@ class _TablePanelState extends State<TablePanel> {
 
   FocusNode _createFocusNode(_FieldKey key) {
     final node = FocusNode();
-    if (key.orientation != null) {
-      node.addListener(() {
-        if (node.hasFocus) {
-          widget.onFocusChanged(key.spacingFeet, key.orientation!);
-        }
-      });
-    }
+    node.addListener(() {
+      if (!mounted) return;
+      setState(() {});
+      if (node.hasFocus && key.orientation != null) {
+        widget.onFocusChanged(key.spacingFeet, key.orientation!);
+      }
+    });
     return node;
   }
 
@@ -678,17 +871,48 @@ class _TablePanelState extends State<TablePanel> {
     return history.samples.last;
   }
 
+  String _formatDistance(double value) {
+    if ((value - value.roundToDouble()).abs() < 1e-6) {
+      return value.round().toString();
+    }
+    final tenth = (value * 10).roundToDouble() / 10;
+    if ((tenth - value).abs() < 1e-6) {
+      return _trimTrailingZeros(tenth.toStringAsFixed(1));
+    }
+    final hundredth = (value * 100).roundToDouble() / 100;
+    return _trimTrailingZeros(hundredth.toStringAsFixed(2));
+  }
+
+  String _formatMeters(double value) {
+    return _trimTrailingZeros(value.toStringAsFixed(2));
+  }
+
   String _formatResistance(double? value) {
     if (value == null || value.isNaN || value.isInfinite) {
       return '';
     }
-    return value.toStringAsFixed(2);
+    return _formatWithPrecision(value, 2);
   }
 
   String _formatSd(double? value) {
     if (value == null || value.isNaN || value.isInfinite) {
       return '';
     }
-    return value.toStringAsFixed(1);
+    return _formatWithPrecision(value, 1);
+  }
+
+  String _formatWithPrecision(double value, int fractionDigits) {
+    return _trimTrailingZeros(value.toStringAsFixed(fractionDigits));
+  }
+
+  String _trimTrailingZeros(String text) {
+    if (!text.contains('.')) {
+      return text;
+    }
+    text = text.replaceAll(RegExp(r'0+$'), '');
+    if (text.endsWith('.')) {
+      text = text.substring(0, text.length - 1);
+    }
+    return text;
   }
 }
