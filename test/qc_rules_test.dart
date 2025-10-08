@@ -53,6 +53,16 @@ void main() {
     expect(level, QaLevel.red);
   });
 
+  test('Red classification when hitting yellow residual threshold', () {
+    final point = _makePoint(110.0, sigma: kQaGreenCvLimit * 110.0);
+    final level = classifyPoint(
+      residual: kQaYellowResidualLimit,
+      coefficientOfVariation: kQaGreenCvLimit / 2,
+      point: point,
+    );
+    expect(level, QaLevel.red);
+  });
+
   test('Summary counts', () {
     final points = [
       _makePoint(100.0, sigma: 2.0),
