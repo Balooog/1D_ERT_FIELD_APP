@@ -27,21 +27,21 @@ SpacingPoint _makePoint(double rho, {double? sigma}) {
 }
 
 void main() {
-  test('Green classification stays below thresholds', () {
-    final point = _makePoint(100.0, sigma: 2.0);
+  test('Green classification includes threshold boundary', () {
+    final point = _makePoint(100.0, sigma: kQaGreenCvLimit * 100.0);
     final level = classifyPoint(
-      residual: kQaGreenResidualLimit / 2,
-      coefficientOfVariation: kQaGreenCvLimit / 2,
+      residual: kQaGreenResidualLimit,
+      coefficientOfVariation: kQaGreenCvLimit,
       point: point,
     );
     expect(level, QaLevel.green);
   });
 
-  test('Yellow classification when hitting green thresholds', () {
-    final point = _makePoint(120.0, sigma: kQaGreenCvLimit * 120.0);
+  test('Yellow classification slightly above green thresholds', () {
+    final point = _makePoint(120.0, sigma: (kQaGreenCvLimit + 0.001) * 120.0);
     final level = classifyPoint(
-      residual: kQaGreenResidualLimit,
-      coefficientOfVariation: kQaGreenCvLimit,
+      residual: kQaGreenResidualLimit + 0.001,
+      coefficientOfVariation: kQaGreenCvLimit + 0.001,
       point: point,
     );
     expect(level, QaLevel.yellow);

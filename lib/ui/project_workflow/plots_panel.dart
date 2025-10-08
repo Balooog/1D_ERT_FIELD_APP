@@ -219,17 +219,14 @@ class PlotsPanel extends StatelessWidget {
   }
 
   Iterable<double> _collectRho(SiteRecord site) sync* {
-    final qcConfig = const QcConfig();
     for (final spacing in site.spacings) {
       for (final orientation in [spacing.orientationA, spacing.orientationB]) {
         final latest = orientation.latest;
         if (latest == null || latest.resistanceOhm == null) {
           continue;
         }
-        final outlier = latest.isBad ||
-            (!showOutliers &&
-                latest.resistanceOhm!.abs() > qcConfig.outlierCapOhm);
-        if (outlier) {
+        final hideSample = !showOutliers && (latest.isBad);
+        if (hideSample) {
           continue;
         }
         yield rhoAWenner(spacing.spacingFeet, latest.resistanceOhm!);
@@ -248,17 +245,14 @@ class SeriesData {
 }
 
 SeriesData buildSeriesForSite(SiteRecord site, {required bool showOutliers}) {
-  final qcConfig = const QcConfig();
   final aSpots = <FlSpot>[];
   final bSpots = <FlSpot>[];
   for (final spacing in site.spacings) {
     final aSample = spacing.orientationA.latest;
     final bSample = spacing.orientationB.latest;
     if (aSample != null && aSample.resistanceOhm != null) {
-      final outlier = aSample.isBad ||
-          (!showOutliers &&
-              (aSample.resistanceOhm!.abs() > qcConfig.outlierCapOhm));
-      if (!outlier) {
+      final hideSample = !showOutliers && aSample.isBad;
+      if (!hideSample) {
         aSpots.add(
           FlSpot(
             math.log(spacing.spacingFeet) / math.ln10,
@@ -269,10 +263,8 @@ SeriesData buildSeriesForSite(SiteRecord site, {required bool showOutliers}) {
       }
     }
     if (bSample != null && bSample.resistanceOhm != null) {
-      final outlier = bSample.isBad ||
-          (!showOutliers &&
-              (bSample.resistanceOhm!.abs() > qcConfig.outlierCapOhm));
-      if (!outlier) {
+      final hideSample = !showOutliers && bSample.isBad;
+      if (!hideSample) {
         bSpots.add(
           FlSpot(
             math.log(spacing.spacingFeet) / math.ln10,

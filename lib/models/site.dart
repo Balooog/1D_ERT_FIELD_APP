@@ -48,6 +48,7 @@ class SpacingRecord {
     required this.spacingFeet,
     required DirectionReadingHistory orientationA,
     required DirectionReadingHistory orientationB,
+    this.interpretation,
   })  : orientationA = orientationA,
         orientationB = orientationB;
 
@@ -66,6 +67,7 @@ class SpacingRecord {
         orientation: OrientationKind.b,
         label: orientationBLabel ?? OrientationKind.b.defaultLabel,
       ),
+      interpretation: null,
     );
   }
 
@@ -78,12 +80,14 @@ class SpacingRecord {
       orientationB: DirectionReadingHistory.fromJson(
         json['orientation_b'] as Map<String, dynamic>,
       ),
+      interpretation: json['interpretation'] as String?,
     );
   }
 
   final double spacingFeet;
   final DirectionReadingHistory orientationA;
   final DirectionReadingHistory orientationB;
+  final String? interpretation;
 
   double get tapeInsideFeet => spacingFeet / 2;
 
@@ -134,11 +138,15 @@ class SpacingRecord {
     double? spacingFeet,
     DirectionReadingHistory? orientationA,
     DirectionReadingHistory? orientationB,
+    Object? interpretation = _unset,
   }) {
     return SpacingRecord(
       spacingFeet: spacingFeet ?? this.spacingFeet,
       orientationA: orientationA ?? this.orientationA,
       orientationB: orientationB ?? this.orientationB,
+      interpretation: identical(interpretation, _unset)
+          ? this.interpretation
+          : interpretation as String?,
     );
   }
 
@@ -146,6 +154,7 @@ class SpacingRecord {
         'spacing_ft': spacingFeet,
         'orientation_a': orientationA.toJson(),
         'orientation_b': orientationB.toJson(),
+        'interpretation': interpretation,
       };
 
   @override
@@ -154,11 +163,63 @@ class SpacingRecord {
     return other is SpacingRecord &&
         spacingFeet == other.spacingFeet &&
         orientationA == other.orientationA &&
-        orientationB == other.orientationB;
+        orientationB == other.orientationB &&
+        interpretation == other.interpretation;
   }
 
   @override
-  int get hashCode => Object.hash(spacingFeet, orientationA, orientationB);
+  int get hashCode =>
+      Object.hash(spacingFeet, orientationA, orientationB, interpretation);
+
+  static const String interpretationGood = 'Good consistency.';
+  static const String interpretationMinor = 'Minor variability.';
+  static const String interpretationHigh = '⚠ High SD; retest advised.';
+
+  static const Set<String> interpretationPresets = {
+    interpretationGood,
+    interpretationMinor,
+    interpretationHigh,
+  };
+
+  String? computeAutoInterpretation() {
+    final sdValues = <double>[];
+    final aSd = orientationA.latest?.standardDeviationPercent;
+    final bSd = orientationB.latest?.standardDeviationPercent;
+    if (aSd != null) {
+      sdValues.add(aSd);
+    }
+    if (bSd != null) {
+      sdValues.add(bSd);
+    }
+    if (sdValues.isEmpty) {
+      return null;
+    }
+    final worst = sdValues.reduce((value, element) =>
+        value >= element ? value : element);
+    if (worst <= 5) {
+      return interpretationGood;
+    }
+    if (worst <= 15) {
+      return interpretationMinor;
+    }
+    return interpretationHigh;
+  }
+
+  bool get hasManualInterpretation =>
+      interpretation != null && !interpretationPresets.contains(interpretation);
+
+  SpacingRecord applyAutoInterpretation() {
+    final auto = computeAutoInterpretation();
+    if (auto == null) {
+      return this;
+    }
+    if (interpretation == null || !hasManualInterpretation) {
+      return copyWith(interpretation: auto);
+    }
+    return this;
+  }
+
+  static const _unset = Object();
 }
 
 class SiteRecord {
