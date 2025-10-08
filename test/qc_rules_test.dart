@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/enums.dart';
+import 'package:ves_qc/models/project_models.dart' show ArrayType;
 import 'package:ves_qc/models/spacing_point.dart';
 import 'package:ves_qc/services/qc_rules.dart';
 
@@ -73,6 +73,18 @@ void main() {
     expect(summary.green, 1);
     expect(summary.yellow, 1);
     expect(summary.red, 1);
+  });
+
+  test('Summary treats threshold residual as yellow', () {
+    final points = [
+      _makePoint(100.0, sigma: kQaGreenCvLimit * 100.0),
+    ];
+    final residuals = [kQaGreenResidualLimit];
+    final fitted = [100.0];
+    final summary = summarizeQa(points, residuals, fitted);
+    expect(summary.green, 0);
+    expect(summary.yellow, 1);
+    expect(summary.red, 0);
   });
 
   test('Summary handles mismatched series lengths gracefully', () {
