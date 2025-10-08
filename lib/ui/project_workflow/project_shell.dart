@@ -604,6 +604,7 @@ class _ProjectShellState extends State<ProjectShell> {
                                 width: 420,
                                 child: TablePanel(
                                   site: site,
+                                  projectDefaultStacks: _project.defaultStacks,
                                   showOutliers: _showOutliers,
                                   onResistanceChanged: _handleReadingSubmitted,
                                   onSdChanged: _handleSdChanged,
@@ -636,12 +637,30 @@ class _ProjectShellState extends State<ProjectShell> {
         for (final site in _project.sites)
           ListTile(
             title: Text(site.displayName),
-            subtitle: Text('${site.spacings.length} spacings'),
+            subtitle: Text(
+              'Valid ${_validSpacingCount(site)}/${site.spacings.length} spacings',
+            ),
             selected: _selectedSite?.siteId == site.siteId,
             onTap: () => _selectSite(site),
           ),
       ],
     );
+  }
+
+  int _validSpacingCount(SiteRecord site) {
+    var valid = 0;
+    for (final spacing in site.spacings) {
+      final a = spacing.orientationA.latest;
+      final b = spacing.orientationB.latest;
+      final hasValidA =
+          a != null && !a.isBad && a.resistanceOhm != null;
+      final hasValidB =
+          b != null && !b.isBad && b.resistanceOhm != null;
+      if (hasValidA || hasValidB) {
+        valid++;
+      }
+    }
+    return valid;
   }
 }
 
