@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/services/inversion.dart';
-import 'package:ves_qc/utils/units.dart';
+import 'package:resicheck/services/inversion.dart';
+import 'package:resicheck/utils/units.dart';
 
 void main() {
   test('invert1DWenner recovers synthetic three-layer model', () async {

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/calc.dart';
-import 'package:ves_qc/models/site.dart';
+import 'package:resicheck/models/calc.dart';
+import 'package:resicheck/models/site.dart';
 
 void main() {
   test('tape helper values convert correctly for 2.5 ft spacing', () {

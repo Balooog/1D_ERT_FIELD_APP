@@ -2,12 +2,12 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/direction_reading.dart';
-import 'package:ves_qc/models/project.dart';
-import 'package:ves_qc/models/project_models.dart' show ArrayType;
-import 'package:ves_qc/models/site.dart';
-import 'package:ves_qc/services/templates_service.dart';
-import 'package:ves_qc/ui/project_workflow/plots_panel.dart';
+import 'package:resicheck/models/direction_reading.dart';
+import 'package:resicheck/models/project.dart';
+import 'package:resicheck/models/project_models.dart' show ArrayType;
+import 'package:resicheck/models/site.dart';
+import 'package:resicheck/services/templates_service.dart';
+import 'package:resicheck/ui/project_workflow/plots_panel.dart';
 
 void main() {
   testWidgets('ghost and template series render in ascending spacing order', (tester) async {

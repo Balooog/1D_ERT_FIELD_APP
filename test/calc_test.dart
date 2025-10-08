@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/calc.dart';
+import 'package:resicheck/models/calc.dart';
 
 void main() {
   test('feet to meters conversion', () {

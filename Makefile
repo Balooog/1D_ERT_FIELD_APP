@@ -1,16 +1,26 @@
-.PHONY: dev test apk format analyze
+.PHONY: dev test apk format analyze ci-test codex-prebuild
 
-dev:
-flutter run
+CI_TEST_CMD = bash scripts/ci_test_unix.sh
+ifeq ($(OS),Windows_NT)
+CI_TEST_CMD = powershell -ExecutionPolicy Bypass -File scripts/ci_test_windows.ps1
+endif
+
+dev: codex-prebuild
+	flutter run
 
 test:
-flutter test
+	flutter test
 
 format:
-dart format .
+	dart format .
 
 analyze:
-flutter analyze
+	flutter analyze
 
-apk:
-flutter build apk --release
+ci-test:
+	$(CI_TEST_CMD)
+
+codex-prebuild: ci-test
+
+apk: codex-prebuild
+	flutter build apk --release
