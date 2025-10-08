@@ -1,8 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../models/calc.dart';
 import '../../models/site.dart';
 import '../../utils/distance_unit.dart';
+import '../../utils/format.dart';
 
 class DepthProfileTab extends StatelessWidget {
   const DepthProfileTab({
@@ -34,7 +37,7 @@ class DepthProfileTab extends StatelessWidget {
     final depthUnitLabel = distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
     final trend = _trendDescription(steps);
     final message =
-        'Depth cue: $trend toward ${_formatNumber(depthValue)} $depthUnitLabel (~${_formatNumber(deepest.depthMeters)} m, ≈${deepest.rho.toStringAsFixed(0)} Ω·m).';
+        'Depth cue: $trend toward ${formatCompactValue(depthValue)} $depthUnitLabel (~${formatMetersTooltip(deepest.depthMeters)} m, ≈${formatCompactValue(deepest.rho)} Ω·m).';
 
     return Card(
       margin: const EdgeInsets.all(12),
@@ -86,20 +89,28 @@ class DepthProfileTab extends StatelessWidget {
   Widget _buildDepthTable(BuildContext context, List<_DepthStep> steps) {
     final unitLabel = distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
     final theme = Theme.of(context);
-    return DataTable(
+    final dataTable = DataTable(
       headingRowHeight: 32,
       dataRowMinHeight: 32,
-      dataRowMaxHeight: 40,
+      dataRowMaxHeight: 36,
       headingTextStyle: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
-      dataTextStyle: theme.textTheme.bodySmall,
+      dataTextStyle: theme.textTheme.bodySmall?.copyWith(
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
       columnSpacing: 24,
       horizontalMargin: 12,
       columns: [
         DataColumn(
-          label: Center(child: Text('Depth ($unitLabel)')),
+          label: SizedBox(
+            height: 32,
+            child: Center(child: Text('Depth ($unitLabel)')),
+          ),
         ),
         const DataColumn(
-          label: Center(child: Text('ρa (Ω·m)')),
+          label: SizedBox(
+            height: 32,
+            child: Center(child: Text('ρa (Ω·m)')),
+          ),
         ),
       ],
       rows: [
@@ -109,18 +120,34 @@ class DepthProfileTab extends StatelessWidget {
               DataCell(
                 Center(
                   child: Text(
-                    _formatNumber(distanceUnit.fromMeters(step.depthMeters)),
+                    formatCompactValue(distanceUnit.fromMeters(step.depthMeters)),
                   ),
                 ),
               ),
               DataCell(
                 Center(
-                  child: Text(_formatNumber(step.rho)),
+                  child: Text(formatCompactValue(step.rho)),
                 ),
               ),
             ],
           ),
       ],
+    );
+
+    final rowHeight = 36.0;
+    final totalHeight = 32.0 + steps.length * rowHeight;
+    if (totalHeight <= 160) {
+      return dataTable;
+    }
+    return SizedBox(
+      height: 160,
+      child: Scrollbar(
+        thumbVisibility: true,
+        child: SingleChildScrollView(
+          primary: false,
+          child: dataTable,
+        ),
+      ),
     );
   }
 
@@ -135,16 +162,6 @@ class DepthProfileTab extends StatelessWidget {
     return delta > 0 ? 'Resistivity increasing' : 'Resistivity decreasing';
   }
 
-  String _formatNumber(double value) {
-    var text = value.toStringAsFixed(2);
-    if (text.contains('.')) {
-      text = text.replaceAll(RegExp(r'0+$'), '');
-      if (text.endsWith('.')) {
-        text = text.substring(0, text.length - 1);
-      }
-    }
-    return text;
-  }
 }
 
 class _DepthStep {

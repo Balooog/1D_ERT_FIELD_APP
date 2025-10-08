@@ -29,46 +29,30 @@ void main() {
       );
 
       final dynamic state = tester.state(find.byType(TablePanel));
-      final Map<dynamic, dynamic> tabOrder = state._tabOrder as Map<dynamic, dynamic>;
-      final startKey = tabOrder.keys.firstWhere(
-        (dynamic key) =>
-            key.orientation == OrientationKind.a &&
-            key.type.toString().endsWith('resistance') &&
-            (key.spacingFeet as double) == 40.0,
-      );
-
-      final ordered = <Map<String, dynamic>>[];
-      dynamic current = startKey;
-      while (current != null) {
-        ordered.add({
-          'orientation': current.orientation,
-          'type': current.type.toString().split('.').last,
-          'spacing': (current.spacingFeet as double).toStringAsFixed(1),
-        });
-        current = tabOrder[current];
-      }
+      final List<FocusNode> order = List<FocusNode>.from(state.tabOrderForTest as List);
+      final labels = order.map((node) => node.debugLabel ?? '').toList();
 
       expect(
-        ordered.take(6).map((entry) => '${entry['orientation']}-${entry['type']}-${entry['spacing']}'),
+        labels.take(6),
         equals([
-          'OrientationKind.a-resistance-40.0',
-          'OrientationKind.a-sd-40.0',
-          'OrientationKind.a-resistance-20.0',
-          'OrientationKind.a-sd-20.0',
-          'OrientationKind.a-resistance-10.0',
-          'OrientationKind.a-sd-10.0',
+          'a-resistance-40.0',
+          'a-sd-40.0',
+          'a-resistance-20.0',
+          'a-sd-20.0',
+          'a-resistance-10.0',
+          'a-sd-10.0',
         ]),
       );
 
       expect(
-        ordered.skip(6).take(6).map((entry) => '${entry['orientation']}-${entry['type']}-${entry['spacing']}'),
+        labels.skip(6).take(6),
         equals([
-          'OrientationKind.b-resistance-10.0',
-          'OrientationKind.b-sd-10.0',
-          'OrientationKind.b-resistance-20.0',
-          'OrientationKind.b-sd-20.0',
-          'OrientationKind.b-resistance-40.0',
-          'OrientationKind.b-sd-40.0',
+          'b-resistance-10.0',
+          'b-sd-10.0',
+          'b-resistance-20.0',
+          'b-sd-20.0',
+          'b-resistance-40.0',
+          'b-sd-40.0',
         ]),
       );
     });
