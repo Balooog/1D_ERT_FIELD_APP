@@ -57,6 +57,7 @@ flutter test -x widget_dialog
 flutter config --enable-windows-desktop
 flutter create --platforms=windows .
 flutter run -d windows
+# Test Build Complete
 ```
 
 ## Getting started
