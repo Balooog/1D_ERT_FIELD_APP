@@ -11,6 +11,7 @@ import '../../models/site.dart';
 import '../../services/export_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/templates_service.dart';
+import '../../utils/distance_unit.dart';
 import 'depth_profile_tab.dart';
 import 'plots_panel.dart';
 import 'shortcuts.dart';
@@ -48,6 +49,7 @@ class _ProjectShellState extends State<ProjectShell> {
   int _historyIndex = -1;
   double? _focusedSpacing;
   OrientationKind? _focusedOrientation;
+  DistanceUnit _distanceUnit = DistanceUnit.feet;
 
   @override
   void initState() {
@@ -623,7 +625,10 @@ class _ProjectShellState extends State<ProjectShell> {
                   ),
                   SizedBox(
                     height: 220,
-                    child: DepthProfileTab(site: site),
+                    child: DepthProfileTab(
+                      site: site,
+                      distanceUnit: _distanceUnit,
+                    ),
                   ),
                 ],
               ),

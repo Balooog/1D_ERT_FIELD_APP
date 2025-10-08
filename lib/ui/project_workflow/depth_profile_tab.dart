@@ -2,11 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../../models/calc.dart';
 import '../../models/site.dart';
+import '../../utils/distance_unit.dart';
 
 class DepthProfileTab extends StatelessWidget {
-  const DepthProfileTab({super.key, required this.site});
+  const DepthProfileTab({
+    super.key,
+    required this.site,
+    this.distanceUnit = DistanceUnit.feet,
+  });
 
   final SiteRecord site;
+  final DistanceUnit distanceUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -24,21 +30,32 @@ class DepthProfileTab extends StatelessWidget {
     }
 
     final deepest = steps.last;
-    final depthFt = metersToFeet(deepest.depthMeters);
+    final depthValue = distanceUnit.fromMeters(deepest.depthMeters);
+    final depthUnitLabel = distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
     final trend = _trendDescription(steps);
     final message =
-        'Depth cue: $trend toward ${_formatNumber(depthFt)} ft (~${_formatNumber(deepest.depthMeters)} m, ≈${deepest.rho.toStringAsFixed(0)} Ω·m).';
+        'Depth cue: $trend toward ${_formatNumber(depthValue)} $depthUnitLabel (~${_formatNumber(deepest.depthMeters)} m, ≈${deepest.rho.toStringAsFixed(0)} Ω·m).';
 
     return Card(
       margin: const EdgeInsets.all(12),
-      child: ListTile(
-        title: Text(
-          message,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        subtitle: Text(
-          '${steps.length} spacing${steps.length == 1 ? '' : 's'} informing cue',
-          style: Theme.of(context).textTheme.bodySmall,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${steps.length} spacing${steps.length == 1 ? '' : 's'} informing cue',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            _buildDepthTable(context, steps),
+          ],
         ),
       ),
     );
@@ -64,6 +81,47 @@ class DepthProfileTab extends StatelessWidget {
     }
     steps.sort((a, b) => a.depthMeters.compareTo(b.depthMeters));
     return steps;
+  }
+
+  Widget _buildDepthTable(BuildContext context, List<_DepthStep> steps) {
+    final unitLabel = distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
+    final theme = Theme.of(context);
+    return DataTable(
+      headingRowHeight: 32,
+      dataRowMinHeight: 32,
+      dataRowMaxHeight: 40,
+      headingTextStyle: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+      dataTextStyle: theme.textTheme.bodySmall,
+      columnSpacing: 24,
+      horizontalMargin: 12,
+      columns: [
+        DataColumn(
+          label: Center(child: Text('Depth ($unitLabel)')),
+        ),
+        const DataColumn(
+          label: Center(child: Text('ρa (Ω·m)')),
+        ),
+      ],
+      rows: [
+        for (final step in steps)
+          DataRow(
+            cells: [
+              DataCell(
+                Center(
+                  child: Text(
+                    _formatNumber(distanceUnit.fromMeters(step.depthMeters)),
+                  ),
+                ),
+              ),
+              DataCell(
+                Center(
+                  child: Text(_formatNumber(step.rho)),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
   }
 
   String _trendDescription(List<_DepthStep> steps) {
