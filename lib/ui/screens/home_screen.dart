@@ -560,16 +560,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             double? resolvedRhoValue = hasRho ? rhoInput : null;
             double? resolvedResistanceValue;
             if (hasRho && geometryFactor != null && geometryFactor > 0) {
-              resolvedResistanceValue = rhoInput! / geometryFactor;
+              final rhoValue = rhoInput;
+              if (rhoValue != null) {
+                resolvedResistanceValue = rhoValue / geometryFactor;
+              }
             } else if (!hasRho && hasResistance && geometryFactor != null && geometryFactor > 0) {
-              resolvedResistanceValue = resistanceInput;
-              resolvedRhoValue = resistanceInput! * geometryFactor;
+              final resistanceValue = resistanceInput;
+              if (resistanceValue != null) {
+                resolvedResistanceValue = resistanceValue;
+                resolvedRhoValue = resistanceValue * geometryFactor;
+              }
             }
 
-            final computedResistance =
-                hasRho && geometryFactor != null && geometryFactor > 0 ? rhoInput! / geometryFactor : null;
-            final computedRho = !hasRho && hasResistance && geometryFactor != null && geometryFactor > 0
-                ? resistanceInput! * geometryFactor
+            final rhoValue = rhoInput;
+            final resistanceValue = resistanceInput;
+            final computedResistance = rhoValue != null && geometryFactor != null && geometryFactor > 0
+                ? rhoValue / geometryFactor
+                : null;
+            final computedRho = resistanceValue != null && !hasRho && hasResistance && geometryFactor != null && geometryFactor > 0
+                ? resistanceValue * geometryFactor
                 : null;
 
             final rhoFromVi = (voltage != null && current != null && current != 0 && spacingMeters != null)
@@ -799,14 +808,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             return;
                           }
 
-                          final spacingFeetValue = spacingFeet!;
+                          final spacingFeetValue = spacingFeet;
+                          if (spacingFeetValue == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('A-spacing is required.')),
+                            );
+                            return;
+                          }
                           final spacingMetersValue = feetToMeters(spacingFeetValue);
                           final geometry = _geometryFactorForArray(arrayType, spacingMetersValue);
                           double? finalRho = resolvedRhoValue;
                           double? finalResistance = resolvedResistanceValue;
                           if (finalRho == null && hasResistance && geometry > 0) {
-                            finalRho = resistanceInput! * geometry;
-                            finalResistance = resistanceInput;
+                            final resistanceValue = resistanceInput;
+                            if (resistanceValue != null) {
+                              finalRho = resistanceValue * geometry;
+                              finalResistance = resistanceValue;
+                            }
                           }
                           if (finalRho == null || finalRho <= 0) {
                             ScaffoldMessenger.of(context).showSnackBar(
