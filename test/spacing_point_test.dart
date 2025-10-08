@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/enums.dart';
+import 'package:ves_qc/models/project_models.dart' show ArrayType;
 import 'package:ves_qc/models/spacing_point.dart';
 
 void main() {

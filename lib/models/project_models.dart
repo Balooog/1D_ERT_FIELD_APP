@@ -3,6 +3,8 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'project_models.g.dart';
 
+export 'enums.dart' show ArrayType;
+
 enum Direction { a, b }
 
 const _unset = Object();

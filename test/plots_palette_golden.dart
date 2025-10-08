@@ -2,10 +2,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/models/direction_reading.dart';
-import '../lib/models/project.dart';
-import '../lib/models/site.dart';
-import '../lib/ui/project_workflow/plots_panel.dart';
+import 'package:ves_qc/models/direction_reading.dart';
+import 'package:ves_qc/models/project.dart';
+import 'package:ves_qc/models/project_models.dart' show ArrayType;
+import 'package:ves_qc/models/site.dart';
+import 'package:ves_qc/ui/project_workflow/plots_panel.dart';
 
 void main() {
   testWidgets('plots panel uses Okabe–Ito palette and markers', (tester) async {
@@ -37,6 +38,7 @@ void main() {
     expect(eastSeries.color, const Color(0xFFD55E00));
     expect(averageSeries.color, const Color(0xFF595959));
     expect(averageSeries.dashArray, equals(const [6, 6]));
+    expect(averageSeries.dotData.show, isTrue);
 
     final circlePainter = northSeries.dotData.getDotPainter!(
       northSeries.spots.first,
@@ -50,8 +52,15 @@ void main() {
       eastSeries,
       0,
     );
+    final trianglePainter = averageSeries.dotData.getDotPainter!(
+      averageSeries.spots.first,
+      0,
+      averageSeries,
+      0,
+    );
     expect(circlePainter, isA<FlDotCirclePainter>());
     expect(squarePainter, isA<FlDotSquarePainter>());
+    expect(trianglePainter.runtimeType.toString(), equals('_TriangleDotPainter'));
 
     expect(find.text('N–S'), findsOneWidget);
     expect(find.text('W–E'), findsOneWidget);

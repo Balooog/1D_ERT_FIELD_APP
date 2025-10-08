@@ -23,6 +23,8 @@ void main() {
     expect(result.misfit.isFinite, isTrue);
     expect(result.resistivities.length, equals(3));
     expect(result.depthsM.length, equals(3));
+    expect(result.fitCurve.length, equals(synthetic.length));
+    expect(result.misfit, lessThan(0.2));
 
     final recoveredThicknesses = _boundariesToThickness(result.depthsM);
     expect(recoveredThicknesses.length, equals(3));

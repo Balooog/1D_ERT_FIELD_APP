@@ -21,16 +21,39 @@ class OneDInversionResult {
   bool get isFallback => misfit.isInfinite;
 }
 
+class _InversionAttempt {
+  const _InversionAttempt({
+    required this.depths,
+    required this.resistivities,
+    required this.fit,
+    required this.misfit,
+  });
+
+  final List<double> depths;
+  final List<double> resistivities;
+  final List<double> fit;
+  final double misfit;
+
+  OneDInversionResult toResult() {
+    return OneDInversionResult(
+      depthsM: List<double>.from(depths),
+      resistivities: List<double>.from(resistivities),
+      fitCurve: List<double>.from(fit),
+      misfit: misfit,
+    );
+  }
+}
+
 Future<OneDInversionResult> invert1DWenner({
   required List<double> aFt,
   required List<double> rhoAppNS,
   required List<double> rhoAppWE,
   int maxLayers = 3,
   double minRho = 1.0,
-  double maxRho = 5000.0,
+  double maxRho = 10000.0,
   double minThick = 0.2,
-  double maxThick = 15.0,
-  double regLambda = 0.3,
+  double maxThick = 20.0,
+  double regLambda = 0.25,
   double outlierSdPct = 20,
 }) async {
   final aggregated = _aggregateMeasurements(
@@ -78,31 +101,75 @@ OneDInversionResult _runLayeredInversion({
   required double regLambda,
 }) {
   final layerCount = math.max(1, math.min(maxLayers, aggregated.length));
-  final depths = _estimateLayerBoundaries(
+  final baseDepths = _estimateLayerBoundaries(
     aggregated,
     layerCount: layerCount,
     minThick: minThick,
     maxThick: maxThick,
   );
-  final resistivities = _estimateLayerResistivities(
-    aggregated,
-    layerCount: layerCount,
+
+  final baseAttempt = _solveForDepths(
+    aggregated: aggregated,
+    depths: baseDepths,
     minRho: minRho,
     maxRho: maxRho,
+    minThick: minThick,
+    maxThick: maxThick,
     regLambda: regLambda,
   );
-  final thicknesses = _buildThicknesses(depths, minThick, maxThick);
-  final spacingMeters = aggregated.map((m) => m.spacingMeters).toList();
-  final logRhos = resistivities.map(math.log).toList();
-  final fit = _forwardApparentRho(spacingMeters, thicknesses, logRhos);
-  final observed = aggregated.map((m) => m.rho).toList();
-  final misfit = _normalizedMisfit(observed, fit);
-  return OneDInversionResult(
-    depthsM: depths,
-    resistivities: resistivities,
-    fitCurve: fit,
-    misfit: misfit,
+
+  if (layerCount < 3) {
+    return baseAttempt.toResult();
+  }
+
+  final effectiveLayers = _effectiveLayerCount(baseAttempt.resistivities);
+  if (effectiveLayers >= layerCount) {
+    return baseAttempt.toResult();
+  }
+
+  final thicknesses = _buildThicknesses(baseAttempt.depths, minThick, maxThick);
+  final splitIndex = _thickestLayerIndex(thicknesses);
+  if (splitIndex == null) {
+    return baseAttempt.toResult();
+  }
+
+  final guard = math.max(minThick, 0.3);
+  final top = splitIndex == 0 ? 0.0 : baseAttempt.depths[splitIndex - 1];
+  final bottom = baseAttempt.depths[splitIndex];
+  final depthSamples = aggregated
+      .map((m) => feetToMeters(m.spacingFt * 0.5))
+      .where((depth) => depth > top && depth < bottom)
+      .toList()
+    ..sort();
+  if (depthSamples.isEmpty) {
+    return baseAttempt.toResult();
+  }
+
+  final adjustedDepths = List<double>.from(baseAttempt.depths);
+  var candidate = _quantile(depthSamples, 0.5);
+  final minAllowed = top + guard;
+  final maxAllowed = math.max(minAllowed, math.min(bottom - guard, top + maxThick));
+  candidate = candidate.clamp(minAllowed, maxAllowed);
+  if (candidate <= top || candidate >= bottom) {
+    return baseAttempt.toResult();
+  }
+  adjustedDepths[splitIndex] = candidate;
+
+  final restartAttempt = _solveForDepths(
+    aggregated: aggregated,
+    depths: adjustedDepths,
+    minRho: minRho,
+    maxRho: maxRho,
+    minThick: minThick,
+    maxThick: maxThick,
+    regLambda: regLambda,
   );
+
+  if (restartAttempt.misfit < baseAttempt.misfit * 0.95) {
+    return restartAttempt.toResult();
+  }
+
+  return baseAttempt.toResult();
 }
 
 OneDInversionResult _fallbackResult(List<_AggregatedMeasurement> aggregated) {
@@ -120,6 +187,36 @@ OneDInversionResult _fallbackResult(List<_AggregatedMeasurement> aggregated) {
     resistivities: resistivities,
     fitCurve: fit,
     misfit: double.infinity,
+  );
+}
+
+_InversionAttempt _solveForDepths({
+  required List<_AggregatedMeasurement> aggregated,
+  required List<double> depths,
+  required double minRho,
+  required double maxRho,
+  required double minThick,
+  required double maxThick,
+  required double regLambda,
+}) {
+  final spacingMeters = aggregated.map((m) => m.spacingMeters).toList();
+  final thicknesses = _buildThicknesses(depths, minThick, maxThick);
+  final resistivities = _estimateLayerResistivities(
+    aggregated,
+    depths: depths,
+    minRho: minRho,
+    maxRho: maxRho,
+    regLambda: regLambda,
+  );
+  final logRhos = resistivities.map(math.log).toList();
+  final fit = _forwardApparentRho(spacingMeters, thicknesses, logRhos);
+  final observed = aggregated.map((m) => m.rho).toList();
+  final misfit = _normalizedMisfit(observed, fit);
+  return _InversionAttempt(
+    depths: List<double>.from(depths),
+    resistivities: List<double>.from(resistivities),
+    fit: List<double>.from(fit),
+    misfit: misfit,
   );
 }
 
@@ -194,22 +291,34 @@ List<double> _estimateLayerBoundaries(
   required double minThick,
   required double maxThick,
 }) {
+  if (layerCount <= 0) {
+    return const [];
+  }
+  final guard = math.max(minThick, 0.3);
   final depthSamples = aggregated
       .map((m) => feetToMeters(m.spacingFt * 0.5))
       .toList()
     ..sort();
+  final maxDepthAvailable =
+      depthSamples.isEmpty ? guard * layerCount : depthSamples.last;
   final result = <double>[];
   var previous = 0.0;
-  final maxDepthAvailable = depthSamples.isEmpty ? maxThick * layerCount : depthSamples.last;
   for (var i = 1; i <= layerCount; i++) {
-    final fraction = i / layerCount;
-    var target = _quantile(depthSamples, fraction);
-    final minDepth = previous + minThick;
-    final maxDepth = previous + maxThick;
-    final allowedMax = math.max(minDepth, math.min(maxDepthAvailable, maxDepth));
-    target = target.clamp(minDepth, allowedMax);
-    if (target <= previous) {
-      target = math.min(allowedMax, previous + minThick);
+    final fraction = depthSamples.isEmpty ? i / layerCount : i / layerCount;
+    var target = depthSamples.isEmpty
+        ? previous + guard
+        : _quantile(depthSamples, fraction);
+    final minDepth = previous + guard;
+    final maxDepth = math.min(previous + maxThick, maxDepthAvailable);
+    final clampedMax = math.max(minDepth, maxDepth);
+    if (target < minDepth) {
+      target = minDepth;
+    }
+    if (target > clampedMax) {
+      target = clampedMax;
+    }
+    if (target - previous < guard) {
+      target = math.min(clampedMax, previous + guard);
     }
     result.add(target);
     previous = target;
@@ -219,27 +328,56 @@ List<double> _estimateLayerBoundaries(
 
 List<double> _estimateLayerResistivities(
   List<_AggregatedMeasurement> aggregated, {
-  required int layerCount,
+  required List<double> depths,
   required double minRho,
   required double maxRho,
   required double regLambda,
 }) {
-  final logValues = aggregated.map((m) => math.log(m.rho)).toList()..sort();
+  if (depths.isEmpty) {
+    final median = _median(aggregated.map((m) => m.rho).toList()) ?? minRho;
+    return [median.clamp(minRho, maxRho).toDouble()];
+  }
+  final allLogs = aggregated.map((m) => math.log(m.rho)).toList()..sort();
   final resistivities = <double>[];
-  for (var i = 0; i < layerCount; i++) {
-    final fraction = (i + 0.5) / layerCount;
-    final logValue = _quantile(logValues, fraction);
+  for (var i = 0; i < depths.length; i++) {
+    final top = i == 0 ? 0.0 : depths[i - 1];
+    final bottom = depths[i];
+    final logsInLayer = <double>[];
+    for (final measurement in aggregated) {
+      final depth = feetToMeters(measurement.spacingFt * 0.5);
+      final isLastLayer = i == depths.length - 1;
+      final withinLayer =
+          isLastLayer ? depth >= top : (depth >= top && depth < bottom);
+      if (withinLayer) {
+        logsInLayer.add(math.log(measurement.rho));
+      }
+    }
+    double logValue;
+    if (logsInLayer.isEmpty) {
+      final fraction = (i + 0.5) / depths.length;
+      logValue = _quantile(allLogs, fraction);
+    } else {
+      logsInLayer.sort();
+      final mid = logsInLayer.length ~/ 2;
+      if (logsInLayer.length.isOdd) {
+        logValue = logsInLayer[mid];
+      } else {
+        logValue = (logsInLayer[mid - 1] + logsInLayer[mid]) / 2;
+      }
+    }
     final rho = math.exp(logValue).clamp(minRho, maxRho).toDouble();
     resistivities.add(rho);
   }
   final lambda = regLambda.clamp(0.0, 1.0);
   if (resistivities.length > 1 && lambda > 0) {
     for (var i = 1; i < resistivities.length; i++) {
-      final blended = lambda * resistivities[i - 1] + (1 - lambda) * resistivities[i];
+      final blended =
+          lambda * resistivities[i - 1] + (1 - lambda) * resistivities[i];
       resistivities[i] = blended.clamp(minRho, maxRho);
     }
     for (var i = resistivities.length - 2; i >= 0; i--) {
-      final blended = lambda * resistivities[i + 1] + (1 - lambda) * resistivities[i];
+      final blended =
+          lambda * resistivities[i + 1] + (1 - lambda) * resistivities[i];
       resistivities[i] = blended.clamp(minRho, maxRho);
     }
   }
@@ -262,6 +400,38 @@ List<double?> _buildThicknesses(List<double> boundaries, double minThick, double
     }
   }
   return thicknesses;
+}
+
+int _effectiveLayerCount(List<double> resistivities) {
+  if (resistivities.isEmpty) {
+    return 0;
+  }
+  var count = 1;
+  for (var i = 1; i < resistivities.length; i++) {
+    final prev = resistivities[i - 1].abs();
+    final curr = resistivities[i].abs();
+    final denom = math.max(prev, 1e-6);
+    if ((curr - prev).abs() / denom > 0.08) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+int? _thickestLayerIndex(List<double?> thicknesses) {
+  var maxThickness = 0.0;
+  int? index;
+  for (var i = 0; i < thicknesses.length; i++) {
+    final thickness = thicknesses[i];
+    if (thickness == null) {
+      continue;
+    }
+    if (thickness > maxThickness) {
+      maxThickness = thickness;
+      index = i;
+    }
+  }
+  return index;
 }
 
 List<double> _forwardApparentRho(

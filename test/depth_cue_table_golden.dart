@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/models/direction_reading.dart';
-import '../lib/models/site.dart';
-import '../lib/ui/project_workflow/depth_profile_tab.dart';
+import 'package:ves_qc/models/direction_reading.dart';
+import 'package:ves_qc/models/site.dart';
+import 'package:ves_qc/ui/project_workflow/depth_profile_tab.dart';
 
 void main() {
   testWidgets('depth cue table clamps to 160px with scroll', (tester) async {

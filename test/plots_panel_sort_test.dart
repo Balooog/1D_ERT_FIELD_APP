@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ves_qc/models/direction_reading.dart';
-import 'package:ves_qc/models/enums.dart';
 import 'package:ves_qc/models/project.dart';
+import 'package:ves_qc/models/project_models.dart' show ArrayType;
 import 'package:ves_qc/models/site.dart';
 import 'package:ves_qc/services/templates_service.dart';
 import 'package:ves_qc/ui/project_workflow/plots_panel.dart';
