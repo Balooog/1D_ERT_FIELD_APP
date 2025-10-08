@@ -43,4 +43,42 @@ void main() {
     final shown = buildSeriesForSite(site, showOutliers: true);
     expect(shown.aSeries.length, 1);
   });
+
+  test('hide outliers keeps unflagged high resistance readings visible', () {
+    final site = SiteRecord(
+      siteId: 'SiteB',
+      displayName: 'Site B',
+      spacings: [
+        SpacingRecord(
+          spacingFeet: 10,
+          orientationA: DirectionReadingHistory(
+            orientation: OrientationKind.a,
+            label: 'N–S',
+            samples: [
+              DirectionReadingSample(
+                timestamp: DateTime.now(),
+                resistanceOhm: 250000,
+                isBad: false,
+              ),
+            ],
+          ),
+          orientationB: DirectionReadingHistory(
+            orientation: OrientationKind.b,
+            label: 'W–E',
+            samples: [
+              DirectionReadingSample(
+                timestamp: DateTime.now(),
+                resistanceOhm: 240000,
+                isBad: false,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    final hidden = buildSeriesForSite(site, showOutliers: false);
+    expect(hidden.aSeries, isNotEmpty);
+    expect(hidden.bSeries, isNotEmpty);
+  });
 }
