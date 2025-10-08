@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/project_models.dart' show ArrayType;
-import 'package:ves_qc/models/spacing_point.dart';
-import 'package:ves_qc/services/qc_rules.dart';
+import 'package:resicheck/models/project_models.dart' show ArrayType;
+import 'package:resicheck/models/spacing_point.dart';
+import 'package:resicheck/services/qc_rules.dart';
 
 SpacingPoint _makePoint(double rho, {double? sigma}) {
   const spacingMeters = 5.0;

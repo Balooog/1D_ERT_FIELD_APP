@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/direction_reading.dart';
-import 'package:ves_qc/models/project.dart';
-import 'package:ves_qc/models/site.dart';
-import 'package:ves_qc/services/export_service.dart';
-import 'package:ves_qc/services/storage_service.dart';
+import 'package:resicheck/models/direction_reading.dart';
+import 'package:resicheck/models/project.dart';
+import 'package:resicheck/models/site.dart';
+import 'package:resicheck/services/export_service.dart';
+import 'package:resicheck/services/storage_service.dart';
 
 void main() {
   test('CSV exporter writes ordered spacings', () async {

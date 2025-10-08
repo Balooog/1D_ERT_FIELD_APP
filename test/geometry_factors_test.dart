@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/services/geometry_factors.dart';
+import 'package:resicheck/services/geometry_factors.dart';
 
 void main() {
   test('Wenner geometry factor', () {

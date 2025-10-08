@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:ves_qc/models/project_models.dart';
-import 'package:ves_qc/services/persistence.dart';
-import 'package:ves_qc/state/project_controller.dart';
+import 'package:resicheck/models/project_models.dart';
+import 'package:resicheck/services/persistence.dart';
+import 'package:resicheck/state/project_controller.dart';
 
 class InMemoryPersistence extends PersistenceService {
   InMemoryPersistence() : super();

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/direction_reading.dart';
-import 'package:ves_qc/models/site.dart';
-import 'package:ves_qc/ui/project_workflow/table_panel.dart';
+import 'package:resicheck/models/direction_reading.dart';
+import 'package:resicheck/models/site.dart';
+import 'package:resicheck/ui/project_workflow/table_panel.dart';
 
 void main() {
   group('TablePanel focus traversal', () {

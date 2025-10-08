@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/calc.dart';
-import 'package:ves_qc/models/direction_reading.dart';
-import 'package:ves_qc/models/site.dart';
-import 'package:ves_qc/ui/project_workflow/depth_profile_tab.dart';
+import 'package:resicheck/models/calc.dart';
+import 'package:resicheck/models/direction_reading.dart';
+import 'package:resicheck/models/site.dart';
+import 'package:resicheck/ui/project_workflow/depth_profile_tab.dart';
 
 void main() {
   testWidgets('depth table uses 0.5·a and averages valid resistivity', (tester) async {

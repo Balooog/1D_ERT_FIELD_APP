@@ -3,9 +3,9 @@ import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/project_models.dart' show ArrayType;
-import 'package:ves_qc/models/spacing_point.dart';
-import 'package:ves_qc/services/csv_io.dart';
+import 'package:resicheck/models/project_models.dart' show ArrayType;
+import 'package:resicheck/models/spacing_point.dart';
+import 'package:resicheck/services/csv_io.dart';
 
 void main() {
   test('CSV roundtrip preserves feet, rho, sigma, and direction', () async {
