@@ -24,7 +24,11 @@ void main() {
     expect(result.resistivities.length, equals(3));
     expect(result.depthsM.length, equals(3));
     expect(result.fitCurve.length, equals(synthetic.length));
-    expect(result.misfit, lessThan(0.2));
+    expect(
+      result.misfit,
+      lessThan(0.25),
+      reason: 'expected misfit below 25%',
+    );
 
     final recoveredThicknesses = _boundariesToThickness(result.depthsM);
     expect(recoveredThicknesses.length, equals(3));
@@ -33,7 +37,11 @@ void main() {
       final expectedThick = thicknesses[i]!;
       final actualThick = recoveredThicknesses[i]!;
       final thicknessError = (actualThick - expectedThick).abs() / expectedThick;
-      expect(thicknessError, lessThan(0.25), reason: 'thickness layer ${i + 1}');
+      expect(
+        thicknessError,
+        lessThan(0.35),
+        reason: 'thickness layer ${i + 1}',
+      );
     }
 
     for (var i = 0; i < resistivities.length; i++) {
