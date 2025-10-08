@@ -1,11 +1,17 @@
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/project_models.dart' show ArrayType;
-import 'package:ves_qc/models/spacing_point.dart';
-import 'package:ves_qc/services/qc_rules.dart';
+import 'package:resicheck/models/project_models.dart' show ArrayType;
+import 'package:resicheck/models/spacing_point.dart';
+import 'package:resicheck/services/qc_rules.dart';
 
 SpacingPoint _makePoint(double rho, {double? sigma}) {
   const spacingMeters = 5.0;
+  const current = 0.5;
+  final geometryFactor = 2 * math.pi * spacingMeters;
+  final resistance = rho / geometryFactor;
+  final voltage = resistance * current;
   return SpacingPoint(
     id: '1',
     arrayType: ArrayType.wenner,
@@ -14,8 +20,8 @@ SpacingPoint _makePoint(double rho, {double? sigma}) {
     rhoAppOhmM: rho,
     sigmaRhoOhmM: sigma,
     direction: SoundingDirection.other,
-    voltageV: 1.0,
-    currentA: 0.5,
+    voltageV: voltage,
+    currentA: current,
     contactR: const {'c1': 100.0, 'c2': 150.0},
     spDriftMv: 1.0,
     stacks: 1,
