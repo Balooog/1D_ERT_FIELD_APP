@@ -212,10 +212,8 @@ class PlotsPanel extends StatelessWidget {
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
                   return _TriangleDotPainter(
-                    size: 8,
                     color: _averageGray,
-                    strokeColor: theme.colorScheme.surface,
-                    strokeWidth: 1.5,
+                    size: 4,
                   );
                 },
               ),
@@ -502,64 +500,51 @@ class _LegendLinePainter extends CustomPainter {
 
 class _TriangleDotPainter extends FlDotPainter {
   const _TriangleDotPainter({
-    required this.size,
     required this.color,
-    required this.strokeColor,
-    this.strokeWidth = 1.5,
+    this.size = 4.0,
   });
 
-  final double size;
   final Color color;
-  final Color strokeColor;
-  final double strokeWidth;
+  final double size;
 
   @override
-  Size getSize(FlSpot spot) => Size.square(size);
-
-  @override
-  void paint(
-    Canvas canvas,
-    FlSpot spot,
-    Offset offsetInCanvas,
-    Color barColor,
-    double? size,
-  ) {
-    final half = this.size / 2;
+  void draw(Canvas canvas, FlSpot spot, Offset offsetInCanvas) {
     final path = Path()
-      ..moveTo(offsetInCanvas.dx, offsetInCanvas.dy - half)
-      ..lineTo(offsetInCanvas.dx + half, offsetInCanvas.dy + half)
-      ..lineTo(offsetInCanvas.dx - half, offsetInCanvas.dy + half)
+      ..moveTo(offsetInCanvas.dx, offsetInCanvas.dy - size)
+      ..lineTo(offsetInCanvas.dx - size, offsetInCanvas.dy + size)
+      ..lineTo(offsetInCanvas.dx + size, offsetInCanvas.dy + size)
       ..close();
-    final fill = Paint()
+    final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-    canvas.drawPath(path, fill);
-    if (strokeWidth > 0) {
-      final stroke = Paint()
-        ..color = strokeColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth;
-      canvas.drawPath(path, stroke);
-    }
+    canvas.drawPath(path, paint);
   }
 
   @override
-  bool hitTest(FlSpot spot, Offset touchedPoint, Offset centerOffset) {
-    final halfExtent = size / 2 + strokeWidth;
-    final rect = Rect.fromCircle(center: centerOffset, radius: halfExtent);
-    return rect.contains(touchedPoint);
+  Size getSize(FlSpot spot) {
+    final extent = size * 2;
+    return Size(extent, extent);
   }
 
   @override
-  FlDotPainter lerp(FlDotPainter other, double t) {
-    if (other is _TriangleDotPainter) {
-      return _TriangleDotPainter(
-        size: size + (other.size - size) * t,
-        color: Color.lerp(color, other.color, t) ?? color,
-        strokeColor: Color.lerp(strokeColor, other.strokeColor, t) ?? strokeColor,
-        strokeWidth: strokeWidth + (other.strokeWidth - strokeWidth) * t,
-      );
-    }
+  bool hitTest(
+    FlSpot spot,
+    Offset touchedPoint,
+    Offset centerOffset,
+    double dotSize,
+  ) {
+    final radius = math.max(size, dotSize / 2) + 1.0;
+    return (touchedPoint - centerOffset).distance <= radius;
+  }
+
+  @override
+  FlDotPainter lerp(FlDotPainter a, FlDotPainter b, double t) {
     return this;
   }
+
+  @override
+  Color get mainColor => color;
+
+  @override
+  List<Object?> get props => <Object?>[color, size];
 }
