@@ -141,19 +141,24 @@ OneDInversionResult _runLayeredInversion({
       .where((depth) => depth > top && depth < bottom)
       .toList()
     ..sort();
-  if (depthSamples.isEmpty) {
-    return baseAttempt.toResult();
-  }
 
   final adjustedDepths = List<double>.from(baseAttempt.depths);
-  var candidate = _quantile(depthSamples, 0.5);
+  final midpoint = top + (bottom - top) / 2;
+  final sampledDepth =
+      depthSamples.isEmpty ? midpoint : _quantile(depthSamples, 0.5);
   final minAllowed = top + guard;
-  final maxAllowed = math.max(minAllowed, math.min(bottom - guard, top + maxThick));
-  candidate = candidate.clamp(minAllowed, maxAllowed);
+  final maxAllowed = math.max(
+    minAllowed,
+    math.min(bottom - guard, top + maxThick),
+  );
+  final candidate = sampledDepth.clamp(minAllowed, maxAllowed);
   if (candidate <= top || candidate >= bottom) {
     return baseAttempt.toResult();
   }
   adjustedDepths[splitIndex] = candidate;
+  for (var i = splitIndex + 1; i < adjustedDepths.length; i++) {
+    adjustedDepths[i] = math.max(adjustedDepths[i], candidate + guard);
+  }
 
   final restartAttempt = _solveForDepths(
     aggregated: aggregated,
@@ -165,7 +170,14 @@ OneDInversionResult _runLayeredInversion({
     regLambda: regLambda,
   );
 
-  if (restartAttempt.misfit < baseAttempt.misfit * 0.95) {
+  final restartLayers = _effectiveLayerCount(restartAttempt.resistivities);
+  final restartImprovesLayers = restartLayers > effectiveLayers;
+  final restartImprovesMisfit = restartAttempt.misfit <= baseAttempt.misfit;
+  final restartAcceptableMisfit =
+      restartAttempt.misfit <= baseAttempt.misfit * 1.05;
+
+  if (restartImprovesMisfit ||
+      (restartImprovesLayers && restartAcceptableMisfit)) {
     return restartAttempt.toResult();
   }
 
