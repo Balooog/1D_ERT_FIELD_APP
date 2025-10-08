@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:meta/meta.dart';
 
 import '../../models/calc.dart';
 import '../../models/direction_reading.dart';
@@ -317,11 +315,11 @@ class _TablePanelState extends State<TablePanel> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxHeight = constraints.hasBoundedHeight
-            ? math.min(constraints.maxHeight, 420.0)
-            : 420.0;
+            ? math.min(constraints.maxHeight, 460.0)
+            : 460.0;
         final minWidth = constraints.hasBoundedWidth
             ? constraints.maxWidth
-            : 640.0;
+            : 520.0;
         final headingStyle = theme.textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w600,
           fontSize: 12,
@@ -352,11 +350,11 @@ class _TablePanelState extends State<TablePanel> {
                       child: DataTable(
                         headingTextStyle: headingStyle,
                         dataTextStyle: dataStyle,
-                        dataRowMinHeight: 40,
-                        dataRowMaxHeight: 44,
+                        dataRowMinHeight: 72,
+                        dataRowMaxHeight: 84,
                         headingRowHeight: 40,
-                        columnSpacing: 12,
-                        horizontalMargin: 12,
+                        columnSpacing: 8,
+                        horizontalMargin: 8,
                         columns: [
                           const DataColumn(
                             label: SizedBox(
@@ -369,7 +367,7 @@ class _TablePanelState extends State<TablePanel> {
                               height: 40,
                               child: Center(
                                 child: Text(
-                                  'Inside / Outside (ft)',
+                                  'Pins at (ft)',
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -380,7 +378,7 @@ class _TablePanelState extends State<TablePanel> {
                               height: 40,
                               child: Center(
                                 child: Text(
-                                  'Res $orientationALabel (Ω)',
+                                  'Res $orientationALabel\n(Ω)',
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -391,7 +389,7 @@ class _TablePanelState extends State<TablePanel> {
                               height: 40,
                               child: Center(
                                 child: Text(
-                                  'Res $orientationBLabel (Ω)',
+                                  'Res $orientationBLabel\n(Ω)',
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -504,50 +502,49 @@ class _TablePanelState extends State<TablePanel> {
     final tooltip = hasCustom
         ? customNote!
         : (autoNote ?? 'Tap to record interpretation notes');
-    final buttonStyle = TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      minimumSize: const Size(0, 0),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
-
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Tooltip(
-            message:
-                'Inside: ${formatCompactValue(row.insideFeet)} ft (${formatMetersTooltip(row.insideMeters)} m)\n'
-                'Outside: ${formatCompactValue(row.outsideFeet)} ft (${formatMetersTooltip(row.outsideMeters)} m)',
-            child: Text(
-              '$spacingText ft',
-              textAlign: TextAlign.center,
-              style:
-                  theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+      child: SizedBox(
+        width: 120,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Tooltip(
+              message:
+                  'Inside: ${formatCompactValue(row.insideFeet)} ft (${formatMetersTooltip(row.insideMeters)} m)\n'
+                  'Outside: ${formatCompactValue(row.outsideFeet)} ft (${formatMetersTooltip(row.outsideMeters)} m)',
+              child: Text(
+                '$spacingText ft',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 180),
-            child: Tooltip(
+            const SizedBox(height: 4),
+            Tooltip(
               message: tooltip,
-              child: TextButton(
-                onPressed: () => _editInterpretation(row),
-                style: buttonStyle,
-                child: Text(
-                  displayText,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: hasCustom
-                        ? theme.colorScheme.primary
-                        : theme.colorScheme.secondary,
+              child: GestureDetector(
+                onTap: () => _editInterpretation(row),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                  child: Text(
+                    displayText,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: hasCustom
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.secondary,
+                      fontStyle: hasCustom ? FontStyle.normal : FontStyle.italic,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -560,17 +557,22 @@ class _TablePanelState extends State<TablePanel> {
         'Outside electrodes at ${formatMetersTooltip(row.outsideMeters)} m';
 
     return Center(
-      child: Tooltip(
-        message: tooltip,
-        child: Text(
-          '$inside / $outside',
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
+      child: SizedBox(
+        width: 120,
+        child: Tooltip(
+          message: tooltip,
+          child: Text(
+            '$inside / $outside',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
           ),
         ),
       ),
     );
   }
+
   Widget _buildResistanceCell(
     ThemeData theme,
     _RowConfig row,
@@ -579,12 +581,13 @@ class _TablePanelState extends State<TablePanel> {
     OrientationKind orientation,
     bool hide,
   ) {
-    final controller = _controllers[key]!;
-    final focusNode = _focusNodes[key]!;
+    final controller = _controllers[key];
+    final focusNode = _focusNodes[key];
+    if (controller == null || focusNode == null) {
+      return const SizedBox.shrink();
+    }
+
     final isBad = sample?.isBad ?? false;
-    final label = orientation == OrientationKind.a
-        ? row.record.orientationA.label
-        : row.record.orientationB.label;
     final rank = _tabRanks[key] ?? 0;
     final sdValue = orientation == OrientationKind.a ? row.sdValueA : row.sdValueB;
     final sdWarning =
@@ -598,28 +601,23 @@ class _TablePanelState extends State<TablePanel> {
         ? theme.colorScheme.error
         : theme.textTheme.labelSmall?.color ?? theme.colorScheme.onSurfaceVariant;
     final buttonStyle = TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      minimumSize: const Size(0, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      minimumSize: const Size(0, 28),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
     );
+    const controlDensity = VisualDensity(horizontal: -3, vertical: -3);
 
     return Center(
       child: Opacity(
         opacity: hide ? 0.45 : 1.0,
         child: SizedBox(
-          width: 180,
+          width: 140,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                label,
-                style: theme.textTheme.labelSmall,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
               SizedBox(
-                width: 96,
+                height: 34,
                 child: FocusTraversalOrder(
                   order: NumericFocusOrder(rank),
                   child: TextField(
@@ -645,7 +643,7 @@ class _TablePanelState extends State<TablePanel> {
                     decoration: InputDecoration(
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
-                        vertical: 4,
+                        vertical: 6,
                         horizontal: 6,
                       ),
                       hintText: hide ? 'Hidden' : null,
@@ -653,39 +651,41 @@ class _TablePanelState extends State<TablePanel> {
                     ),
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (value) => _submitResistance(key, value),
-                    onEditingComplete: () => _submitResistance(key, controller.text),
+                    onEditingComplete: () =>
+                        _submitResistance(key, controller.text),
                   ),
                 ),
               ),
-              const SizedBox(height: 6),
-              Wrap(
-                alignment: WrapAlignment.center,
-                spacing: 6,
-                runSpacing: 4,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              const SizedBox(height: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  TextButton(
-                    onPressed: hide
-                        ? null
-                        : () => _handleSdPrompt(
-                              key,
-                              shouldMoveFocus: false,
-                              forcePrompt: true,
-                            ),
-                    style: buttonStyle,
-                    child: Text(
-                      'SD $sdText',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: sdColor,
-                        fontWeight:
-                            sdWarning ? FontWeight.w600 : FontWeight.w400,
+                  Flexible(
+                    child: TextButton(
+                      onPressed: hide
+                          ? null
+                          : () => _handleSdPrompt(
+                                key,
+                                shouldMoveFocus: false,
+                                forcePrompt: true,
+                              ),
+                      style: buttonStyle,
+                      child: Text(
+                        'SD $sdText',
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: sdColor,
+                          fontWeight:
+                              sdWarning ? FontWeight.w600 : FontWeight.w400,
+                        ),
                       ),
                     ),
                   ),
+                  const SizedBox(width: 4),
                   IconButton(
                     iconSize: 18,
-                    visualDensity:
-                        const VisualDensity(horizontal: -4, vertical: -4),
+                    visualDensity: controlDensity,
                     padding: EdgeInsets.zero,
                     constraints:
                         const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -708,8 +708,7 @@ class _TablePanelState extends State<TablePanel> {
                   ),
                   IconButton(
                     iconSize: 18,
-                    visualDensity:
-                        const VisualDensity(horizontal: -4, vertical: -4),
+                    visualDensity: controlDensity,
                     padding: EdgeInsets.zero,
                     constraints:
                         const BoxConstraints(minWidth: 32, minHeight: 32),
