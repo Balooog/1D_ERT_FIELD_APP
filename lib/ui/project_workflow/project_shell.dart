@@ -159,7 +159,9 @@ class _ProjectShellState extends State<ProjectShell> {
             isBad: false,
           );
           final updatedHistory = history.addSample(sample);
-          return record.updateHistory(orientation, updatedHistory);
+          final updatedRecord =
+              record.updateHistory(orientation, updatedHistory).applyAutoInterpretation();
+          return updatedRecord;
         });
       });
     });
@@ -180,28 +182,6 @@ class _ProjectShellState extends State<ProjectShell> {
           final history = record.historyFor(orientation);
           final updatedHistory = history.updateLatest(
             (sample) => sample.copyWith(isBad: isBad),
-          );
-          return record.updateHistory(orientation, updatedHistory);
-        });
-      });
-    });
-  }
-
-  void _handleNoteChanged(
-    double spacingFt,
-    OrientationKind orientation,
-    String note,
-  ) {
-    final site = _selectedSite;
-    if (site == null) {
-      return;
-    }
-    _applyProjectUpdate((project) {
-      return project.updateSite(site.siteId, (current) {
-        return current.updateSpacing(spacingFt, (record) {
-          final history = record.historyFor(orientation);
-          final updatedHistory = history.updateLatest(
-            (sample) => sample.copyWith(note: note),
           );
           return record.updateHistory(orientation, updatedHistory);
         });
@@ -235,6 +215,23 @@ class _ProjectShellState extends State<ProjectShell> {
           soil: soil,
           moisture: moisture,
         );
+      });
+    });
+  }
+
+  void _handleInterpretationChanged(double spacingFt, String interpretation) {
+    final site = _selectedSite;
+    if (site == null) {
+      return;
+    }
+    _applyProjectUpdate((project) {
+      return project.updateSite(site.siteId, (current) {
+        return current.updateSpacing(spacingFt, (record) {
+          final trimmed = interpretation.trim();
+          final nextInterpretation = trimmed.isEmpty ? null : trimmed;
+          final updated = record.copyWith(interpretation: nextInterpretation);
+          return updated;
+        });
       });
     });
   }
@@ -607,9 +604,10 @@ class _ProjectShellState extends State<ProjectShell> {
                                 width: 420,
                                 child: TablePanel(
                                   site: site,
+                                  showOutliers: _showOutliers,
                                   onResistanceChanged: _handleReadingSubmitted,
                                   onSdChanged: _handleSdChanged,
-                                  onNoteChanged: _handleNoteChanged,
+                                  onInterpretationChanged: _handleInterpretationChanged,
                                   onToggleBad: _handleBadToggle,
                                   onMetadataChanged: _handleMetadataChanged,
                                   onShowHistory: _showHistory,

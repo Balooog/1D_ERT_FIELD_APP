@@ -38,8 +38,8 @@ QaLevel classifyPoint({
       spDrift >= kQaSpLimitMv ||
       maxContact >= kQaContactLimitOhm;
   bool isYellow() =>
-      (cv >= kQaGreenCvLimit && cv < kQaYellowCvLimit) ||
-      (absResidual >= kQaGreenResidualLimit && absResidual < kQaYellowResidualLimit);
+      (cv > kQaGreenCvLimit && cv < kQaYellowCvLimit) ||
+      (absResidual > kQaGreenResidualLimit && absResidual < kQaYellowResidualLimit);
 
   if (isRed()) return QaLevel.red;
   if (point.hasRhoQaWarning) return QaLevel.yellow;
