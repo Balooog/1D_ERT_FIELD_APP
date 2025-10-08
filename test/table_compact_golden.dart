@@ -49,7 +49,7 @@ void main() {
     );
 
     expect(find.byType(TextField), findsNWidgets(site.spacings.length * 2));
-    expect(find.widgetWithText(TextButton, contains('(auto)')), findsWidgets);
+    expect(find.textContaining('(auto)'), findsWidgets);
   });
 }
 

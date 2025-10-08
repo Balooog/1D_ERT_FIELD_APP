@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
@@ -139,7 +139,7 @@ class _TablePanelState extends State<TablePanel> {
   final Map<_FieldKey, double> _tabRanks = {};
   final ScrollController _tableController = ScrollController();
   final Map<_FieldKey, _RowConfig> _rowByField = {};
-  static const String sdPromptPattern = r'^[0-9]{0,2}(\.[0-9])?$';
+  static final RegExp _sdPromptRegExp = RegExp(TablePanel.sdPromptPattern);
   TablePreferences? _prefs;
   bool _askForSd = true;
   List<_FieldKey> _tabSequence = const [];
