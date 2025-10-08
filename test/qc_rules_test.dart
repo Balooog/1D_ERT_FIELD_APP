@@ -37,6 +37,16 @@ void main() {
     expect(level, QaLevel.green);
   });
 
+  test('Yellow classification when hitting green thresholds', () {
+    final point = _makePoint(120.0, sigma: kQaGreenCvLimit * 120.0);
+    final level = classifyPoint(
+      residual: kQaGreenResidualLimit,
+      coefficientOfVariation: kQaGreenCvLimit,
+      point: point,
+    );
+    expect(level, QaLevel.yellow);
+  });
+
   test('Red classification due to CV', () {
     final point = _makePoint(100.0, sigma: 20.0);
     final level = classifyPoint(residual: 0.02, coefficientOfVariation: 0.2, point: point);
