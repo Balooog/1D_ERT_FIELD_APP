@@ -107,7 +107,7 @@ class PlotsPanel extends StatelessWidget {
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
             tooltipBgColor: Theme.of(context).colorScheme.surface.withValues(
-                  alpha: (0.9 * 255).round(),
+                  alpha: (0.9 * 255).round().toDouble(),
                 ),
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {

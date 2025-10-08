@@ -20,11 +20,12 @@ class ProjectStorageService {
   final _uuid = const Uuid();
 
   Future<Directory> _ensureRoot() async {
-    if (_overrideRoot != null) {
-      if (!await _overrideRoot!.exists()) {
-        await _overrideRoot!.create(recursive: true);
+    final overrideRoot = _overrideRoot;
+    if (overrideRoot != null) {
+      if (!await overrideRoot.exists()) {
+        await overrideRoot.create(recursive: true);
       }
-      return _overrideRoot!;
+      return overrideRoot;
     }
     final docs = await getApplicationDocumentsDirectory();
     final root = Directory(p.join(docs.path, 'ResiCheckProjects'));
