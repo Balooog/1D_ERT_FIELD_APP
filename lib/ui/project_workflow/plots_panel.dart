@@ -15,6 +15,10 @@ class GhostSeriesPoint {
   final double rho;
 }
 
+const _okabeBlue = Color(0xFF0072B2);
+const _okabeVermillion = Color(0xFFD55E00);
+const _averageGray = Color(0xFF595959);
+
 class PlotsPanel extends StatelessWidget {
   const PlotsPanel({
     super.key,
@@ -103,7 +107,6 @@ class PlotsPanel extends StatelessWidget {
               _log(point.apparentResistivityOhmM),
             ))
         .toList();
-    final averageColor = theme.colorScheme.outline;
     final chart = LineChart(
       LineChartData(
         lineTouchData: LineTouchData(
@@ -167,23 +170,43 @@ class PlotsPanel extends StatelessWidget {
             LineChartBarData(
               spots: data.aSeries,
               barWidth: 3,
-              color: theme.colorScheme.primary,
+              color: _okabeBlue,
               isCurved: false,
-              dotData: const FlDotData(show: true),
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  return FlDotCirclePainter(
+                    radius: 3,
+                    color: _okabeBlue,
+                    strokeWidth: 1.5,
+                    strokeColor: theme.colorScheme.surface,
+                  );
+                },
+              ),
             ),
           if (data.bSeries.isNotEmpty)
             LineChartBarData(
               spots: data.bSeries,
               barWidth: 3,
-              color: theme.colorScheme.secondary,
+              color: _okabeVermillion,
               isCurved: false,
-              dotData: const FlDotData(show: true),
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  return FlDotSquarePainter(
+                    size: 6,
+                    color: _okabeVermillion,
+                    strokeWidth: 1.5,
+                    strokeColor: theme.colorScheme.surface,
+                  );
+                },
+              ),
             ),
           if (ghostSpots.isNotEmpty)
             LineChartBarData(
               spots: ghostSpots,
               barWidth: 2,
-              color: averageColor,
+              color: _averageGray,
               dashArray: [6, 6],
               dotData: const FlDotData(show: false),
             ),
@@ -201,13 +224,31 @@ class PlotsPanel extends StatelessWidget {
     );
     final legend = <Widget>[];
     if (data.aSeries.isNotEmpty) {
-      legend.add(_LegendEntry(label: 'N–S', color: theme.colorScheme.primary));
+      legend.add(
+        const _LegendEntry(
+          label: 'N–S',
+          color: _okabeBlue,
+          marker: _LegendMarker.circle,
+        ),
+      );
     }
     if (data.bSeries.isNotEmpty) {
-      legend.add(_LegendEntry(label: 'W–E', color: theme.colorScheme.secondary));
+      legend.add(
+        const _LegendEntry(
+          label: 'W–E',
+          color: _okabeVermillion,
+          marker: _LegendMarker.square,
+        ),
+      );
     }
     if (ghostSpots.isNotEmpty) {
-      legend.add(_LegendEntry(label: 'Average', color: averageColor, dashed: true));
+      legend.add(
+        const _LegendEntry(
+          label: 'Average',
+          color: _averageGray,
+          dashed: true,
+        ),
+      );
     }
     if (legend.isEmpty) {
       return chart;
@@ -325,16 +366,20 @@ class _AxisRanges {
   final double maxY;
 }
 
+enum _LegendMarker { none, circle, square }
+
 class _LegendEntry extends StatelessWidget {
   const _LegendEntry({
     required this.label,
     required this.color,
     this.dashed = false,
+    this.marker = _LegendMarker.none,
   });
 
   final String label;
   final Color color;
   final bool dashed;
+  final _LegendMarker marker;
 
   @override
   Widget build(BuildContext context) {
@@ -345,7 +390,7 @@ class _LegendEntry extends StatelessWidget {
           width: 18,
           height: 10,
           child: CustomPaint(
-            painter: _LegendLinePainter(color: color, dashed: dashed),
+            painter: _LegendLinePainter(color: color, dashed: dashed, marker: marker),
           ),
         ),
         const SizedBox(width: 6),
@@ -359,10 +404,15 @@ class _LegendEntry extends StatelessWidget {
 }
 
 class _LegendLinePainter extends CustomPainter {
-  _LegendLinePainter({required this.color, required this.dashed});
+  _LegendLinePainter({
+    required this.color,
+    required this.dashed,
+    required this.marker,
+  });
 
   final Color color;
   final bool dashed;
+  final _LegendMarker marker;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -374,20 +424,50 @@ class _LegendLinePainter extends CustomPainter {
     final y = size.height / 2;
     if (!dashed) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-      return;
+    } else {
+      const dashWidth = 4.0;
+      const dashGap = 3.0;
+      var start = 0.0;
+      while (start < size.width) {
+        final end = math.min(start + dashWidth, size.width);
+        canvas.drawLine(Offset(start, y), Offset(end, y), paint);
+        start += dashWidth + dashGap;
+      }
     }
-    const dashWidth = 4.0;
-    const dashGap = 3.0;
-    var start = 0.0;
-    while (start < size.width) {
-      final end = math.min(start + dashWidth, size.width);
-      canvas.drawLine(Offset(start, y), Offset(end, y), paint);
-      start += dashWidth + dashGap;
+    final center = Offset(size.width / 2, y);
+    switch (marker) {
+      case _LegendMarker.circle:
+        final fill = Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
+        final stroke = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2;
+        canvas.drawCircle(center, 3, fill);
+        canvas.drawCircle(center, 3, stroke);
+        break;
+      case _LegendMarker.square:
+        final rect = Rect.fromCenter(center: center, width: 6, height: 6);
+        final fill = Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
+        final stroke = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2;
+        canvas.drawRect(rect, fill);
+        canvas.drawRect(rect, stroke);
+        break;
+      case _LegendMarker.none:
+        break;
     }
   }
 
   @override
   bool shouldRepaint(covariant _LegendLinePainter oldDelegate) {
-    return oldDelegate.color != color || oldDelegate.dashed != dashed;
+    return oldDelegate.color != color ||
+        oldDelegate.dashed != dashed ||
+        oldDelegate.marker != marker;
   }
 }

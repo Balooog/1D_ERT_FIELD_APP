@@ -1,7 +1,377 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import '../models/inversion_model.dart';
 import '../models/spacing_point.dart';
+import '../utils/units.dart';
+
+class OneDInversionResult {
+  OneDInversionResult({
+    required this.depthsM,
+    required this.resistivities,
+    required this.fitCurve,
+    required this.misfit,
+  });
+
+  final List<double> depthsM;
+  final List<double> resistivities;
+  final List<double> fitCurve;
+  final double misfit;
+
+  bool get isFallback => misfit.isInfinite;
+}
+
+Future<OneDInversionResult> invert1DWenner({
+  required List<double> aFt,
+  required List<double> rhoAppNS,
+  required List<double> rhoAppWE,
+  int maxLayers = 3,
+  double minRho = 1.0,
+  double maxRho = 5000.0,
+  double minThick = 0.2,
+  double maxThick = 15.0,
+  double regLambda = 0.3,
+  double outlierSdPct = 20,
+}) async {
+  final aggregated = _aggregateMeasurements(
+    aFt: aFt,
+    rhoAppNS: rhoAppNS,
+    rhoAppWE: rhoAppWE,
+    outlierSdPct: outlierSdPct,
+    minRho: minRho,
+    maxRho: maxRho,
+  );
+  if (aggregated.isEmpty) {
+    return OneDInversionResult(
+      depthsM: const [],
+      resistivities: const [],
+      fitCurve: const [],
+      misfit: double.infinity,
+    );
+  }
+  try {
+    return await Future<OneDInversionResult>(() {
+      return _runLayeredInversion(
+        aggregated: aggregated,
+        maxLayers: maxLayers,
+        minRho: minRho,
+        maxRho: maxRho,
+        minThick: minThick,
+        maxThick: maxThick,
+        regLambda: regLambda,
+      );
+    }).timeout(const Duration(seconds: 2));
+  } on TimeoutException {
+    return _fallbackResult(aggregated);
+  } catch (_) {
+    return _fallbackResult(aggregated);
+  }
+}
+
+OneDInversionResult _runLayeredInversion({
+  required List<_AggregatedMeasurement> aggregated,
+  required int maxLayers,
+  required double minRho,
+  required double maxRho,
+  required double minThick,
+  required double maxThick,
+  required double regLambda,
+}) {
+  final layerCount = math.max(1, math.min(maxLayers, aggregated.length));
+  final depths = _estimateLayerBoundaries(
+    aggregated,
+    layerCount: layerCount,
+    minThick: minThick,
+    maxThick: maxThick,
+  );
+  final resistivities = _estimateLayerResistivities(
+    aggregated,
+    layerCount: layerCount,
+    minRho: minRho,
+    maxRho: maxRho,
+    regLambda: regLambda,
+  );
+  final thicknesses = _buildThicknesses(depths, minThick, maxThick);
+  final spacingMeters = aggregated.map((m) => m.spacingMeters).toList();
+  final logRhos = resistivities.map(math.log).toList();
+  final fit = _forwardApparentRho(spacingMeters, thicknesses, logRhos);
+  final observed = aggregated.map((m) => m.rho).toList();
+  final misfit = _normalizedMisfit(observed, fit);
+  return OneDInversionResult(
+    depthsM: depths,
+    resistivities: resistivities,
+    fitCurve: fit,
+    misfit: misfit,
+  );
+}
+
+OneDInversionResult _fallbackResult(List<_AggregatedMeasurement> aggregated) {
+  final depths = <double>[];
+  final resistivities = <double>[];
+  final fit = <double>[];
+  for (final measurement in aggregated) {
+    final depth = feetToMeters(measurement.spacingFt * 0.5);
+    depths.add(depth);
+    resistivities.add(measurement.rho);
+    fit.add(measurement.rho);
+  }
+  return OneDInversionResult(
+    depthsM: depths,
+    resistivities: resistivities,
+    fitCurve: fit,
+    misfit: double.infinity,
+  );
+}
+
+List<_AggregatedMeasurement> _aggregateMeasurements({
+  required List<double> aFt,
+  required List<double> rhoAppNS,
+  required List<double> rhoAppWE,
+  required double outlierSdPct,
+  required double minRho,
+  required double maxRho,
+}) {
+  final entries = <_SpacingEntry>[];
+  final nsValues = <double>[];
+  final weValues = <double>[];
+  for (var i = 0; i < aFt.length; i++) {
+    final spacing = aFt[i];
+    final ns = i < rhoAppNS.length ? _validValue(rhoAppNS[i]) : null;
+    final we = i < rhoAppWE.length ? _validValue(rhoAppWE[i]) : null;
+    entries.add(_SpacingEntry(spacingFt: spacing, ns: ns, we: we));
+    if (ns != null) {
+      nsValues.add(ns);
+    }
+    if (we != null) {
+      weValues.add(we);
+    }
+  }
+  final medianNs = _median(nsValues);
+  final medianWe = _median(weValues);
+  final result = <_AggregatedMeasurement>[];
+  for (final entry in entries) {
+    var ns = entry.ns;
+    var we = entry.we;
+    if (ns != null && medianNs != null) {
+      final deviation = (ns - medianNs).abs() / medianNs * 100;
+      if (deviation > outlierSdPct) {
+        ns = null;
+      }
+    }
+    if (we != null && medianWe != null) {
+      final deviation = (we - medianWe).abs() / medianWe * 100;
+      if (deviation > outlierSdPct) {
+        we = null;
+      }
+    }
+    final values = <double>[];
+    if (ns != null) {
+      values.add(ns);
+    }
+    if (we != null) {
+      values.add(we);
+    }
+    if (values.isEmpty) {
+      continue;
+    }
+    final mean = values.reduce((a, b) => a + b) / values.length;
+    final clamped = mean.clamp(minRho, maxRho).toDouble();
+    result.add(
+      _AggregatedMeasurement(
+        spacingFt: entry.spacingFt,
+        spacingMeters: feetToMeters(entry.spacingFt),
+        rho: clamped,
+      ),
+    );
+  }
+  result.sort((a, b) => a.spacingFt.compareTo(b.spacingFt));
+  return result;
+}
+
+List<double> _estimateLayerBoundaries(
+  List<_AggregatedMeasurement> aggregated, {
+  required int layerCount,
+  required double minThick,
+  required double maxThick,
+}) {
+  final depthSamples = aggregated
+      .map((m) => feetToMeters(m.spacingFt * 0.5))
+      .toList()
+    ..sort();
+  final result = <double>[];
+  var previous = 0.0;
+  final maxDepthAvailable = depthSamples.isEmpty ? maxThick * layerCount : depthSamples.last;
+  for (var i = 1; i <= layerCount; i++) {
+    final fraction = i / layerCount;
+    var target = _quantile(depthSamples, fraction);
+    final minDepth = previous + minThick;
+    final maxDepth = previous + maxThick;
+    final allowedMax = math.max(minDepth, math.min(maxDepthAvailable, maxDepth));
+    target = target.clamp(minDepth, allowedMax);
+    if (target <= previous) {
+      target = math.min(allowedMax, previous + minThick);
+    }
+    result.add(target);
+    previous = target;
+  }
+  return result;
+}
+
+List<double> _estimateLayerResistivities(
+  List<_AggregatedMeasurement> aggregated, {
+  required int layerCount,
+  required double minRho,
+  required double maxRho,
+  required double regLambda,
+}) {
+  final logValues = aggregated.map((m) => math.log(m.rho)).toList()..sort();
+  final resistivities = <double>[];
+  for (var i = 0; i < layerCount; i++) {
+    final fraction = (i + 0.5) / layerCount;
+    final logValue = _quantile(logValues, fraction);
+    final rho = math.exp(logValue).clamp(minRho, maxRho).toDouble();
+    resistivities.add(rho);
+  }
+  final lambda = regLambda.clamp(0.0, 1.0);
+  if (resistivities.length > 1 && lambda > 0) {
+    for (var i = 1; i < resistivities.length; i++) {
+      final blended = lambda * resistivities[i - 1] + (1 - lambda) * resistivities[i];
+      resistivities[i] = blended.clamp(minRho, maxRho);
+    }
+    for (var i = resistivities.length - 2; i >= 0; i--) {
+      final blended = lambda * resistivities[i + 1] + (1 - lambda) * resistivities[i];
+      resistivities[i] = blended.clamp(minRho, maxRho);
+    }
+  }
+  return resistivities;
+}
+
+List<double?> _buildThicknesses(List<double> boundaries, double minThick, double maxThick) {
+  if (boundaries.isEmpty) {
+    return [null];
+  }
+  final thicknesses = <double?>[];
+  for (var i = 0; i < boundaries.length; i++) {
+    if (i == boundaries.length - 1) {
+      thicknesses.add(null);
+    } else {
+      final top = i == 0 ? 0.0 : boundaries[i - 1];
+      final bottom = boundaries[i];
+      final thickness = (bottom - top).clamp(minThick, maxThick).toDouble();
+      thicknesses.add(thickness);
+    }
+  }
+  return thicknesses;
+}
+
+List<double> _forwardApparentRho(
+  List<double> spacingsMeters,
+  List<double?> thicknesses,
+  List<double> logRhos,
+) {
+  final rhos = logRhos.map(math.exp).toList();
+  final outputs = <double>[];
+  for (final spacing in spacingsMeters) {
+    final depth = spacing / 2;
+    double numerator = 0;
+    double weightSum = 0;
+    double cumulativeDepth = 0;
+    for (var i = 0; i < rhos.length; i++) {
+      final layerThickness = thicknesses[i];
+      final thickness = layerThickness ?? (depth * 2);
+      final layerTop = cumulativeDepth;
+      final layerBottom = cumulativeDepth + thickness;
+      final distanceWeight = _depthWeight(depth, layerTop, layerBottom);
+      numerator += rhos[i] * distanceWeight;
+      weightSum += distanceWeight;
+      cumulativeDepth += thickness;
+    }
+    outputs.add(weightSum == 0 ? rhos.last : numerator / weightSum);
+  }
+  return outputs;
+}
+
+double _depthWeight(double depth, double top, double bottom) {
+  final center = (top + bottom) / 2;
+  final radius = (bottom - top) / 2;
+  final distance = (depth - center).abs();
+  final scale = math.max(radius, 1e-3);
+  return math.exp(-distance / scale);
+}
+
+double _normalizedMisfit(List<double> observed, List<double> predicted) {
+  final length = math.min(observed.length, predicted.length);
+  if (length == 0) {
+    return double.infinity;
+  }
+  var numerator = 0.0;
+  var denominator = 0.0;
+  for (var i = 0; i < length; i++) {
+    final residual = observed[i] - predicted[i];
+    numerator += residual * residual;
+    denominator += observed[i] * observed[i];
+  }
+  if (denominator <= 1e-12) {
+    return math.sqrt(numerator);
+  }
+  return math.sqrt(numerator) / math.sqrt(denominator);
+}
+
+double? _validValue(double value) {
+  if (value.isNaN || value.isInfinite || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
+double? _median(List<double> values) {
+  if (values.isEmpty) {
+    return null;
+  }
+  final sorted = List<double>.from(values)..sort();
+  final mid = sorted.length ~/ 2;
+  if (sorted.length.isOdd) {
+    return sorted[mid];
+  }
+  return (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+double _quantile(List<double> values, double fraction) {
+  if (values.isEmpty) {
+    return 0;
+  }
+  final clamped = fraction.clamp(0.0, 1.0);
+  final position = clamped * (values.length - 1);
+  final lowerIndex = position.floor();
+  final upperIndex = position.ceil();
+  final lower = values[lowerIndex];
+  final upper = values[upperIndex];
+  if (lowerIndex == upperIndex) {
+    return lower;
+  }
+  final weight = position - lowerIndex;
+  return lower + (upper - lower) * weight;
+}
+
+class _SpacingEntry {
+  _SpacingEntry({required this.spacingFt, this.ns, this.we});
+
+  final double spacingFt;
+  double? ns;
+  double? we;
+}
+
+class _AggregatedMeasurement {
+  _AggregatedMeasurement({
+    required this.spacingFt,
+    required this.spacingMeters,
+    required this.rho,
+  });
+
+  final double spacingFt;
+  final double spacingMeters;
+  final double rho;
+}
 
 class LiteInversionService {
   LiteInversionService({this.maxIterations = 10, this.layerCount = 3});

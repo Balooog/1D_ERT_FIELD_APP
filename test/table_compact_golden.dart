@@ -31,17 +31,18 @@ void main() {
     expect(dataTable.headingRowHeight, 40);
     expect(dataTable.dataRowMinHeight, 40);
     expect(dataTable.dataRowMaxHeight, 44);
-    expect(dataTable.columnSpacing, 16);
+    expect(dataTable.columnSpacing, 12);
 
     for (final column in dataTable.columns) {
-      expect(column.label, isA<Center>());
+      expect(column.label, isA<SizedBox>());
+      final box = column.label as SizedBox;
+      expect(box.height, 40);
+      expect(box.child, isA<Center>());
     }
 
     for (final row in dataTable.rows) {
       for (final cell in row.cells) {
-        expect(cell.child, isA<Align>());
-        final align = cell.child as Align;
-        expect(align.alignment, Alignment.center);
+        expect(cell.child, isA<Center>());
       }
     }
   });
