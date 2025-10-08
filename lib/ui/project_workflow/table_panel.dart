@@ -640,14 +640,14 @@ class _TablePanelState extends State<TablePanel> {
                       fontFeatures: const [FontFeature.tabularFigures()],
                       height: 1.1,
                     ),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
+                      contentPadding: EdgeInsets.symmetric(
                         vertical: 4,
                         horizontal: 6,
                       ),
                       hintText: hide ? 'Hidden' : null,
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (value) => _submitResistance(key, value),
