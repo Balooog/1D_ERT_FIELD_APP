@@ -32,18 +32,16 @@ QaLevel classifyPoint({
   final spDrift = point.spDriftMv?.abs() ?? 0;
   final maxContact = point.contactRMax ?? 0;
 
-  bool isRed() =>
-      cv >= kQaYellowCvLimit ||
-      absResidual >= kQaYellowResidualLimit ||
-      spDrift >= kQaSpLimitMv ||
-      maxContact >= kQaContactLimitOhm;
-  bool isYellow() =>
-      (cv > kQaGreenCvLimit && cv < kQaYellowCvLimit) ||
-      (absResidual > kQaGreenResidualLimit && absResidual < kQaYellowResidualLimit);
+  final exceedsRedCv = cv >= kQaYellowCvLimit;
+  final exceedsRedResidual = absResidual >= kQaYellowResidualLimit;
+  final exceedsYellowCv = cv >= kQaGreenCvLimit;
+  final exceedsYellowResidual = absResidual >= kQaGreenResidualLimit;
 
-  if (isRed()) return QaLevel.red;
+  if (exceedsRedCv || exceedsRedResidual || spDrift >= kQaSpLimitMv || maxContact >= kQaContactLimitOhm) {
+    return QaLevel.red;
+  }
   if (point.hasRhoQaWarning) return QaLevel.yellow;
-  if (isYellow()) return QaLevel.yellow;
+  if (exceedsYellowCv || exceedsYellowResidual) return QaLevel.yellow;
   return QaLevel.green;
 }
 
