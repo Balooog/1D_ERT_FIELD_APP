@@ -353,7 +353,7 @@ class _TablePanelState extends State<TablePanel> {
                         dataRowMinHeight: 64,
                         dataRowMaxHeight: 72,
                         headingRowHeight: 36,
-                        columnSpacing: 6,
+                        columnSpacing: 4,
                         horizontalMargin: 6,
                         columns: [
                           const DataColumn(
@@ -504,7 +504,7 @@ class _TablePanelState extends State<TablePanel> {
         : (autoNote ?? 'Tap to record interpretation notes');
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 110),
+        constraints: const BoxConstraints(maxWidth: 96),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -558,7 +558,7 @@ class _TablePanelState extends State<TablePanel> {
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 110),
+        constraints: const BoxConstraints(maxWidth: 96),
         child: Tooltip(
           message: tooltip,
           child: Text(
@@ -612,7 +612,7 @@ class _TablePanelState extends State<TablePanel> {
       child: Opacity(
         opacity: hide ? 0.45 : 1.0,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 128),
+          constraints: const BoxConstraints(maxWidth: 118),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -687,13 +687,13 @@ class _TablePanelState extends State<TablePanel> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 3),
                     IconButton(
                       iconSize: 16,
                       visualDensity: controlDensity,
                       padding: EdgeInsets.zero,
                       constraints:
-                          const BoxConstraints(minWidth: 28, minHeight: 28),
+                          const BoxConstraints(minWidth: 26, minHeight: 26),
                       tooltip: isBad
                           ? 'Marked bad — tap to clear flag'
                           : 'Mark reading bad',
@@ -716,7 +716,7 @@ class _TablePanelState extends State<TablePanel> {
                       visualDensity: controlDensity,
                       padding: EdgeInsets.zero,
                       constraints:
-                          const BoxConstraints(minWidth: 28, minHeight: 28),
+                          const BoxConstraints(minWidth: 26, minHeight: 26),
                       tooltip: 'Show edit history',
                       onPressed: () => widget.onShowHistory(
                         row.record.spacingFeet,
