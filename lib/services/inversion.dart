@@ -118,85 +118,102 @@ OneDInversionResult _runLayeredInversion({
     regLambda: regLambda,
   );
 
-  if (layerCount < 3) {
-    return baseAttempt.toResult();
+  var bestAttempt = baseAttempt;
+
+  if (layerCount >= 3) {
+    final effectiveLayers = _effectiveLayerCount(baseAttempt.resistivities);
+    if (effectiveLayers < layerCount) {
+      final thicknesses =
+          _buildThicknesses(baseAttempt.depths, minThick, maxThick);
+      final splitIndex = _thickestLayerIndex(thicknesses);
+      if (splitIndex != null) {
+        final guard = math.max(minThick, 0.25);
+        final top = splitIndex == 0 ? 0.0 : baseAttempt.depths[splitIndex - 1];
+        final bottom = baseAttempt.depths[splitIndex];
+        final depthSamples = aggregated
+            .map((m) => feetToMeters(m.spacingFt * 0.5))
+            .where((depth) => depth > top && depth < bottom)
+            .toList()
+          ..sort();
+
+        final adjustedDepths = List<double>.from(baseAttempt.depths);
+        final midpoint = top + (bottom - top) / 2;
+        final sampledDepth =
+            depthSamples.isEmpty ? midpoint : _quantile(depthSamples, 0.5);
+        final minAllowed = top + guard;
+        final maxAllowed = math.max(
+          minAllowed,
+          math.min(bottom - guard, top + maxThick),
+        );
+        final candidate = sampledDepth.clamp(minAllowed, maxAllowed);
+        if (candidate > top && candidate < bottom) {
+          adjustedDepths[splitIndex] = candidate;
+          var previous = candidate;
+          for (var i = splitIndex + 1; i < adjustedDepths.length; i++) {
+            final minDepth = previous + guard;
+            adjustedDepths[i] = math.max(adjustedDepths[i], minDepth);
+            previous = adjustedDepths[i];
+          }
+
+          final seedResistivities =
+              List<double>.from(baseAttempt.resistivities);
+          seedResistivities[splitIndex] = (seedResistivities[splitIndex] * 0.9)
+              .clamp(minRho, maxRho)
+              .toDouble();
+          if (splitIndex + 1 < seedResistivities.length) {
+            seedResistivities[splitIndex + 1] =
+                (seedResistivities[splitIndex + 1] * 1.1)
+                    .clamp(minRho, maxRho)
+                    .toDouble();
+          }
+          final restartLambda = (regLambda * 0.8).clamp(0.15, 0.35);
+
+          final restartAttempt = _solveForDepths(
+            aggregated: aggregated,
+            depths: adjustedDepths,
+            minRho: minRho,
+            maxRho: maxRho,
+            minThick: minThick,
+            maxThick: maxThick,
+            regLambda: restartLambda,
+            seedResistivities: seedResistivities,
+          );
+
+          final restartLayers =
+              _effectiveLayerCount(restartAttempt.resistivities);
+          final restartImprovesLayers = restartLayers > effectiveLayers;
+          final restartImprovesMisfit =
+              restartAttempt.misfit <= bestAttempt.misfit;
+          final restartAcceptableMisfit =
+              restartAttempt.misfit <= bestAttempt.misfit * 1.05;
+
+          if (restartImprovesMisfit ||
+              (restartImprovesLayers && restartAcceptableMisfit)) {
+            bestAttempt = restartAttempt;
+          }
+        }
+      }
+    }
   }
 
-  final effectiveLayers = _effectiveLayerCount(baseAttempt.resistivities);
-  if (effectiveLayers >= layerCount) {
-    return baseAttempt.toResult();
+  if (!bestAttempt.misfit.isFinite || bestAttempt.misfit > 0.45) {
+    final segmentedAttempt = _segmentalApproximation(
+      aggregated: aggregated,
+      maxLayers: layerCount,
+      minThick: minThick,
+      maxThick: maxThick,
+      minRho: minRho,
+      maxRho: maxRho,
+    );
+    final segmentedBetter = segmentedAttempt.misfit.isFinite &&
+        (!bestAttempt.misfit.isFinite ||
+            segmentedAttempt.misfit < bestAttempt.misfit);
+    if (segmentedBetter) {
+      bestAttempt = segmentedAttempt;
+    }
   }
 
-  final thicknesses = _buildThicknesses(baseAttempt.depths, minThick, maxThick);
-  final splitIndex = _thickestLayerIndex(thicknesses);
-  if (splitIndex == null) {
-    return baseAttempt.toResult();
-  }
-
-  final guard = math.max(minThick, 0.25);
-  final top = splitIndex == 0 ? 0.0 : baseAttempt.depths[splitIndex - 1];
-  final bottom = baseAttempt.depths[splitIndex];
-  final depthSamples = aggregated
-      .map((m) => feetToMeters(m.spacingFt * 0.5))
-      .where((depth) => depth > top && depth < bottom)
-      .toList()
-    ..sort();
-
-  final adjustedDepths = List<double>.from(baseAttempt.depths);
-  final midpoint = top + (bottom - top) / 2;
-  final sampledDepth =
-      depthSamples.isEmpty ? midpoint : _quantile(depthSamples, 0.5);
-  final minAllowed = top + guard;
-  final maxAllowed = math.max(
-    minAllowed,
-    math.min(bottom - guard, top + maxThick),
-  );
-  final candidate = sampledDepth.clamp(minAllowed, maxAllowed);
-  if (candidate <= top || candidate >= bottom) {
-    return baseAttempt.toResult();
-  }
-  adjustedDepths[splitIndex] = candidate;
-  var previous = candidate;
-  for (var i = splitIndex + 1; i < adjustedDepths.length; i++) {
-    final minDepth = previous + guard;
-    adjustedDepths[i] = math.max(adjustedDepths[i], minDepth);
-    previous = adjustedDepths[i];
-  }
-
-  final seedResistivities = List<double>.from(baseAttempt.resistivities);
-  seedResistivities[splitIndex] =
-      (seedResistivities[splitIndex] * 0.9).clamp(minRho, maxRho).toDouble();
-  if (splitIndex + 1 < seedResistivities.length) {
-    seedResistivities[splitIndex + 1] =
-        (seedResistivities[splitIndex + 1] * 1.1)
-            .clamp(minRho, maxRho)
-            .toDouble();
-  }
-  final restartLambda = (regLambda * 0.8).clamp(0.15, 0.35);
-
-  final restartAttempt = _solveForDepths(
-    aggregated: aggregated,
-    depths: adjustedDepths,
-    minRho: minRho,
-    maxRho: maxRho,
-    minThick: minThick,
-    maxThick: maxThick,
-    regLambda: restartLambda,
-    seedResistivities: seedResistivities,
-  );
-
-  final restartLayers = _effectiveLayerCount(restartAttempt.resistivities);
-  final restartImprovesLayers = restartLayers > effectiveLayers;
-  final restartImprovesMisfit = restartAttempt.misfit <= baseAttempt.misfit;
-  final restartAcceptableMisfit =
-      restartAttempt.misfit <= baseAttempt.misfit * 1.05;
-
-  if (restartImprovesMisfit ||
-      (restartImprovesLayers && restartAcceptableMisfit)) {
-    return restartAttempt.toResult();
-  }
-
-  return baseAttempt.toResult();
+  return bestAttempt.toResult();
 }
 
 OneDInversionResult _fallbackResult(List<_AggregatedMeasurement> aggregated) {
@@ -245,6 +262,163 @@ _InversionAttempt _solveForDepths({
     depths: List<double>.from(depths),
     resistivities: List<double>.from(resistivities),
     fit: List<double>.from(fit),
+    misfit: misfit,
+  );
+}
+
+_InversionAttempt _segmentalApproximation({
+  required List<_AggregatedMeasurement> aggregated,
+  required int maxLayers,
+  required double minThick,
+  required double maxThick,
+  required double minRho,
+  required double maxRho,
+}) {
+  if (aggregated.isEmpty) {
+    return const _InversionAttempt(
+      depths: [],
+      resistivities: [],
+      fit: [],
+      misfit: double.infinity,
+    );
+  }
+
+  final count = aggregated.length;
+  final targetLayers = math.max(1, math.min(maxLayers, count));
+  final logs = List<double>.generate(
+    count,
+    (index) => math.log(
+      aggregated[index].rho.clamp(minRho, maxRho),
+    ),
+  );
+  final prefix = List<double>.filled(count + 1, 0);
+  final prefixSq = List<double>.filled(count + 1, 0);
+  for (var i = 0; i < count; i++) {
+    final value = logs[i];
+    prefix[i + 1] = prefix[i] + value;
+    prefixSq[i + 1] = prefixSq[i] + value * value;
+  }
+
+  double segmentCost(int start, int end) {
+    final length = end - start;
+    if (length <= 0) {
+      return 0;
+    }
+    final sum = prefix[end] - prefix[start];
+    final sumSq = prefixSq[end] - prefixSq[start];
+    final mean = sum / length;
+    return sumSq - 2 * mean * sum + length * mean * mean;
+  }
+
+  const infinity = double.infinity;
+  final dp = List.generate(
+    targetLayers + 1,
+    (_) => List<double>.filled(count + 1, infinity),
+  );
+  final back = List.generate(
+    targetLayers + 1,
+    (_) => List<int>.filled(count + 1, 0),
+  );
+  dp[0][0] = 0;
+
+  for (var layers = 1; layers <= targetLayers; layers++) {
+    for (var end = layers; end <= count; end++) {
+      var bestCost = double.infinity;
+      var bestSplit = layers - 1;
+      for (var split = layers - 1; split <= end - 1; split++) {
+        final previous = dp[layers - 1][split];
+        if (!previous.isFinite) {
+          continue;
+        }
+        final cost = previous + segmentCost(split, end);
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestSplit = split;
+        }
+      }
+      dp[layers][end] = bestCost;
+      back[layers][end] = bestSplit;
+    }
+  }
+
+  var bestLayerCount = 1;
+  var bestScore = dp[1][count];
+  for (var layers = 2; layers <= targetLayers; layers++) {
+    final score = dp[layers][count];
+    if (score < bestScore) {
+      bestScore = score;
+      bestLayerCount = layers;
+    }
+  }
+
+  if (!bestScore.isFinite) {
+    final depths = aggregated
+        .map((m) => feetToMeters(m.spacingFt * 0.5))
+        .toList();
+    final resistivities = aggregated
+        .map((m) => m.rho.clamp(minRho, maxRho).toDouble())
+        .toList();
+    final observed = aggregated.map((m) => m.rho).toList();
+    return _InversionAttempt(
+      depths: depths,
+      resistivities: resistivities,
+      fit: observed,
+      misfit: double.infinity,
+    );
+  }
+
+  var end = count;
+  var segments = <MapEntry<int, int>>[];
+  for (var layer = bestLayerCount; layer >= 1; layer--) {
+    final start = back[layer][end];
+    segments.add(MapEntry(start, end));
+    end = start;
+  }
+  segments = segments.reversed.toList();
+
+  final depths = <double>[];
+  final resistivities = <double>[];
+  for (final segment in segments) {
+    final start = segment.key;
+    final finish = segment.value;
+    final length = finish - start;
+    final sum = prefix[finish] - prefix[start];
+    final meanLog = length == 0 ? 0.0 : sum / length;
+    final rho = math.exp(meanLog).clamp(minRho, maxRho).toDouble();
+    resistivities.add(rho);
+    final depthIndex = math.max(0, finish - 1);
+    final depth = feetToMeters(aggregated[depthIndex].spacingFt * 0.5);
+    depths.add(depth);
+  }
+
+  final guard = math.max(minThick, 0.25);
+  final maxDepthAvailable = feetToMeters(aggregated.last.spacingFt * 0.5);
+  var previousDepth = 0.0;
+  for (var i = 0; i < depths.length; i++) {
+    var depth = depths[i];
+    final minDepth = previousDepth + guard;
+    if (depth < minDepth) {
+      depth = minDepth;
+    }
+    final maxDepth = math.min(previousDepth + maxThick, maxDepthAvailable);
+    depth = depth
+        .clamp(minDepth, math.max(minDepth, maxDepth))
+        .toDouble();
+    depths[i] = depth;
+    previousDepth = depth;
+  }
+
+  final spacingMeters = aggregated.map((m) => m.spacingMeters).toList();
+  final thicknesses = _buildThicknesses(depths, minThick, maxThick);
+  final logRhos = resistivities.map(math.log).toList();
+  final fit = _forwardApparentRho(spacingMeters, thicknesses, logRhos);
+  final observed = aggregated.map((m) => m.rho).toList();
+  final misfit = _normalizedMisfit(observed, fit);
+
+  return _InversionAttempt(
+    depths: depths,
+    resistivities: resistivities,
+    fit: fit,
     misfit: misfit,
   );
 }
