@@ -547,8 +547,7 @@ class _TablePanelState extends State<TablePanel> {
 
   Widget _buildTapeCell(ThemeData theme, _RowConfig row) {
     return Center(
-      child: SizedBox(
-        width: 140,
+      child: _compactCell(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
@@ -557,11 +556,17 @@ class _TablePanelState extends State<TablePanel> {
               'Inside ${formatCompactValue(row.insideFeet)} ft',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textScaler: TextScaler.noScaling,
             ),
             Text(
               'Outside ${formatCompactValue(row.outsideFeet)} ft',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textScaler: TextScaler.noScaling,
             ),
           ],
         ),
@@ -588,10 +593,9 @@ class _TablePanelState extends State<TablePanel> {
     return Center(
       child: Opacity(
         opacity: hide ? 0.45 : 1.0,
-        child: SizedBox(
-          width: 140,
+        child: _compactCell(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               if (showLabel)
@@ -600,6 +604,9 @@ class _TablePanelState extends State<TablePanel> {
                   child: Text(
                     label,
                     style: theme.textTheme.labelSmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textScaler: TextScaler.noScaling,
                   ),
                 ),
               Row(
@@ -628,6 +635,7 @@ class _TablePanelState extends State<TablePanel> {
                         ],
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontFeatures: const [FontFeature.tabularFigures()],
+                          height: 1.1,
                         ),
                         decoration: InputDecoration(
                           isDense: true,
@@ -652,7 +660,11 @@ class _TablePanelState extends State<TablePanel> {
                         : 'Mark reading bad',
                     child: IconButton(
                       iconSize: 18,
-                      visualDensity: VisualDensity.compact,
+                      visualDensity:
+                          const VisualDensity(horizontal: -4, vertical: -4),
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: hide
                           ? null
                           : () => widget.onToggleBad(
@@ -673,7 +685,11 @@ class _TablePanelState extends State<TablePanel> {
                     message: 'Show edit history',
                     child: IconButton(
                       iconSize: 18,
-                      visualDensity: VisualDensity.compact,
+                      visualDensity:
+                          const VisualDensity(horizontal: -4, vertical: -4),
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: () => widget.onShowHistory(
                         row.record.spacingFeet,
                         orientation,
@@ -704,10 +720,10 @@ class _TablePanelState extends State<TablePanel> {
     return Center(
       child: Opacity(
         opacity: hide ? 0.45 : 1.0,
-        child: SizedBox(
-          width: 80,
+        child: _compactCell(
+          width: 96,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
               if (showLabel)
@@ -716,6 +732,9 @@ class _TablePanelState extends State<TablePanel> {
                   child: Text(
                     'SD',
                     style: theme.textTheme.labelSmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textScaler: TextScaler.noScaling,
                   ),
                 ),
               SizedBox(
@@ -740,6 +759,7 @@ class _TablePanelState extends State<TablePanel> {
                     ],
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontFeatures: const [FontFeature.tabularFigures()],
+                      height: 1.1,
                     ),
                     decoration: InputDecoration(
                       isDense: true,
@@ -762,6 +782,28 @@ class _TablePanelState extends State<TablePanel> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _compactCell({
+    required Widget child,
+    double width = 140,
+    double height = 44,
+  }) {
+    return SizedBox(
+      width: width,
+      height: height,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.center,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 1, minHeight: 1),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: child,
           ),
         ),
       ),
@@ -801,6 +843,7 @@ class _TablePanelState extends State<TablePanel> {
     );
   }
   Widget _buildMetadata(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
       child: Column(
@@ -818,8 +861,10 @@ class _TablePanelState extends State<TablePanel> {
                   initialValue: widget.site.powerMilliAmps.toStringAsFixed(2),
                   decoration: const InputDecoration(
                     labelText: 'Power (mA)',
+                    isDense: true,
                   ),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  textInputAction: TextInputAction.next,
                   onFieldSubmitted: (value) {
                     final parsed = double.tryParse(value);
                     if (parsed != null) {
@@ -838,12 +883,24 @@ class _TablePanelState extends State<TablePanel> {
               Expanded(
                 child: DropdownButtonFormField<SoilType>(
                   initialValue: widget.site.soil,
-                  decoration: const InputDecoration(labelText: 'Soil'),
+                  decoration: const InputDecoration(
+                    labelText: 'Soil',
+                    isDense: true,
+                  ),
+                  isDense: true,
+                  iconSize: 18,
+                  menuMaxHeight: 240,
+                  alignment: AlignmentDirectional.centerStart,
+                  style: theme.textTheme.bodySmall,
                   items: SoilType.values
                       .map(
                         (soil) => DropdownMenuItem(
                           value: soil,
-                          child: Text(soil.label),
+                          child: Text(
+                            soil.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       )
                       .toList(),
@@ -854,12 +911,24 @@ class _TablePanelState extends State<TablePanel> {
               Expanded(
                 child: DropdownButtonFormField<MoistureLevel>(
                   initialValue: widget.site.moisture,
-                  decoration: const InputDecoration(labelText: 'Moisture'),
+                  decoration: const InputDecoration(
+                    labelText: 'Moisture',
+                    isDense: true,
+                  ),
+                  isDense: true,
+                  iconSize: 18,
+                  menuMaxHeight: 240,
+                  alignment: AlignmentDirectional.centerStart,
+                  style: theme.textTheme.bodySmall,
                   items: MoistureLevel.values
                       .map(
                         (level) => DropdownMenuItem(
                           value: level,
-                          child: Text(level.label),
+                          child: Text(
+                            level.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       )
                       .toList(),
