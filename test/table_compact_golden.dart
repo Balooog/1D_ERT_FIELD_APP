@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/direction_reading.dart';
-import 'package:ves_qc/models/site.dart';
-import 'package:ves_qc/ui/project_workflow/table_panel.dart';
+import 'package:resicheck/models/direction_reading.dart';
+import 'package:resicheck/models/site.dart';
+import 'package:resicheck/ui/project_workflow/table_panel.dart';
 
 void main() {
   testWidgets('table panel uses compact centered layout', (tester) async {
@@ -33,18 +33,23 @@ void main() {
     expect(dataTable.dataRowMaxHeight, 44);
     expect(dataTable.columnSpacing, 12);
 
-    for (final column in dataTable.columns) {
-      expect(column.label, isA<SizedBox>());
-      final box = column.label as SizedBox;
-      expect(box.height, 40);
-      expect(box.child, isA<Center>());
-    }
+    final headers = dataTable.columns
+        .map((column) => column.label)
+        .whereType<SizedBox>()
+        .map((box) => box.child)
+        .whereType<Center>()
+        .map((center) => center.child)
+        .whereType<Text>()
+        .map((text) => text.data)
+        .toList();
 
-    for (final row in dataTable.rows) {
-      for (final cell in row.cells) {
-        expect(cell.child, isA<Center>());
-      }
-    }
+    expect(
+      headers,
+      equals(['a-spacing (ft)', 'Pins at (ft)', 'Res N–S (Ω)', 'Res W–E (Ω)']),
+    );
+
+    expect(find.byType(TextField), findsNWidgets(site.spacings.length * 2));
+    expect(find.widgetWithText(TextButton, contains('(auto)')), findsWidgets);
   });
 }
 

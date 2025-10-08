@@ -5,12 +5,12 @@ plugins {
 }
 
 android {
-    namespace "com.vesqc.ves_qc"
+    namespace "com.vesqc.resicheck"
     compileSdkVersion flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
     defaultConfig {
-        applicationId "com.vesqc.ves_qc"
+        applicationId "com.vesqc.resicheck"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode (flutter.versionCode != null ? flutter.versionCode.toInteger() : 1)
