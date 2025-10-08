@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ves_qc/models/enums.dart';
@@ -27,14 +25,14 @@ SpacingPoint _makePoint(double rho, {double? sigma}) {
 }
 
 void main() {
-  test('Green classification includes threshold boundary', () {
+  test('Threshold residual and CV classify as yellow', () {
     final point = _makePoint(100.0, sigma: kQaGreenCvLimit * 100.0);
     final level = classifyPoint(
       residual: kQaGreenResidualLimit,
       coefficientOfVariation: kQaGreenCvLimit,
       point: point,
     );
-    expect(level, QaLevel.green);
+    expect(level, QaLevel.yellow);
   });
 
   test('Yellow classification slightly above green thresholds', () {

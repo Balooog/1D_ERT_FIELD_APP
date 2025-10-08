@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:resicheck/models/direction_reading.dart';
-import 'package:resicheck/models/site.dart';
-import 'package:resicheck/ui/project_workflow/table_panel.dart';
+import '../lib/models/direction_reading.dart';
+import '../lib/models/site.dart';
+import '../lib/ui/project_workflow/table_panel.dart';
 
 void main() {
   testWidgets('table panel uses compact centered layout', (tester) async {

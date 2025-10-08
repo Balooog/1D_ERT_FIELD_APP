@@ -114,7 +114,7 @@ class _PointsTableState extends ConsumerState<PointsTable> {
       rows.add(
         DataRow(
           color: isExcluded
-              ? MaterialStatePropertyAll(theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4))
+              ? WidgetStatePropertyAll(theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4))
               : null,
           cells: [
             DataCell(Text('${i + 1}')),

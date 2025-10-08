@@ -424,8 +424,9 @@ class _TablePanelState extends State<TablePanel> {
 
   DataRow _buildDataRow(BuildContext context, ThemeData theme, _RowConfig row) {
     final color = row.flags.outlier
-        ? MaterialStatePropertyAll(
-            theme.colorScheme.errorContainer.withOpacity(0.35),
+        ? WidgetStatePropertyAll(
+            theme.colorScheme.errorContainer
+                .withValues(alpha: (0.35 * 255).round().toDouble()),
           )
         : null;
 
@@ -663,7 +664,7 @@ class _TablePanelState extends State<TablePanel> {
                     const TextInputType.numberWithOptions(decimal: true),
                 textInputAction: TextInputAction.next,
                 textAlign: TextAlign.right,
-                inputFormatters: const [
+                inputFormatters: [
                   LengthLimitingTextInputFormatter(4),
                   FilteringTextInputFormatter.allow(
                     RegExp(r'^[0-9]{0,2}(\.[0-9])?$'),
