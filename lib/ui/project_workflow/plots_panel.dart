@@ -514,17 +514,8 @@ class _TriangleDotPainter extends FlDotPainter {
   final double strokeWidth;
 
   @override
-  Size getSize(FlSpot spot) => Size.square(size);
-
-  @override
-  void paint(
-    Canvas canvas,
-    FlSpot spot,
-    Offset offsetInCanvas,
-    Color barColor,
-    double? size,
-  ) {
-    final half = this.size / 2;
+  void draw(Canvas canvas, FlSpot spot, Offset offsetInCanvas) {
+    final half = size / 2;
     final path = Path()
       ..moveTo(offsetInCanvas.dx, offsetInCanvas.dy - half)
       ..lineTo(offsetInCanvas.dx + half, offsetInCanvas.dy + half)
@@ -544,22 +535,37 @@ class _TriangleDotPainter extends FlDotPainter {
   }
 
   @override
-  bool hitTest(FlSpot spot, Offset touchedPoint, Offset centerOffset) {
-    final halfExtent = size / 2 + strokeWidth;
+  bool hitTest(
+    FlSpot spot,
+    Offset touchedPoint,
+    Offset centerOffset,
+    double dotSize,
+  ) {
+    final halfExtent = math.max(size, dotSize) / 2 + strokeWidth;
     final rect = Rect.fromCircle(center: centerOffset, radius: halfExtent);
     return rect.contains(touchedPoint);
   }
 
   @override
-  FlDotPainter lerp(FlDotPainter other, double t) {
-    if (other is _TriangleDotPainter) {
+  FlDotPainter lerp(FlDotPainter a, FlDotPainter b, double t) {
+    if (a is _TriangleDotPainter && b is _TriangleDotPainter) {
+      final lerpSize = a.size + (b.size - a.size) * t;
+      final lerpStrokeWidth =
+          a.strokeWidth + (b.strokeWidth - a.strokeWidth) * t;
       return _TriangleDotPainter(
-        size: size + (other.size - size) * t,
-        color: Color.lerp(color, other.color, t) ?? color,
-        strokeColor: Color.lerp(strokeColor, other.strokeColor, t) ?? strokeColor,
-        strokeWidth: strokeWidth + (other.strokeWidth - strokeWidth) * t,
+        size: lerpSize,
+        color: Color.lerp(a.color, b.color, t) ?? b.color,
+        strokeColor: Color.lerp(a.strokeColor, b.strokeColor, t) ??
+            b.strokeColor,
+        strokeWidth: lerpStrokeWidth,
       );
     }
     return this;
   }
+
+  @override
+  Color get mainColor => color;
+
+  @override
+  List<Object?> get props => <Object?>[size, color, strokeColor, strokeWidth];
 }

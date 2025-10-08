@@ -304,6 +304,9 @@ class _TablePanelState extends State<TablePanel> {
         final maxHeight = constraints.hasBoundedHeight
             ? math.min(constraints.maxHeight, 420.0)
             : 420.0;
+        final minWidth = constraints.hasBoundedWidth
+            ? constraints.maxWidth
+            : 640.0;
         final headingStyle = theme.textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w600,
           fontSize: 12,
@@ -325,78 +328,84 @@ class _TablePanelState extends State<TablePanel> {
               child: SingleChildScrollView(
                 controller: _tableController,
                 primary: false,
-                child: FocusTraversalGroup(
-                  policy: OrderedTraversalPolicy(),
-                  child: DataTable(
-                    headingTextStyle: headingStyle,
-                    dataTextStyle: dataStyle,
-                    dataRowMinHeight: 40,
-                    dataRowMaxHeight: 44,
-                    headingRowHeight: 40,
-                    columnSpacing: 12,
-                    horizontalMargin: 12,
-                    columns: [
-                      const DataColumn(
-                        label: SizedBox(
-                          height: 40,
-                          child: Center(child: Text('a-spacing (ft)')),
-                        ),
-                      ),
-                      const DataColumn(
-                        label: SizedBox(
-                          height: 40,
-                          child: Center(
-                            child: Text(
-                              'Inside / Outside (ft)',
-                              textAlign: TextAlign.center,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: minWidth),
+                    child: FocusTraversalGroup(
+                      policy: OrderedTraversalPolicy(),
+                      child: DataTable(
+                        headingTextStyle: headingStyle,
+                        dataTextStyle: dataStyle,
+                        dataRowMinHeight: 40,
+                        dataRowMaxHeight: 44,
+                        headingRowHeight: 40,
+                        columnSpacing: 12,
+                        horizontalMargin: 12,
+                        columns: [
+                          const DataColumn(
+                            label: SizedBox(
+                              height: 40,
+                              child: Center(child: Text('a-spacing (ft)')),
                             ),
                           ),
-                        ),
-                      ),
-                      DataColumn(
-                        label: SizedBox(
-                          height: 40,
-                          child: Center(
-                            child: Text(
-                              'Res $orientationALabel (Ω)',
-                              textAlign: TextAlign.center,
+                          const DataColumn(
+                            label: SizedBox(
+                              height: 40,
+                              child: Center(
+                                child: Text(
+                                  'Inside / Outside (ft)',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      ),
-                      const DataColumn(
-                        label: SizedBox(
-                          height: 40,
-                          child: Center(child: Text('SD (%)')),
-                        ),
-                      ),
-                      DataColumn(
-                        label: SizedBox(
-                          height: 40,
-                          child: Center(
-                            child: Text(
-                              'Res $orientationBLabel (Ω)',
-                              textAlign: TextAlign.center,
+                          DataColumn(
+                            label: SizedBox(
+                              height: 40,
+                              child: Center(
+                                child: Text(
+                                  'Res $orientationALabel (Ω)',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          const DataColumn(
+                            label: SizedBox(
+                              height: 40,
+                              child: Center(child: Text('SD (%)')),
+                            ),
+                          ),
+                          DataColumn(
+                            label: SizedBox(
+                              height: 40,
+                              child: Center(
+                                child: Text(
+                                  'Res $orientationBLabel (Ω)',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const DataColumn(
+                            label: SizedBox(
+                              height: 40,
+                              child: Center(child: Text('SD (%)')),
+                            ),
+                          ),
+                          const DataColumn(
+                            label: SizedBox(
+                              height: 40,
+                              child: Center(child: Text('Interpretation')),
+                            ),
+                          ),
+                        ],
+                        rows: rows
+                            .map((row) => _buildDataRow(context, theme, row))
+                            .toList(),
                       ),
-                      const DataColumn(
-                        label: SizedBox(
-                          height: 40,
-                          child: Center(child: Text('SD (%)')),
-                        ),
-                      ),
-                      const DataColumn(
-                        label: SizedBox(
-                          height: 40,
-                          child: Center(child: Text('Interpretation')),
-                        ),
-                      ),
-                    ],
-                    rows: rows
-                        .map((row) => _buildDataRow(context, theme, row))
-                        .toList(),
+                    ),
                   ),
                 ),
               ),
@@ -828,7 +837,7 @@ class _TablePanelState extends State<TablePanel> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<SoilType>(
-                  value: widget.site.soil,
+                  initialValue: widget.site.soil,
                   decoration: const InputDecoration(labelText: 'Soil'),
                   items: SoilType.values
                       .map(
@@ -844,7 +853,7 @@ class _TablePanelState extends State<TablePanel> {
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<MoistureLevel>(
-                  value: widget.site.moisture,
+                  initialValue: widget.site.moisture,
                   decoration: const InputDecoration(labelText: 'Moisture'),
                   items: MoistureLevel.values
                       .map(
