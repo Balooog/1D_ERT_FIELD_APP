@@ -1,0 +1,44 @@
+[
+  {
+    "id": "wet_clay",
+    "name": "Wet clayey soil",
+    "soil": "clay",
+    "moisture": "wet",
+    "points": [
+      { "spacing_ft": 2.5, "rho_ohm_m": 25 },
+      { "spacing_ft": 5, "rho_ohm_m": 28 },
+      { "spacing_ft": 10, "rho_ohm_m": 32 },
+      { "spacing_ft": 20, "rho_ohm_m": 35 },
+      { "spacing_ft": 40, "rho_ohm_m": 38 },
+      { "spacing_ft": 60, "rho_ohm_m": 40 }
+    ]
+  },
+  {
+    "id": "dry_sand",
+    "name": "Dry sand/gravel",
+    "soil": "gravelly",
+    "moisture": "dry",
+    "points": [
+      { "spacing_ft": 2.5, "rho_ohm_m": 120 },
+      { "spacing_ft": 5, "rho_ohm_m": 150 },
+      { "spacing_ft": 10, "rho_ohm_m": 180 },
+      { "spacing_ft": 20, "rho_ohm_m": 210 },
+      { "spacing_ft": 40, "rho_ohm_m": 240 },
+      { "spacing_ft": 60, "rho_ohm_m": 260 }
+    ]
+  },
+  {
+    "id": "normal_mixed",
+    "name": "Normal mixed soil",
+    "soil": "mixed",
+    "moisture": "normal",
+    "points": [
+      { "spacing_ft": 2.5, "rho_ohm_m": 60 },
+      { "spacing_ft": 5, "rho_ohm_m": 65 },
+      { "spacing_ft": 10, "rho_ohm_m": 70 },
+      { "spacing_ft": 20, "rho_ohm_m": 80 },
+      { "spacing_ft": 40, "rho_ohm_m": 90 },
+      { "spacing_ft": 60, "rho_ohm_m": 95 }
+    ]
+  }
+]
