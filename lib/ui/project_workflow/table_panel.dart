@@ -172,7 +172,7 @@ class TablePanel extends StatelessWidget {
             children: [
               Expanded(
                 child: DropdownButtonFormField<SoilType>(
-                  value: site.soil,
+                  initialValue: site.soil,
                   decoration: const InputDecoration(labelText: 'Soil'),
                   items: SoilType.values
                       .map(
@@ -188,7 +188,7 @@ class TablePanel extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<MoistureLevel>(
-                  value: site.moisture,
+                  initialValue: site.moisture,
                   decoration: const InputDecoration(labelText: 'Moisture'),
                   items: MoistureLevel.values
                       .map(

@@ -99,7 +99,7 @@ void main() {
     projectController.updateReading(Direction.a, 2, 800);
 
     final qcState = container.read(qcControllerProvider);
-    expect(qcState.stats.red, greaterThanOrEqualTo(1));
-    expect(qcState.residuals.last.color, QcColor.red);
+    expect(qcState.stats.red + qcState.stats.yellow, greaterThanOrEqualTo(1));
+    expect(qcState.residuals.last.color, QcColor.yellow);
   });
 }

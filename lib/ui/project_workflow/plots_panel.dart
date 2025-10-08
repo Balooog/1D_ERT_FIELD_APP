@@ -5,7 +5,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/calc.dart';
-import '../../models/direction_reading.dart';
 import '../../models/project.dart';
 import '../../models/site.dart';
 import '../../services/templates_service.dart';
@@ -90,13 +89,13 @@ class PlotsPanel extends StatelessWidget {
     }
     final axis = _computeAxisRanges(site);
     final ghostSpots = averageGhost
-        .sortedBy((point) => point.spacingFt)
+        .sortedBy<double>((point) => point.spacingFt)
         .map((point) => FlSpot(_log(point.spacingFt), _log(point.rho)))
         .toList();
     final templateSpots = template == null
         ? <FlSpot>[]
         : template!.points
-            .sortedBy((point) => point.spacingFeet)
+            .sortedBy<double>((point) => point.spacingFeet)
             .map((point) => FlSpot(
                   _log(point.spacingFeet),
                   _log(point.apparentResistivityOhmM),
