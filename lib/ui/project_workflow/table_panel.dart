@@ -350,11 +350,11 @@ class _TablePanelState extends State<TablePanel> {
                       child: DataTable(
                         headingTextStyle: headingStyle,
                         dataTextStyle: dataStyle,
-                        dataRowMinHeight: 72,
-                        dataRowMaxHeight: 84,
-                        headingRowHeight: 40,
-                        columnSpacing: 8,
-                        horizontalMargin: 8,
+                        dataRowMinHeight: 64,
+                        dataRowMaxHeight: 72,
+                        headingRowHeight: 36,
+                        columnSpacing: 6,
+                        horizontalMargin: 6,
                         columns: [
                           const DataColumn(
                             label: SizedBox(
@@ -503,8 +503,8 @@ class _TablePanelState extends State<TablePanel> {
         ? customNote!
         : (autoNote ?? 'Tap to record interpretation notes');
     return Center(
-      child: SizedBox(
-        width: 120,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 110),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -557,8 +557,8 @@ class _TablePanelState extends State<TablePanel> {
         'Outside electrodes at ${formatMetersTooltip(row.outsideMeters)} m';
 
     return Center(
-      child: SizedBox(
-        width: 120,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 110),
         child: Tooltip(
           message: tooltip,
           child: Text(
@@ -601,23 +601,23 @@ class _TablePanelState extends State<TablePanel> {
         ? theme.colorScheme.error
         : theme.textTheme.labelSmall?.color ?? theme.colorScheme.onSurfaceVariant;
     final buttonStyle = TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      minimumSize: const Size(0, 28),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      minimumSize: const Size(0, 26),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: const VisualDensity(horizontal: -3, vertical: -3),
+      visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
     );
-    const controlDensity = VisualDensity(horizontal: -3, vertical: -3);
+    const controlDensity = VisualDensity(horizontal: -4, vertical: -4);
 
     return Center(
       child: Opacity(
         opacity: hide ? 0.45 : 1.0,
-        child: SizedBox(
-          width: 140,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 128),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                height: 34,
+                height: 32,
                 child: FocusTraversalOrder(
                   order: NumericFocusOrder(rank),
                   child: TextField(
@@ -640,14 +640,14 @@ class _TablePanelState extends State<TablePanel> {
                       fontFeatures: const [FontFeature.tabularFigures()],
                       height: 1.1,
                     ),
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 6,
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 4,
                         horizontal: 6,
                       ),
                       hintText: hide ? 'Hidden' : null,
-                      border: const OutlineInputBorder(),
+                      border: OutlineInputBorder(),
                     ),
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (value) => _submitResistance(key, value),
@@ -657,69 +657,75 @@ class _TablePanelState extends State<TablePanel> {
                 ),
               ),
               const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Flexible(
-                    child: TextButton(
-                      onPressed: hide
-                          ? null
-                          : () => _handleSdPrompt(
-                                key,
-                                shouldMoveFocus: false,
-                                forcePrompt: true,
-                              ),
-                      style: buttonStyle,
-                      child: Text(
-                        'SD $sdText',
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: sdColor,
-                          fontWeight:
-                              sdWarning ? FontWeight.w600 : FontWeight.w400,
+              SizedBox(
+                height: 28,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: TextButton(
+                        onPressed: hide
+                            ? null
+                            : () => _handleSdPrompt(
+                                  key,
+                                  shouldMoveFocus: false,
+                                  forcePrompt: true,
+                                ),
+                        style: buttonStyle,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'SD $sdText',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: sdColor,
+                              fontWeight: sdWarning
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    iconSize: 18,
-                    visualDensity: controlDensity,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
-                    tooltip: isBad
-                        ? 'Marked bad — tap to clear flag'
-                        : 'Mark reading bad',
-                    onPressed: hide
-                        ? null
-                        : () => widget.onToggleBad(
-                              row.record.spacingFeet,
-                              orientation,
-                              !isBad,
-                            ),
-                    icon: Icon(
-                      isBad ? Icons.flag : Icons.outlined_flag,
-                      color: isBad
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.outline,
+                    const SizedBox(width: 4),
+                    IconButton(
+                      iconSize: 16,
+                      visualDensity: controlDensity,
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 28, minHeight: 28),
+                      tooltip: isBad
+                          ? 'Marked bad — tap to clear flag'
+                          : 'Mark reading bad',
+                      onPressed: hide
+                          ? null
+                          : () => widget.onToggleBad(
+                                row.record.spacingFeet,
+                                orientation,
+                                !isBad,
+                              ),
+                      icon: Icon(
+                        isBad ? Icons.flag : Icons.outlined_flag,
+                        color: isBad
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.outline,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    iconSize: 18,
-                    visualDensity: controlDensity,
-                    padding: EdgeInsets.zero,
-                    constraints:
-                        const BoxConstraints(minWidth: 32, minHeight: 32),
-                    tooltip: 'Show edit history',
-                    onPressed: () => widget.onShowHistory(
-                      row.record.spacingFeet,
-                      orientation,
+                    IconButton(
+                      iconSize: 16,
+                      visualDensity: controlDensity,
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 28, minHeight: 28),
+                      tooltip: 'Show edit history',
+                      onPressed: () => widget.onShowHistory(
+                        row.record.spacingFeet,
+                        orientation,
+                      ),
+                      icon: const Icon(Icons.history),
                     ),
-                    icon: const Icon(Icons.history),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),

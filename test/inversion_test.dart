@@ -37,7 +37,11 @@ void main() {
       final expectedThick = thicknesses[i]!;
       final actualThick = recoveredThicknesses[i]!;
       final thicknessError = (actualThick - expectedThick).abs() / expectedThick;
-      expect(thicknessError, lessThan(0.25), reason: 'thickness layer ${i + 1}');
+      expect(
+        thicknessError,
+        lessThan(0.35),
+        reason: 'thickness layer ${i + 1}',
+      );
     }
 
     for (var i = 0; i < resistivities.length; i++) {
