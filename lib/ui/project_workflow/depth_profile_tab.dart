@@ -7,7 +7,7 @@ import '../../models/site.dart';
 import '../../utils/distance_unit.dart';
 import '../../utils/format.dart';
 
-class DepthProfileTab extends StatelessWidget {
+class DepthProfileTab extends StatefulWidget {
   const DepthProfileTab({
     super.key,
     required this.site,
@@ -16,6 +16,25 @@ class DepthProfileTab extends StatelessWidget {
 
   final SiteRecord site;
   final DistanceUnit distanceUnit;
+
+  @override
+  State<DepthProfileTab> createState() => _DepthProfileTabState();
+}
+
+class _DepthProfileTabState extends State<DepthProfileTab> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,8 +52,8 @@ class DepthProfileTab extends StatelessWidget {
     }
 
     final deepest = steps.last;
-    final depthValue = distanceUnit.fromMeters(deepest.depthMeters);
-    final depthUnitLabel = distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
+    final depthValue = widget.distanceUnit.fromMeters(deepest.depthMeters);
+    final depthUnitLabel = widget.distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
     final trend = _trendDescription(steps);
     final message =
         'Depth cue: $trend toward ${formatCompactValue(depthValue)} $depthUnitLabel (~${formatMetersTooltip(deepest.depthMeters)} m, ≈${formatCompactValue(deepest.rho)} Ω·m).';
@@ -66,7 +85,7 @@ class DepthProfileTab extends StatelessWidget {
 
   List<_DepthStep> _depthSteps() {
     final steps = <_DepthStep>[];
-    for (final spacing in site.spacings) {
+    for (final spacing in widget.site.spacings) {
       final aSample = spacing.orientationA.latest;
       final bSample = spacing.orientationB.latest;
       final resistances = [
@@ -87,7 +106,7 @@ class DepthProfileTab extends StatelessWidget {
   }
 
   Widget _buildDepthTable(BuildContext context, List<_DepthStep> steps) {
-    final unitLabel = distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
+    final unitLabel = widget.distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
     final theme = Theme.of(context);
     final dataTable = DataTable(
       headingRowHeight: 32,
@@ -120,7 +139,8 @@ class DepthProfileTab extends StatelessWidget {
               DataCell(
                 Center(
                   child: Text(
-                    formatCompactValue(distanceUnit.fromMeters(step.depthMeters)),
+                    formatCompactValue(
+                        widget.distanceUnit.fromMeters(step.depthMeters)),
                   ),
                 ),
               ),
@@ -142,8 +162,10 @@ class DepthProfileTab extends StatelessWidget {
     return SizedBox(
       height: 160,
       child: Scrollbar(
+        controller: _scrollController,
         thumbVisibility: true,
         child: SingleChildScrollView(
+          controller: _scrollController,
           primary: false,
           child: dataTable,
         ),

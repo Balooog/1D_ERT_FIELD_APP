@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/utils/format.dart';
+import 'package:resicheck/utils/format.dart';
 
 void main() {
   test('formatCompactValue trims trailing zeros', () {

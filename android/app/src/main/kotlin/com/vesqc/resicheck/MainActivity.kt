@@ -1,4 +1,4 @@
-package com.vesqc.ves_qc
+package com.vesqc.resicheck
 
 import io.flutter.embedding.android.FlutterActivity
 

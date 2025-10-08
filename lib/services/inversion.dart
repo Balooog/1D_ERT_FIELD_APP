@@ -258,36 +258,37 @@ List<_AggregatedMeasurement> _aggregateMeasurements({
   required double maxRho,
 }) {
   final entries = <_SpacingEntry>[];
-  final nsValues = <double>[];
-  final weValues = <double>[];
   for (var i = 0; i < aFt.length; i++) {
     final spacing = aFt[i];
     final ns = i < rhoAppNS.length ? _validValue(rhoAppNS[i]) : null;
     final we = i < rhoAppWE.length ? _validValue(rhoAppWE[i]) : null;
     entries.add(_SpacingEntry(spacingFt: spacing, ns: ns, we: we));
-    if (ns != null) {
-      nsValues.add(ns);
-    }
-    if (we != null) {
-      weValues.add(we);
-    }
   }
-  final medianNs = _median(nsValues);
-  final medianWe = _median(weValues);
   final result = <_AggregatedMeasurement>[];
   for (final entry in entries) {
     var ns = entry.ns;
     var we = entry.we;
-    if (ns != null && medianNs != null) {
-      final deviation = (ns - medianNs).abs() / medianNs * 100;
-      if (deviation > outlierSdPct) {
-        ns = null;
-      }
-    }
-    if (we != null && medianWe != null) {
-      final deviation = (we - medianWe).abs() / medianWe * 100;
-      if (deviation > outlierSdPct) {
-        we = null;
+    if (ns != null && we != null) {
+      final mean = (ns + we) / 2;
+      final denom = mean.abs() < 1e-6 ? 1.0 : mean.abs();
+      final nsDeviation = (ns - mean).abs() / denom * 100;
+      final weDeviation = (we - mean).abs() / denom * 100;
+      if (nsDeviation > outlierSdPct && weDeviation > outlierSdPct) {
+        if (nsDeviation > weDeviation) {
+          ns = null;
+        } else if (weDeviation > nsDeviation) {
+          we = null;
+        } else {
+          ns = null;
+          we = null;
+        }
+      } else {
+        if (nsDeviation > outlierSdPct) {
+          ns = null;
+        }
+        if (weDeviation > outlierSdPct) {
+          we = null;
+        }
       }
     }
     final values = <double>[];

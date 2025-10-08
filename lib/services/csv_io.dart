@@ -227,7 +227,7 @@ double _geometryFactorForArray(ArrayType arrayType, double spacingMeters) {
 
 Future<File> getDefaultExportFile(String directory, {String? basename}) async {
   final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-  final name = basename ?? 'ves_qc_export_$timestamp.csv';
+  final name = basename ?? 'resicheck_export_$timestamp.csv';
   final file = File(p.join(directory, name));
   if (!await file.exists()) {
     await file.create(recursive: true);
