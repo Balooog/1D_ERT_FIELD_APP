@@ -301,7 +301,7 @@ class _ProjectShellState extends State<ProjectShell> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: orientationA,
+                initialValue: orientationA,
                 decoration: const InputDecoration(labelText: 'Orientation A'),
                 items: const [
                   DropdownMenuItem(value: 'N–S', child: Text('N–S')),
@@ -315,7 +315,7 @@ class _ProjectShellState extends State<ProjectShell> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: orientationB,
+                initialValue: orientationB,
                 decoration: const InputDecoration(labelText: 'Orientation B'),
                 items: const [
                   DropdownMenuItem(value: 'N–S', child: Text('N–S')),
@@ -604,7 +604,6 @@ class _ProjectShellState extends State<ProjectShell> {
                               SizedBox(
                                 width: 420,
                                 child: TablePanel(
-                                  project: _project,
                                   site: site,
                                   onResistanceChanged: _handleReadingSubmitted,
                                   onSdChanged: _handleSdChanged,

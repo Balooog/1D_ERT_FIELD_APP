@@ -74,10 +74,21 @@ void main() {
     final csvFile = await exportService.exportFieldCsv(storageProject, site);
     final lines = await csvFile.readAsLines();
     expect(lines.length, greaterThan(1));
-    // After header the first data row should be spacing 5 ft because of ordering.
-    expect(lines[1].contains(',5,'), isTrue);
+    final spacings = lines
+        .skip(1)
+        .where((line) => line.isNotEmpty)
+        .map((line) => double.parse(line.split(',')[2]))
+        .toList();
+    final sortedSpacings = [...spacings]..sort();
+    expect(spacings, sortedSpacings);
     final datFile = await exportService.exportSurferDat(storageProject, site);
     final datLines = await datFile.readAsLines();
-    expect(datLines.last.startsWith('10'), isTrue);
+    final datSpacings = datLines
+        .skip(4)
+        .where((line) => line.isNotEmpty)
+        .map((line) => double.parse(line.split(',').first))
+        .toList();
+    final sortedDatSpacings = [...datSpacings]..sort();
+    expect(datSpacings, sortedDatSpacings);
   });
 }
