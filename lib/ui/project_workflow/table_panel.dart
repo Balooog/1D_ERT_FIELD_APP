@@ -138,6 +138,23 @@ class _TablePanelState extends State<TablePanel> {
   final ScrollController _tableController = ScrollController();
   final Map<_FieldKey, _RowConfig> _rowByField = {};
   static final RegExp _sdPromptRegExp = RegExp(TablePanel.sdPromptPattern);
+  static const InputDecoration _resistanceDecoration = InputDecoration(
+    isDense: true,
+    contentPadding: EdgeInsets.symmetric(
+      vertical: 4,
+      horizontal: 6,
+    ),
+    border: OutlineInputBorder(),
+  );
+  static const InputDecoration _hiddenResistanceDecoration = InputDecoration(
+    isDense: true,
+    contentPadding: EdgeInsets.symmetric(
+      vertical: 4,
+      horizontal: 6,
+    ),
+    hintText: 'Hidden',
+    border: OutlineInputBorder(),
+  );
   TablePreferences? _prefs;
   bool _askForSd = true;
   List<_FieldKey> _tabSequence = const [];
@@ -608,6 +625,10 @@ class _TablePanelState extends State<TablePanel> {
     );
     const controlDensity = VisualDensity(horizontal: -4, vertical: -4);
 
+    final decoration = hide
+        ? _hiddenResistanceDecoration
+        : _resistanceDecoration;
+
     return Center(
       child: Opacity(
         opacity: hide ? 0.45 : 1.0,
@@ -640,15 +661,7 @@ class _TablePanelState extends State<TablePanel> {
                       fontFeatures: const [FontFeature.tabularFigures()],
                       height: 1.1,
                     ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        vertical: 4,
-                        horizontal: 6,
-                      ),
-                      hintText: hide ? 'Hidden' : null,
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: decoration,
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (value) => _submitResistance(key, value),
                     onEditingComplete: () =>
