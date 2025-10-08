@@ -83,8 +83,8 @@ QcFlags evaluateQc({
 
   final outlier = (resistanceA != null && resistanceA.abs() > config.outlierCapOhm) ||
       (resistanceB != null && resistanceB.abs() > config.outlierCapOhm);
-  final highVariance = ((sdA ?? 0) > config.sdThresholdPercent) ||
-      ((sdB ?? 0) > config.sdThresholdPercent);
+  final highVariance = ((sdA ?? 0) >= config.sdThresholdPercent) ||
+      ((sdB ?? 0) >= config.sdThresholdPercent);
   final anisotropy = ratio != null && ratio > config.anisotropyRatioThreshold;
 
   bool jump = false;
