@@ -443,17 +443,19 @@ class _ProjectShellState extends State<ProjectShell> {
 
   void _markFocusedBad() {
     final site = _selectedSite;
-    if (site == null || _focusedSpacing == null || _focusedOrientation == null) {
+    final spacingId = _focusedSpacing;
+    final orientation = _focusedOrientation;
+    if (site == null || spacingId == null || orientation == null) {
       return;
     }
-    final record = site.spacing(_focusedSpacing!);
-    final history = record?.historyFor(_focusedOrientation!);
+    final record = site.spacing(spacingId);
+    final history = record?.historyFor(orientation);
     if (history == null || history.samples.isEmpty) {
       return;
     }
     final latest = history.latest;
     final isBad = !(latest?.isBad ?? false);
-    _handleBadToggle(_focusedSpacing!, _focusedOrientation!, isBad);
+    _handleBadToggle(spacingId, orientation, isBad);
   }
 
   List<GhostSeriesPoint> _computeSiteAverage(SiteRecord? site) {

@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:collection/collection.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
@@ -88,24 +87,28 @@ class PlotsPanel extends StatelessWidget {
       );
     }
     final axis = _computeAxisRanges(site);
-    final ghostSpots = averageGhost
-        .sortedBy<double>((point) => point.spacingFt)
+    final sortedGhost = List<GhostSeriesPoint>.of(averageGhost)
+      ..sort((a, b) => a.spacingFt.compareTo(b.spacingFt));
+    final ghostSpots = sortedGhost
         .map((point) => FlSpot(_log(point.spacingFt), _log(point.rho)))
         .toList();
-    final templateSpots = template == null
-        ? <FlSpot>[]
-        : template!.points
-            .sortedBy<double>((point) => point.spacingFeet)
-            .map((point) => FlSpot(
-                  _log(point.spacingFeet),
-                  _log(point.apparentResistivityOhmM),
-                ))
-            .toList();
+    final sortedTemplate = template == null
+        ? const <GhostTemplatePoint>[]
+        : (List<GhostTemplatePoint>.of(template!.points)
+          ..sort((a, b) => a.spacingFeet.compareTo(b.spacingFeet)));
+    final templateSpots = sortedTemplate
+        .map((point) => FlSpot(
+              _log(point.spacingFeet),
+              _log(point.apparentResistivityOhmM),
+            ))
+        .toList();
     return LineChart(
       LineChartData(
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: Theme.of(context).colorScheme.surface.withOpacity(0.9),
+            tooltipBgColor: Theme.of(context).colorScheme.surface.withValues(
+                  alpha: (0.9 * 255).round(),
+                ),
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
                 final spacing = math.pow(10, spot.x);
