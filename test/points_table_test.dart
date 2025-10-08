@@ -33,26 +33,14 @@ void main() {
       final labels = order.map((node) => node.debugLabel ?? '').toList();
 
       expect(
-        labels.take(6),
+        labels,
         equals([
           'a-resistance-40.0',
-          'a-sd-40.0',
           'a-resistance-20.0',
-          'a-sd-20.0',
           'a-resistance-10.0',
-          'a-sd-10.0',
-        ]),
-      );
-
-      expect(
-        labels.skip(6).take(6),
-        equals([
           'b-resistance-10.0',
-          'b-sd-10.0',
           'b-resistance-20.0',
-          'b-sd-20.0',
           'b-resistance-40.0',
-          'b-sd-40.0',
         ]),
       );
     });
@@ -60,7 +48,7 @@ void main() {
 
   group('SD formatter', () {
     test('accepts 0–99.9 pattern', () {
-      final regExp = RegExp(r'^[0-9]{0,2}(\.[0-9])?$');
+    final regExp = RegExp(TablePanel.sdPromptPattern);
       final valid = ['0', '5', '12', '99', '7.5', '12.3', ''];
       for (final value in valid) {
         expect(regExp.hasMatch(value), isTrue, reason: 'expected "$value" to be allowed');

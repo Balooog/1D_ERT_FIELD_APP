@@ -33,18 +33,23 @@ void main() {
     expect(dataTable.dataRowMaxHeight, 44);
     expect(dataTable.columnSpacing, 12);
 
-    for (final column in dataTable.columns) {
-      expect(column.label, isA<SizedBox>());
-      final box = column.label as SizedBox;
-      expect(box.height, 40);
-      expect(box.child, isA<Center>());
-    }
+    final headers = dataTable.columns
+        .map((column) => column.label)
+        .whereType<SizedBox>()
+        .map((box) => box.child)
+        .whereType<Center>()
+        .map((center) => center.child)
+        .whereType<Text>()
+        .map((text) => text.data)
+        .toList();
 
-    for (final row in dataTable.rows) {
-      for (final cell in row.cells) {
-        expect(cell.child, isA<Center>());
-      }
-    }
+    expect(
+      headers,
+      equals(['a-spacing (ft)', 'Pins at (ft)', 'Res N–S (Ω)', 'Res W–E (Ω)']),
+    );
+
+    expect(find.byType(TextField), findsNWidgets(site.spacings.length * 2));
+    expect(find.widgetWithText(TextButton, contains('(auto)')), findsWidgets);
   });
 }
 
