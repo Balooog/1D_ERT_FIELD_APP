@@ -20,13 +20,18 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
   @override
   void initState() {
     super.initState();
-    _recentFuture = _storage.recentProjects();
+    _recentFuture = _loadProjects();
   }
 
   Future<void> _refresh() async {
     setState(() {
-      _recentFuture = _storage.recentProjects();
+      _recentFuture = _loadProjects();
     });
+  }
+
+  Future<List<ProjectSummary>> _loadProjects() async {
+    await _storage.ensureSampleProject();
+    return _storage.recentProjects();
   }
 
   @override
