@@ -208,7 +208,17 @@ class PlotsPanel extends StatelessWidget {
               barWidth: 2,
               color: _averageGray,
               dashArray: [6, 6],
-              dotData: const FlDotData(show: false),
+              dotData: FlDotData(
+                show: true,
+                getDotPainter: (spot, percent, barData, index) {
+                  return _TriangleDotPainter(
+                    size: 8,
+                    color: _averageGray,
+                    strokeColor: theme.colorScheme.surface,
+                    strokeWidth: 1.5,
+                  );
+                },
+              ),
             ),
           if (templateSpots.isNotEmpty)
             LineChartBarData(
@@ -247,6 +257,7 @@ class PlotsPanel extends StatelessWidget {
           label: 'Average',
           color: _averageGray,
           dashed: true,
+          marker: _LegendMarker.triangle,
         ),
       );
     }
@@ -366,7 +377,7 @@ class _AxisRanges {
   final double maxY;
 }
 
-enum _LegendMarker { none, circle, square }
+enum _LegendMarker { none, circle, square, triangle }
 
 class _LegendEntry extends StatelessWidget {
   const _LegendEntry({
@@ -459,6 +470,23 @@ class _LegendLinePainter extends CustomPainter {
         canvas.drawRect(rect, fill);
         canvas.drawRect(rect, stroke);
         break;
+      case _LegendMarker.triangle:
+        final half = 4.0;
+        final path = Path()
+          ..moveTo(center.dx, center.dy - half)
+          ..lineTo(center.dx + half, center.dy + half)
+          ..lineTo(center.dx - half, center.dy + half)
+          ..close();
+        final fill = Paint()
+          ..color = color
+          ..style = PaintingStyle.fill;
+        final stroke = Paint()
+          ..color = Colors.white
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2;
+        canvas.drawPath(path, fill);
+        canvas.drawPath(path, stroke);
+        break;
       case _LegendMarker.none:
         break;
     }
@@ -469,5 +497,69 @@ class _LegendLinePainter extends CustomPainter {
     return oldDelegate.color != color ||
         oldDelegate.dashed != dashed ||
         oldDelegate.marker != marker;
+  }
+}
+
+class _TriangleDotPainter extends FlDotPainter {
+  const _TriangleDotPainter({
+    required this.size,
+    required this.color,
+    required this.strokeColor,
+    this.strokeWidth = 1.5,
+  });
+
+  final double size;
+  final Color color;
+  final Color strokeColor;
+  final double strokeWidth;
+
+  @override
+  Size getSize(FlSpot spot) => Size.square(size);
+
+  @override
+  void paint(
+    Canvas canvas,
+    FlSpot spot,
+    Offset offsetInCanvas,
+    Color barColor,
+    double? size,
+  ) {
+    final half = this.size / 2;
+    final path = Path()
+      ..moveTo(offsetInCanvas.dx, offsetInCanvas.dy - half)
+      ..lineTo(offsetInCanvas.dx + half, offsetInCanvas.dy + half)
+      ..lineTo(offsetInCanvas.dx - half, offsetInCanvas.dy + half)
+      ..close();
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(path, fill);
+    if (strokeWidth > 0) {
+      final stroke = Paint()
+        ..color = strokeColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth;
+      canvas.drawPath(path, stroke);
+    }
+  }
+
+  @override
+  bool hitTest(FlSpot spot, Offset touchedPoint, Offset centerOffset) {
+    final halfExtent = size / 2 + strokeWidth;
+    final rect = Rect.fromCircle(center: centerOffset, radius: halfExtent);
+    return rect.contains(touchedPoint);
+  }
+
+  @override
+  FlDotPainter lerp(FlDotPainter other, double t) {
+    if (other is _TriangleDotPainter) {
+      return _TriangleDotPainter(
+        size: size + (other.size - size) * t,
+        color: Color.lerp(color, other.color, t) ?? color,
+        strokeColor: Color.lerp(strokeColor, other.strokeColor, t) ?? strokeColor,
+        strokeWidth: strokeWidth + (other.strokeWidth - strokeWidth) * t,
+      );
+    }
+    return this;
   }
 }
