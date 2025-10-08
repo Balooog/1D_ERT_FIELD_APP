@@ -244,28 +244,30 @@ class SpacingPoint {
       geometryFactor = _geometryFactorFor(arrayType, derivedMeters);
     }
 
-    if (resolvedFeet == null || resolvedMeters == null) {
+    final resolvedFeetValue = resolvedFeet;
+    final resolvedMetersValue = resolvedMeters;
+    if (resolvedFeetValue == null || resolvedMetersValue == null) {
       throw ArgumentError('A-spacing could not be resolved from the provided inputs.');
     }
 
-    geometryFactor ??= _geometryFactorFor(arrayType, resolvedMeters);
+    final geometryValue = geometryFactor ?? _geometryFactorFor(arrayType, resolvedMetersValue);
 
-    resolvedRho ??=
-        resolvedResistance != null && geometryFactor != null && geometryFactor > 0 ? resolvedResistance * geometryFactor : null;
+    final resolvedRhoValue = resolvedRho ??
+        (resolvedResistance != null && geometryValue > 0 ? resolvedResistance * geometryValue : null);
 
-    if (resolvedRho == null) {
+    if (resolvedRhoValue == null) {
       throw ArgumentError('Apparent resistivity could not be resolved from the provided inputs.');
     }
 
     double? resolvedSigmaRho = sigmaRhoOhmM;
-    if (resolvedSigmaRho == null && resistanceStdOhm != null && geometryFactor != null && geometryFactor > 0) {
-      resolvedSigmaRho = geometryFactor * resistanceStdOhm;
+    if (resolvedSigmaRho == null && resistanceStdOhm != null && geometryValue > 0) {
+      resolvedSigmaRho = geometryValue * resistanceStdOhm;
     }
 
     final resolved = _ResolvedInputs.resolve(
-      aFeet: resolvedFeet!,
-      spacingMeters: resolvedMeters!,
-      rhoAppOhmM: resolvedRho!,
+      aFeet: resolvedFeetValue,
+      spacingMeters: resolvedMetersValue,
+      rhoAppOhmM: resolvedRhoValue,
       sigmaRhoOhmM: resolvedSigmaRho,
       resistanceOhm: resolvedResistance,
       resistanceStdOhm: resistanceStdOhm,
