@@ -2,6 +2,17 @@
 
 ResiCheck (formerly VES QC) is a field-ready, offline-first Flutter companion for geophysicists validating 1-D ERT/VES soundings in real time. It focuses on quick situational awareness, defensive QA, and rapid iteration while staying lightweight for remote use.
 
+## Project workflow (PR 026)
+
+The project workspace now provides autosaved project directories under `ResiCheckProjects/<ProjectName>/` with a left-pane plotting canvas and right-pane data entry table optimised for tablet number pads. Each project stores canonical `a` spacings, per-site metadata (power, stacks, soil, moisture), and dual-orientation readings (Direction A/B). Key capabilities include:
+
+- Live log–log apparent resistivity charts with site-average and template ghost curves (static JSON, no AI dependencies).
+- Deterministic QC flags (outlier cap, %SD gate, anisotropy ratio, log-jump) plus a depth cue sketch using DOI ≈ 0.5a.
+- Autosave every 10 s with undo/redo history, keyboard shortcuts (`Ctrl+S`, `Ctrl+E`, `N`, `F`, `X`) and a session-wide re-read history per spacing.
+- Timestamped CSV and Surfer `.DAT` exports saved beneath each project's `exports/` folder.
+
+A sample project (`assets/samples/sample_project.resicheck.json`) and ghost curve library (`assets/templates/ghost_curves.json`) are bundled for quick onboarding and offline validation.
+
 ## Repository layout
 
 ```

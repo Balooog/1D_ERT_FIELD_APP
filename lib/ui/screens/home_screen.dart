@@ -273,7 +273,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<DistanceUnit>(
-              value: _distanceUnit,
+              initialValue: _distanceUnit,
               decoration: const InputDecoration(labelText: 'Distance units'),
               items: DistanceUnit.values
                   .map((unit) => DropdownMenuItem(value: unit, child: Text(unit.label)))
@@ -601,7 +601,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<ArrayType>(
-                            value: arrayType,
+                            initialValue: arrayType,
                             decoration: const InputDecoration(labelText: 'Array'),
                             onChanged: (value) => setState(() => arrayType = value ?? arrayType),
                             items: const [
@@ -613,7 +613,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: DropdownButtonFormField<SoundingDirection>(
-                            value: direction,
+                            initialValue: direction,
                             decoration: const InputDecoration(labelText: 'Direction'),
                             onChanged: (value) => setState(() => direction = value ?? direction),
                             items: SoundingDirection.values
@@ -886,7 +886,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Text('Bulk paste points', style: Theme.of(sheetCtx).textTheme.titleMedium),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<SoundingDirection>(
-                    value: selectedDirection,
+                    initialValue: selectedDirection,
                     decoration: const InputDecoration(labelText: 'Orientation'),
                     onChanged: (value) => setState(() => selectedDirection = value ?? selectedDirection),
                     items: SoundingDirection.values
