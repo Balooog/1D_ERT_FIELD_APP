@@ -402,7 +402,7 @@ class _ProjectShellState extends State<ProjectShell> {
     }
     try {
       final csvFile = await _exportService.exportFieldCsv(_project, site);
-      final datFile = await _exportService.exportSurferDat(_project, site);
+      await _exportService.exportSurferDat(_project, site);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
