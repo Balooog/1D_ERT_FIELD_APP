@@ -1,13 +1,18 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/calc.dart';
 import '../../models/site.dart';
+import '../../utils/distance_unit.dart';
 
 class DepthProfileTab extends StatelessWidget {
-  const DepthProfileTab({super.key, required this.site});
+  const DepthProfileTab({
+    super.key,
+    required this.site,
+    this.distanceUnit = DistanceUnit.feet,
+  });
 
   final SiteRecord site;
+  final DistanceUnit distanceUnit;
 
   @override
   Widget build(BuildContext context) {
@@ -23,13 +28,34 @@ class DepthProfileTab extends StatelessWidget {
         ),
       );
     }
+
+    final deepest = steps.last;
+    final depthValue = distanceUnit.fromMeters(deepest.depthMeters);
+    final depthUnitLabel = distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
+    final trend = _trendDescription(steps);
+    final message =
+        'Depth cue: $trend toward ${_formatNumber(depthValue)} $depthUnitLabel (~${_formatNumber(deepest.depthMeters)} m, ≈${deepest.rho.toStringAsFixed(0)} Ω·m).';
+
     return Card(
       margin: const EdgeInsets.all(12),
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: CustomPaint(
-          painter: _DepthProfilePainter(steps: steps),
-          child: Container(),
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${steps.length} spacing${steps.length == 1 ? '' : 's'} informing cue',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            _buildDepthTable(context, steps),
+          ],
         ),
       ),
     );
@@ -56,6 +82,69 @@ class DepthProfileTab extends StatelessWidget {
     steps.sort((a, b) => a.depthMeters.compareTo(b.depthMeters));
     return steps;
   }
+
+  Widget _buildDepthTable(BuildContext context, List<_DepthStep> steps) {
+    final unitLabel = distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
+    final theme = Theme.of(context);
+    return DataTable(
+      headingRowHeight: 32,
+      dataRowMinHeight: 32,
+      dataRowMaxHeight: 40,
+      headingTextStyle: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+      dataTextStyle: theme.textTheme.bodySmall,
+      columnSpacing: 24,
+      horizontalMargin: 12,
+      columns: [
+        DataColumn(
+          label: Center(child: Text('Depth ($unitLabel)')),
+        ),
+        const DataColumn(
+          label: Center(child: Text('ρa (Ω·m)')),
+        ),
+      ],
+      rows: [
+        for (final step in steps)
+          DataRow(
+            cells: [
+              DataCell(
+                Center(
+                  child: Text(
+                    _formatNumber(distanceUnit.fromMeters(step.depthMeters)),
+                  ),
+                ),
+              ),
+              DataCell(
+                Center(
+                  child: Text(_formatNumber(step.rho)),
+                ),
+              ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  String _trendDescription(List<_DepthStep> steps) {
+    if (steps.length < 2) {
+      return 'Resistivity stable';
+    }
+    final delta = steps.last.rho - steps.first.rho;
+    if (delta.abs() < 0.5) {
+      return 'Resistivity stable';
+    }
+    return delta > 0 ? 'Resistivity increasing' : 'Resistivity decreasing';
+  }
+
+  String _formatNumber(double value) {
+    var text = value.toStringAsFixed(2);
+    if (text.contains('.')) {
+      text = text.replaceAll(RegExp(r'0+$'), '');
+      if (text.endsWith('.')) {
+        text = text.substring(0, text.length - 1);
+      }
+    }
+    return text;
+  }
 }
 
 class _DepthStep {
@@ -63,66 +152,4 @@ class _DepthStep {
 
   final double depthMeters;
   final double rho;
-}
-
-class _DepthProfilePainter extends CustomPainter {
-  _DepthProfilePainter({required this.steps});
-
-  final List<_DepthStep> steps;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.blueAccent
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final textPainter = TextPainter(
-      textAlign: TextAlign.left,
-      textDirection: TextDirection.ltr,
-    );
-    final maxDepth = steps.last.depthMeters;
-    final maxRho = steps.map((step) => step.rho).reduce((a, b) => a > b ? a : b);
-    final minRho = steps.map((step) => step.rho).reduce((a, b) => a < b ? a : b);
-
-    double depthToY(double depthMeters) {
-      if (maxDepth == 0) {
-        return 0;
-      }
-      return depthMeters / maxDepth * size.height;
-    }
-
-    double rhoToX(double rho) {
-      if (maxRho == minRho) {
-        return size.width * 0.5;
-      }
-      return ((rho - minRho) / (maxRho - minRho)) * (size.width * 0.8) + size.width * 0.1;
-    }
-
-    Offset? previous;
-    for (final step in steps) {
-      final y = depthToY(step.depthMeters);
-      final x = rhoToX(step.rho);
-      final current = Offset(x, y);
-      if (previous != null) {
-        canvas.drawLine(previous!, Offset(previous!.dx, current.dy), paint);
-        canvas.drawLine(Offset(previous!.dx, current.dy), current, paint);
-      }
-      previous = current;
-      textPainter.text = TextSpan(
-        text:
-            '${step.depthMeters.toStringAsFixed(1)} m / ${step.rho.toStringAsFixed(0)} Ω·m',
-        style: const TextStyle(fontSize: 10, color: Colors.black87),
-      );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(current.dx + 4, current.dy - textPainter.height / 2),
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DepthProfilePainter oldDelegate) {
-    return !listEquals(oldDelegate.steps, steps);
-  }
 }

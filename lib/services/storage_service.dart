@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -12,6 +14,8 @@ import '../models/project.dart';
 const _projectFileName = 'project.resicheck.json';
 const _exportsFolderName = 'exports';
 const _sitesFolderName = 'sites';
+const _sampleProjectFolderName = 'Sample_Project';
+const _sampleProjectAsset = 'assets/samples/sample_project.json';
 
 class ProjectStorageService {
   ProjectStorageService({Directory? overrideRoot}) : _overrideRoot = overrideRoot;
@@ -50,6 +54,24 @@ class ProjectStorageService {
       canonicalSpacingsFeet: canonicalSpacingsFeet,
     );
     return saveProject(project, directoryOverride: dir);
+  }
+
+  Future<void> ensureSampleProject() async {
+    try {
+      final root = await _ensureRoot();
+      final directory = Directory(p.join(root.path, _sampleProjectFolderName));
+      final file = File(p.join(directory.path, _projectFileName));
+      if (await file.exists()) {
+        return;
+      }
+      final raw = await rootBundle.loadString(_sampleProjectAsset);
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final record = ProjectRecord.fromJson(json);
+      await saveProject(record, directoryOverride: directory);
+    } catch (error, stackTrace) {
+      debugPrint('Failed to seed sample project: $error');
+      debugPrint(stackTrace.toString());
+    }
   }
 
   Future<ProjectRecord?> loadProject(Directory directory) async {

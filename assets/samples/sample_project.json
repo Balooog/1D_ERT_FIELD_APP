@@ -1,0 +1,565 @@
+{
+  "schema_version": "1.1.0",
+  "project_id": "sample-project-clay-bedrock",
+  "project_name": "Sample Project – Clay to Bedrock Transition",
+  "array_type": "wenner",
+  "canonical_spacings_ft": [2.5, 5, 10, 20, 40, 60],
+  "default_power_ma": 0.5,
+  "default_stacks": 4,
+  "sites": [
+    {
+      "site_id": "ERT-1",
+      "display_name": "ERT-1 (Clayey topsoil)",
+      "power_ma": 0.5,
+      "stacks": 4,
+      "soil": "clay",
+      "moisture": "wet",
+      "spacings": [
+        {
+          "spacing_ft": 2.5,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:00:00.000Z",
+                "resistance_ohm": 8.8,
+                "sd_pct": 4.2,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:00:30.000Z",
+                "resistance_ohm": 7.7,
+                "sd_pct": 4.5,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 5.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:02:00.000Z",
+                "resistance_ohm": 4.6,
+                "sd_pct": 4.0,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:02:30.000Z",
+                "resistance_ohm": 5.1,
+                "sd_pct": 3.9,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 10.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:04:00.000Z",
+                "resistance_ohm": 2.5,
+                "sd_pct": 3.6,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:04:30.000Z",
+                "resistance_ohm": 2.2,
+                "sd_pct": 3.8,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 20.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:06:00.000Z",
+                "resistance_ohm": 1.5,
+                "sd_pct": 3.5,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:06:30.000Z",
+                "resistance_ohm": 2.1,
+                "sd_pct": 3.7,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 40.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:08:00.000Z",
+                "resistance_ohm": 2.3,
+                "sd_pct": 4.1,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:08:30.000Z",
+                "resistance_ohm": 1.5,
+                "sd_pct": 4.0,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 60.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:10:00.000Z",
+                "resistance_ohm": 0.7,
+                "sd_pct": 4.8,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:10:30.000Z",
+                "resistance_ohm": 0.7,
+                "sd_pct": 4.9,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "site_id": "ERT-2",
+      "display_name": "ERT-2 (Transitional)",
+      "power_ma": 0.5,
+      "stacks": 4,
+      "soil": "mixed",
+      "moisture": "normal",
+      "spacings": [
+        {
+          "spacing_ft": 2.5,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:12:00.000Z",
+                "resistance_ohm": 10.2,
+                "sd_pct": 3.8,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:12:30.000Z",
+                "resistance_ohm": 9.5,
+                "sd_pct": 3.9,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 5.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:14:00.000Z",
+                "resistance_ohm": 6.3,
+                "sd_pct": 3.6,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:14:30.000Z",
+                "resistance_ohm": 6.8,
+                "sd_pct": 3.7,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 10.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:16:00.000Z",
+                "resistance_ohm": 4.0,
+                "sd_pct": 3.4,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:16:30.000Z",
+                "resistance_ohm": 4.2,
+                "sd_pct": 3.5,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 20.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:18:00.000Z",
+                "resistance_ohm": 2.9,
+                "sd_pct": 3.2,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:18:30.000Z",
+                "resistance_ohm": 3.4,
+                "sd_pct": 3.3,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 40.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:20:00.000Z",
+                "resistance_ohm": 3.1,
+                "sd_pct": 3.6,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:20:30.000Z",
+                "resistance_ohm": 3.0,
+                "sd_pct": 3.4,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 60.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:22:00.000Z",
+                "resistance_ohm": 1.2,
+                "sd_pct": 3.9,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:22:30.000Z",
+                "resistance_ohm": 1.1,
+                "sd_pct": 4.0,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "site_id": "ERT-3",
+      "display_name": "ERT-3 (Weathered to Bedrock)",
+      "power_ma": 0.5,
+      "stacks": 4,
+      "soil": "sandy",
+      "moisture": "normal",
+      "spacings": [
+        {
+          "spacing_ft": 2.5,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:24:00.000Z",
+                "resistance_ohm": 12.1,
+                "sd_pct": 3.4,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:24:30.000Z",
+                "resistance_ohm": 11.5,
+                "sd_pct": 3.5,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 5.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:26:00.000Z",
+                "resistance_ohm": 9.8,
+                "sd_pct": 3.3,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:26:30.000Z",
+                "resistance_ohm": 9.2,
+                "sd_pct": 3.4,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 10.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:28:00.000Z",
+                "resistance_ohm": 7.5,
+                "sd_pct": 3.2,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:28:30.000Z",
+                "resistance_ohm": 7.0,
+                "sd_pct": 3.3,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 20.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:30:00.000Z",
+                "resistance_ohm": 6.2,
+                "sd_pct": 3.1,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:30:30.000Z",
+                "resistance_ohm": 6.5,
+                "sd_pct": 3.2,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 40.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:32:00.000Z",
+                "resistance_ohm": 8.9,
+                "sd_pct": 3.3,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:32:30.000Z",
+                "resistance_ohm": 9.5,
+                "sd_pct": 3.4,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        },
+        {
+          "spacing_ft": 60.0,
+          "orientation_a": {
+            "orientation": "a",
+            "label": "N–S",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:34:00.000Z",
+                "resistance_ohm": 14.5,
+                "sd_pct": 3.6,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          },
+          "orientation_b": {
+            "orientation": "b",
+            "label": "W–E",
+            "samples": [
+              {
+                "timestamp": "2024-03-01T12:34:30.000Z",
+                "resistance_ohm": 15.0,
+                "sd_pct": 3.8,
+                "note": "",
+                "is_bad": false
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "created_at": "2024-03-01T12:00:00.000Z",
+  "updated_at": "2024-03-01T12:34:30.000Z"
+}
