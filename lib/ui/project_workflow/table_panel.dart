@@ -609,6 +609,14 @@ class _TablePanelState extends State<TablePanel> {
                             const TextInputType.numberWithOptions(decimal: true),
                         textInputAction: TextInputAction.next,
                         textAlign: TextAlign.right,
+                        maxLengthEnforcement:
+                            MaxLengthEnforcement.truncateAfterCompositionEnds,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(6),
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^[0-9]{0,4}(\.[0-9]{0,2})?$'),
+                          ),
+                        ],
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
@@ -713,6 +721,8 @@ class _TablePanelState extends State<TablePanel> {
                         const TextInputType.numberWithOptions(decimal: true),
                     textInputAction: TextInputAction.next,
                     textAlign: TextAlign.right,
+                    maxLengthEnforcement:
+                        MaxLengthEnforcement.truncateAfterCompositionEnds,
                     inputFormatters: [
                       LengthLimitingTextInputFormatter(4),
                       FilteringTextInputFormatter.allow(
@@ -890,9 +900,9 @@ class _TablePanelState extends State<TablePanel> {
           initialValue: widget.site.stacks.toString(),
           decoration: const InputDecoration(labelText: 'Stacks'),
           keyboardType: const TextInputType.numberWithOptions(signed: false),
-          inputFormatters: const [FilteringTextInputFormatter.digitsOnly],
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           onFieldSubmitted: (value) {
-            final parsed = int.tryParse(value);
+            final parsed = _parseMaybeInt(value);
             if (parsed != null && parsed > 0) {
               widget.onMetadataChanged(stacks: parsed);
             }
@@ -937,7 +947,7 @@ class _TablePanelState extends State<TablePanel> {
   }
 
   void _submitResistance(_FieldKey key, String value) {
-    final parsed = double.tryParse(value);
+    final parsed = _clampResistance(_parseMaybeDouble(value));
     widget.onResistanceChanged(
       key.spacingFeet,
       key.orientation!,
@@ -948,7 +958,7 @@ class _TablePanelState extends State<TablePanel> {
   }
 
   void _submitSd(_FieldKey key, String value) {
-    final parsed = double.tryParse(value);
+    final parsed = _clampSd(_parseMaybeDouble(value));
     widget.onSdChanged(
       key.spacingFeet,
       key.orientation!,
@@ -997,5 +1007,41 @@ class _TablePanelState extends State<TablePanel> {
     }
     final oneDecimal = (value * 10).roundToDouble() / 10;
     return formatCompactValue(oneDecimal, maxDecimals: 1);
+  }
+
+  double? _parseMaybeDouble(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    return double.tryParse(trimmed);
+  }
+
+  int? _parseMaybeInt(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+    return int.tryParse(trimmed);
+  }
+
+  double? _clampResistance(double? value) {
+    if (value == null) {
+      return null;
+    }
+    return value.clamp(0.0, 9999.0).toDouble();
+  }
+
+  double? _clampSd(double? value) {
+    if (value == null) {
+      return null;
+    }
+    return value.clamp(0.0, 99.9).toDouble();
   }
 }
