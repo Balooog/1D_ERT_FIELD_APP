@@ -2,8 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ves_qc/models/project_models.dart' show ArrayType;
-import 'package:ves_qc/models/spacing_point.dart';
+import 'package:resicheck/models/project_models.dart' show ArrayType;
+import 'package:resicheck/models/spacing_point.dart';
 
 void main() {
   test('feet to meters conversion', () {
