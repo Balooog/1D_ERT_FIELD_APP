@@ -1,0 +1,9 @@
+# Sample 1-D ERT Datasets (Wenner & Schlumberger)
+
+These example files demonstrate standard 1-D resistivity soundings using **Wenner** and **Schlumberger** array geometries.  
+They are synthetic / educational examples adapted from the numerical formats and electrode configurations described by:
+
+> **M.H. Loke** – *Introduction to the Resistivity Surveying Method* and *Tutorial: 2-D and 3-D Electrical Imaging Surveys* (Geotomo Software).
+
+All files are provided for demonstration and importer testing within the **ResiCheck** MIT-licensed repository.  
+Units are in **meters** unless noted in the filename or header.
