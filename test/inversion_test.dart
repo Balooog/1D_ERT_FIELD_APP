@@ -30,8 +30,8 @@ void main() {
     // assert a relaxed upper bound instead of an exact target.
     expect(
       result.misfit,
-      lessThan(0.45),
-      reason: 'expected misfit below 45%',
+      lessThan(0.4),
+      reason: 'expected misfit below 40%',
     );
 
     final recoveredThicknesses = _boundariesToThickness(result.depthsM);
