@@ -364,58 +364,40 @@ class _TablePanelState extends State<TablePanel> {
                     constraints: BoxConstraints(minWidth: minWidth),
                     child: FocusTraversalGroup(
                       policy: OrderedTraversalPolicy(),
-                      child: DataTable(
-                        headingTextStyle: headingStyle,
-                        dataTextStyle: dataStyle,
-                        dataRowMinHeight: 64,
-                        dataRowMaxHeight: 72,
-                        headingRowHeight: 36,
-                        columnSpacing: 4,
-                        horizontalMargin: 6,
-                        columns: [
-                          const DataColumn(
-                            label: SizedBox(
-                              height: 40,
-                              child: Center(child: Text('a-spacing (ft)')),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 4,
+                            ),
+                            child: _buildTableHeader(
+                              headingStyle,
+                              orientationALabel,
+                              orientationBLabel,
                             ),
                           ),
-                          const DataColumn(
-                            label: SizedBox(
-                              height: 40,
-                              child: Center(
-                                child: Text(
-                                  'Pins at (ft)',
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ),
-                          DataColumn(
-                            label: SizedBox(
-                              height: 40,
-                              child: Center(
-                                child: Text(
-                                  'Res $orientationALabel\n(Ω)',
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ),
-                          DataColumn(
-                            label: SizedBox(
-                              height: 40,
-                              child: Center(
-                                child: Text(
-                                  'Res $orientationBLabel\n(Ω)',
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
+                          const Divider(height: 1),
+                          DataTable(
+                            headingTextStyle: headingStyle,
+                            dataTextStyle: dataStyle,
+                            dataRowMinHeight: 48,
+                            dataRowMaxHeight: 56,
+                            headingRowHeight: 0,
+                            columnSpacing: 12,
+                            horizontalMargin: 12,
+                            columns: const [
+                              DataColumn(label: SizedBox.shrink()),
+                              DataColumn(label: SizedBox.shrink()),
+                              DataColumn(label: SizedBox.shrink()),
+                              DataColumn(label: SizedBox.shrink()),
+                            ],
+                            rows: rows
+                                .map((row) => _buildDataRow(context, theme, row))
+                                .toList(),
                           ),
                         ],
-                        rows: rows
-                            .map((row) => _buildDataRow(context, theme, row))
-                            .toList(),
                       ),
                     ),
                   ),
@@ -425,6 +407,43 @@ class _TablePanelState extends State<TablePanel> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildTableHeader(
+    TextStyle? style,
+    String orientationALabel,
+    String orientationBLabel,
+  ) {
+    Widget buildCell(String text, double width) {
+      return SizedBox(
+        width: width,
+        child: Tooltip(
+          message: text,
+          child: Center(
+            child: Text(
+              text,
+              style: style,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        buildCell('a-spacing (ft)', 130),
+        const SizedBox(width: 12),
+        buildCell('Pins at (ft)', 120),
+        const SizedBox(width: 12),
+        buildCell('Res $orientationALabel (Ω)', 150),
+        const SizedBox(width: 12),
+        buildCell('Res $orientationBLabel (Ω)', 150),
+      ],
     );
   }
 
@@ -513,15 +532,15 @@ class _TablePanelState extends State<TablePanel> {
     final customNote = row.record.interpretation?.trim();
     final autoNote = row.record.computeAutoInterpretation();
     final hasCustom = customNote != null && customNote.isNotEmpty;
-    final displayText = hasCustom
-        ? customNote!
-        : (autoNote != null ? '$autoNote (auto)' : 'Add note');
+    final consistencyLabel = _consistencyLabel(autoNote);
     final tooltip = hasCustom
         ? customNote!
-        : (autoNote ?? 'Tap to record interpretation notes');
+        : consistencyLabel != null
+            ? 'Consistency compares N–S vs W–E using SD-weighted difference. Lower is better (default threshold ${const QcConfig().sdThresholdPercent.toStringAsFixed(0)}%).'
+            : 'Tap to record interpretation notes';
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 96),
+        constraints: const BoxConstraints(maxWidth: 130),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -545,18 +564,51 @@ class _TablePanelState extends State<TablePanel> {
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                  child: Text(
-                    displayText,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: hasCustom
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.secondary,
-                      fontStyle: hasCustom ? FontStyle.normal : FontStyle.italic,
-                    ),
-                  ),
+                  child: hasCustom
+                      ? Text(
+                          customNote!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        )
+                      : consistencyLabel != null
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    consistencyLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: _consistencyColor(autoNote, theme),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 14,
+                                  color: theme.colorScheme.outline,
+                                ),
+                              ],
+                            )
+                          : Text(
+                              'Add note',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.secondary,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
                 ),
               ),
             ),
@@ -575,7 +627,7 @@ class _TablePanelState extends State<TablePanel> {
 
     return Center(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 96),
+        constraints: const BoxConstraints(maxWidth: 120),
         child: Tooltip(
           message: tooltip,
           child: Text(
@@ -588,6 +640,35 @@ class _TablePanelState extends State<TablePanel> {
         ),
       ),
     );
+  }
+
+  String? _consistencyLabel(String? autoNote) {
+    if (autoNote == null) {
+      return null;
+    }
+    if (autoNote.startsWith('Good')) {
+      return 'Consistency: Good';
+    }
+    if (autoNote.startsWith('Minor')) {
+      return 'Consistency: Fair';
+    }
+    if (autoNote.contains('High SD')) {
+      return 'Consistency: High SD';
+    }
+    return 'Consistency';
+  }
+
+  Color _consistencyColor(String? autoNote, ThemeData theme) {
+    if (autoNote == null) {
+      return theme.colorScheme.secondary;
+    }
+    if (autoNote.contains('High SD')) {
+      return theme.colorScheme.error;
+    }
+    if (autoNote.startsWith('Minor')) {
+      return theme.colorScheme.tertiary;
+    }
+    return theme.colorScheme.secondary;
   }
 
   Widget _buildResistanceCell(
@@ -633,7 +714,7 @@ class _TablePanelState extends State<TablePanel> {
       child: Opacity(
         opacity: hide ? 0.45 : 1.0,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 118),
+          constraints: const BoxConstraints(maxWidth: 150),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
