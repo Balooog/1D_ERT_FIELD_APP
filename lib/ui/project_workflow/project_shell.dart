@@ -12,6 +12,7 @@ import '../../services/export_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/templates_service.dart';
 import '../../utils/distance_unit.dart';
+import '../import/import_sheet.dart';
 import 'depth_profile_tab.dart';
 import 'plots_panel.dart';
 import 'shortcuts.dart';
@@ -416,6 +417,34 @@ class _ProjectShellState extends State<ProjectShell> {
     }
   }
 
+  Future<void> _showImportSheet() async {
+    final outcome = await showModalBottomSheet<ImportSheetOutcome>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => ImportSheet(
+        project: _project,
+        initialSiteId: _selectedSite?.siteId,
+      ),
+    );
+    if (outcome == null) {
+      return;
+    }
+    final siteId = outcome.site.siteId;
+    _applyProjectUpdate((project) => project.upsertSite(outcome.site));
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _selectedSite = _project.siteById(siteId) ?? outcome.site;
+    });
+    final message = outcome.merge
+        ? 'Merged import into ${outcome.site.displayName}'
+        : 'Imported ${outcome.site.displayName}';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   void _undo() {
     if (_historyIndex <= 0) {
       return;
@@ -521,6 +550,11 @@ class _ProjectShellState extends State<ProjectShell> {
               icon: const Icon(Icons.save_alt),
               tooltip: 'Export CSV & DAT',
               onPressed: _exportSite,
+            ),
+            IconButton(
+              icon: const Icon(Icons.file_open),
+              tooltip: 'Import data',
+              onPressed: _showImportSheet,
             ),
             IconButton(
               icon: const Icon(Icons.add_location_alt),

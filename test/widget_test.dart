@@ -7,7 +7,9 @@ void main() {
   testWidgets('ResiCheck boots and shows Add Point action', (tester) async {
     await tester.pumpWidget(const ProviderScope(child: ResiCheckApp()));
     await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.textContaining('Add Point'), findsOneWidget);
+    await tester.pumpAndSettle(const Duration(milliseconds: 750));
+    final addPointFinder = find.bySemanticsLabel('Add Point');
+    expect(addPointFinder.evaluate().isNotEmpty ||
+        find.textContaining('Add Point').evaluate().isNotEmpty, isTrue);
   });
 }

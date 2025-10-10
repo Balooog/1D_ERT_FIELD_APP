@@ -190,6 +190,17 @@ A sample file lives at `assets/samples/sample_wenner.csv`.
 
 Legacy files that provide only `spacing_m`, `voltage_v`, and `current_a` are still accepted; ResiCheck derives `a_spacing_ft`, `rho_app_ohm_m`, and resistance terms automatically. Exports always include both feet and meter spacing columns for downstream workflows.
 
+## Data import
+
+ResiCheck 0.1 ships with a unified importer that recognises the most common field formats: delimited text (`.csv`, `.txt`), Surfer XYZ `.dat`, and Excel `.xlsx`. Any file can be mapped into the table entry workflow or merged into the active site.
+
+- **Preview & column mapper.** After selecting a file the first 20 rows are shown alongside auto-detected column types (a-spacing, pins in/out, N–S / W–E resistances, and optional standard deviations). The mapper keeps one drop-down per column so you can override guesses on the fly.
+- **Unit handling.** Feet and metres are accepted. Choose the unit from the mapper or map a "Units" column; values are converted to feet internally for plots and QA badges.
+- **Validation.** The importer reports how many rows were parsed, skipped, and why (NaN, negative spacing, duplicate a-spacing). Duplicate spacings can be overwritten when merging into an existing site.
+- **Sample data.** Synthetic examples for CSV, tab-delimited TXT, and Surfer DAT live under `test/data/import_samples/`. Excel workbooks are generated on the fly in tests to keep the repository free of binary fixtures while still exercising the adapter.
+
+Every import can either create a new site (with project defaults for stacks/power) or merge into the selected site. When merging, matching spacings prompt for overwrite; otherwise new spacings are appended and sorted.
+
 ## QA thresholds
 
 - **GREEN**: CV ≤ 0.03 AND |r| ≤ 0.05

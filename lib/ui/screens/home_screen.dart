@@ -159,10 +159,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Row(
           children: [
             Expanded(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.add),
-                label: const Text('Add Point'),
-                onPressed: _showAddPointDialog,
+              child: Semantics(
+                label: 'Add Point',
+                button: true,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Point'),
+                  onPressed: _showAddPointDialog,
+                ),
               ),
             ),
             const SizedBox(width: 8),
