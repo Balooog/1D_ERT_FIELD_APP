@@ -9,7 +9,8 @@ void main() {
   });
 
   test('Schlumberger geometry factor', () {
-    final k = geometryFactor(array: GeometryArray.schlumberger, spacing: 20, mn: 6);
+    final k =
+        geometryFactor(array: GeometryArray.schlumberger, spacing: 20, mn: 6);
     expect(k, greaterThan(0));
   });
 

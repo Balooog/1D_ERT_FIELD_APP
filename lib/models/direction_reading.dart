@@ -109,8 +109,7 @@ class DirectionReadingHistory {
 
   factory DirectionReadingHistory.fromJson(Map<String, dynamic> json) {
     return DirectionReadingHistory(
-      orientation:
-          OrientationKind.values.byName(json['orientation'] as String),
+      orientation: OrientationKind.values.byName(json['orientation'] as String),
       label: json['label'] as String? ??
           OrientationKind.values
               .byName(json['orientation'] as String)
@@ -126,12 +125,14 @@ class DirectionReadingHistory {
   final String label;
   final List<DirectionReadingSample> samples;
 
-  DirectionReadingSample? get latest => samples.lastWhereOrNull((sample) {
+  DirectionReadingSample? get latest =>
+      samples.lastWhereOrNull((sample) {
         if (sample.isBad) {
           return false;
         }
         return sample.resistanceOhm != null;
-      }) ?? samples.lastOrNull;
+      }) ??
+      samples.lastOrNull;
 
   bool get hasValidSample => samples.any((sample) => !sample.isBad);
 
@@ -144,13 +145,14 @@ class DirectionReadingHistory {
     );
   }
 
-  DirectionReadingHistory updateLatest(DirectionReadingSample Function(DirectionReadingSample current) updater) {
+  DirectionReadingHistory updateLatest(
+      DirectionReadingSample Function(DirectionReadingSample current) updater) {
     if (samples.isEmpty) {
-      return addSample(updater(DirectionReadingSample(timestamp: DateTime.now())));
+      return addSample(
+          updater(DirectionReadingSample(timestamp: DateTime.now())));
     }
     final updatedSamples = [...samples];
-    updatedSamples[updatedSamples.length - 1] =
-        updater(updatedSamples.last);
+    updatedSamples[updatedSamples.length - 1] = updater(updatedSamples.last);
     return DirectionReadingHistory(
       orientation: orientation,
       label: label,

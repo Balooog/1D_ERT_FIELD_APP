@@ -34,12 +34,16 @@ QaLevel classifyPoint({
   final maxContact = point.contactRMax ?? 0;
 
   final exceedsRedCv = cv >= (kQaYellowCvLimit - _kQaEpsilon);
-  final exceedsRedResidual = absResidual >= (kQaYellowResidualLimit - _kQaEpsilon);
+  final exceedsRedResidual =
+      absResidual >= (kQaYellowResidualLimit - _kQaEpsilon);
   final exceedsYellowCv = cv >= (kQaGreenCvLimit - _kQaEpsilon);
   final exceedsYellowResidual =
       absResidual >= (kQaGreenResidualLimit - _kQaEpsilon);
 
-  if (exceedsRedCv || exceedsRedResidual || spDrift >= kQaSpLimitMv || maxContact >= kQaContactLimitOhm) {
+  if (exceedsRedCv ||
+      exceedsRedResidual ||
+      spDrift >= kQaSpLimitMv ||
+      maxContact >= kQaContactLimitOhm) {
     return QaLevel.red;
   }
   if (point.hasRhoQaWarning) return QaLevel.yellow;
@@ -98,7 +102,9 @@ QaSummary summarizeQa(
     final level = classifyPoint(
       residual: residual,
       coefficientOfVariation:
-          point.sigmaRhoOhmM == null || point.rhoAppOhmM == 0 ? null : (point.sigmaRhoOhmM! / point.rhoAppOhmM),
+          point.sigmaRhoOhmM == null || point.rhoAppOhmM == 0
+              ? null
+              : (point.sigmaRhoOhmM! / point.rhoAppOhmM),
       point: point,
     );
     qaCounts[level] = (qaCounts[level] ?? 0) + 1;

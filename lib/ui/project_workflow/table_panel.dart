@@ -89,7 +89,8 @@ class TablePanel extends StatefulWidget {
     double spacingFt,
     OrientationKind orientation,
   ) onShowHistory;
-  final void Function(double spacingFt, OrientationKind orientation) onFocusChanged;
+  final void Function(double spacingFt, OrientationKind orientation)
+      onFocusChanged;
 
   @visibleForTesting
   static const String sdPromptPattern = r'^[0-9]{0,2}(\.[0-9])?$';
@@ -153,8 +154,8 @@ class _RowConfig {
   final bool hideB;
   final bool sdWarningA;
   final bool sdWarningB;
-   final double? sdValueA;
-   final double? sdValueB;
+  final double? sdValueA;
+  final double? sdValueB;
   final double insideFeet;
   final double insideMeters;
   final double outsideFeet;
@@ -237,6 +238,7 @@ class _TablePanelState extends State<TablePanel> {
     _tableController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final spacings = [...widget.site.spacings]
@@ -288,10 +290,10 @@ class _TablePanelState extends State<TablePanel> {
 
       final hideA = !widget.showOutliers && (aSample?.isBad ?? false);
       final hideB = !widget.showOutliers && (bSample?.isBad ?? false);
-      final sdWarningA =
-          (aSample?.standardDeviationPercent ?? 0) > qcConfig.sdThresholdPercent;
-      final sdWarningB =
-          (bSample?.standardDeviationPercent ?? 0) > qcConfig.sdThresholdPercent;
+      final sdWarningA = (aSample?.standardDeviationPercent ?? 0) >
+          qcConfig.sdThresholdPercent;
+      final sdWarningB = (bSample?.standardDeviationPercent ?? 0) >
+          qcConfig.sdThresholdPercent;
 
       rowConfigs.add(
         _RowConfig(
@@ -359,6 +361,7 @@ class _TablePanelState extends State<TablePanel> {
       ],
     );
   }
+
   Widget _buildTable(
     BuildContext context,
     ThemeData theme,
@@ -371,9 +374,8 @@ class _TablePanelState extends State<TablePanel> {
         final maxHeight = constraints.hasBoundedHeight
             ? math.min(constraints.maxHeight, 460.0)
             : 460.0;
-        final minWidth = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : 520.0;
+        final minWidth =
+            constraints.hasBoundedWidth ? constraints.maxWidth : 520.0;
         final headingStyle = theme.textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w600,
           fontSize: 12,
@@ -433,7 +435,8 @@ class _TablePanelState extends State<TablePanel> {
                               DataColumn(label: SizedBox.shrink()),
                             ],
                             rows: rows
-                                .map((row) => _buildDataRow(context, theme, row))
+                                .map(
+                                    (row) => _buildDataRow(context, theme, row))
                                 .toList(),
                           ),
                         ],
@@ -597,11 +600,12 @@ class _TablePanelState extends State<TablePanel> {
   Widget _buildSpacingCell(ThemeData theme, _RowConfig row) {
     final spacingText = formatCompactValue(row.record.spacingFeet);
     final customNote = row.record.interpretation?.trim();
+    final customNoteText = customNote ?? '';
     final autoNote = row.record.computeAutoInterpretation();
     final hasCustom = customNote != null && customNote.isNotEmpty;
     final consistencyLabel = _consistencyLabel(autoNote);
     final tooltip = hasCustom
-        ? customNote!
+        ? customNoteText
         : consistencyLabel != null
             ? 'Consistency compares N–S vs W–E using SD-weighted difference. Lower is better (default threshold ${const QcConfig().sdThresholdPercent.toStringAsFixed(0)}%).'
             : 'Tap to record interpretation notes';
@@ -631,10 +635,11 @@ class _TablePanelState extends State<TablePanel> {
                 onTap: () => _editInterpretation(row),
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
                   child: hasCustom
                       ? Text(
-                          customNote!,
+                          customNoteText,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
@@ -765,7 +770,8 @@ class _TablePanelState extends State<TablePanel> {
 
     final isBad = sample?.isBad ?? false;
     final rank = _tabRanks[key] ?? 0;
-    final sdValue = orientation == OrientationKind.a ? row.sdValueA : row.sdValueB;
+    final sdValue =
+        orientation == OrientationKind.a ? row.sdValueA : row.sdValueB;
     final sdWarning =
         orientation == OrientationKind.a ? row.sdWarningA : row.sdWarningB;
     final sdText = hide
@@ -775,7 +781,8 @@ class _TablePanelState extends State<TablePanel> {
             : '${_formatSd(sdValue)}%';
     final sdColor = sdWarning
         ? theme.colorScheme.error
-        : theme.textTheme.labelSmall?.color ?? theme.colorScheme.onSurfaceVariant;
+        : theme.textTheme.labelSmall?.color ??
+            theme.colorScheme.onSurfaceVariant;
     final buttonStyle = TextButton.styleFrom(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       minimumSize: const Size(0, 28),
@@ -784,9 +791,8 @@ class _TablePanelState extends State<TablePanel> {
     );
     const controlDensity = VisualDensity(horizontal: -2, vertical: -4);
 
-    final decoration = hide
-        ? _hiddenResistanceDecoration
-        : _resistanceDecoration;
+    final decoration =
+        hide ? _hiddenResistanceDecoration : _resistanceDecoration;
 
     return Opacity(
       opacity: hide ? 0.45 : 1.0,
@@ -914,7 +920,8 @@ class _TablePanelState extends State<TablePanel> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Notes for ${formatCompactValue(row.record.spacingFeet)} ft'),
+          title: Text(
+              'Notes for ${formatCompactValue(row.record.spacingFeet)} ft'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -961,6 +968,7 @@ class _TablePanelState extends State<TablePanel> {
       widget.onInterpretationChanged(row.record.spacingFeet, result);
     }
   }
+
   Widget _buildMetadata(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1018,7 +1026,8 @@ class _TablePanelState extends State<TablePanel> {
                   child: _buildMoistureDropdown(
                     context,
                     value: widget.site.moisture,
-                    onChanged: (level) => widget.onMetadataChanged(moisture: level),
+                    onChanged: (level) =>
+                        widget.onMetadataChanged(moisture: level),
                   ),
                 ),
               ],
@@ -1152,7 +1161,8 @@ class _TablePanelState extends State<TablePanel> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.lock_outline, size: 14, color: theme.colorScheme.outline),
+                Icon(Icons.lock_outline,
+                    size: 14, color: theme.colorScheme.outline),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
@@ -1185,8 +1195,10 @@ class _TablePanelState extends State<TablePanel> {
       ),
     ];
   }
+
   void _syncControllers(List<_FieldKey> keys, Map<_FieldKey, String> values) {
-    final staleKeys = _controllers.keys.where((key) => !keys.contains(key)).toList();
+    final staleKeys =
+        _controllers.keys.where((key) => !keys.contains(key)).toList();
     for (final key in staleKeys) {
       _controllers.remove(key)?.dispose();
       _focusNodes.remove(key)?.dispose();
@@ -1194,9 +1206,10 @@ class _TablePanelState extends State<TablePanel> {
 
     for (final key in keys) {
       final text = values[key] ?? '';
-      final controller =
-          _controllers.putIfAbsent(key, () => TextEditingController(text: text));
-      final focusNode = _focusNodes.putIfAbsent(key, () => _createFocusNode(key));
+      final controller = _controllers.putIfAbsent(
+          key, () => TextEditingController(text: text));
+      final focusNode =
+          _focusNodes.putIfAbsent(key, () => _createFocusNode(key));
       if (!focusNode.hasFocus && controller.text != text) {
         controller.text = text;
       }
@@ -1515,12 +1528,15 @@ class TablePanelDebugFixture extends StatelessWidget {
       onSdChanged: (_, __, ___) {},
       onInterpretationChanged: (_, __) {},
       onToggleBad: (_, __, ___) {},
-      onMetadataChanged: ({double? power, int? stacks, SoilType? soil, MoistureLevel? moisture}) {},
+      onMetadataChanged: (
+          {double? power,
+          int? stacks,
+          SoilType? soil,
+          MoistureLevel? moisture}) {},
       onShowHistory: (_, __) async {},
       onFocusChanged: (_, __) {},
     );
   }
-
 }
 
 String _soilShortLabel(SoilType soil) {

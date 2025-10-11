@@ -6,7 +6,8 @@ import '../../models/spacing_point.dart';
 import '../../services/qc_rules.dart';
 
 class ResidualStrip extends StatelessWidget {
-  const ResidualStrip({super.key, required this.points, required this.inversion});
+  const ResidualStrip(
+      {super.key, required this.points, required this.inversion});
 
   final List<SpacingPoint> points;
   final dynamic inversion;
@@ -41,7 +42,8 @@ class ResidualStrip extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Residuals', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('Residuals',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Expanded(
               child: Row(
@@ -57,7 +59,9 @@ class ResidualStrip extends StatelessWidget {
                   Expanded(
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Stack(
@@ -73,24 +77,32 @@ class ResidualStrip extends StatelessWidget {
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 6),
                             child: Column(
                               children: [
                                 Align(
                                   alignment: Alignment.topLeft,
-                                  child: Text('+15%', style: Theme.of(context).textTheme.bodySmall),
+                                  child: Text('+15%',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall),
                                 ),
                                 const SizedBox(height: 4),
                                 Expanded(
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: bars,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Align(
                                   alignment: Alignment.bottomLeft,
-                                  child: Text('-15%', style: Theme.of(context).textTheme.bodySmall),
+                                  child: Text('-15%',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall),
                                 ),
                               ],
                             ),
@@ -160,7 +172,15 @@ class _ResidualGridPainter extends CustomPainter {
   final Color color;
 
   static const double _limit = 0.15;
-  static const List<double> _lines = [-_limit, -0.1, -0.05, 0, 0.05, 0.1, _limit];
+  static const List<double> _lines = [
+    -_limit,
+    -0.1,
+    -0.05,
+    0,
+    0.05,
+    0.1,
+    _limit
+  ];
 
   @override
   void paint(Canvas canvas, Size size) {

@@ -27,16 +27,20 @@ class SurferDatImportAdapter implements ImportAdapter {
       if (line.isEmpty) {
         continue;
       }
-      if (line.startsWith('#') || line.startsWith('//') || line.startsWith(';')) {
+      if (line.startsWith('#') ||
+          line.startsWith('//') ||
+          line.startsWith(';')) {
         continue;
       }
       final lower = line.toLowerCase();
       if (lower.startsWith('unit=')) {
         final equalsIndex = line.indexOf('=');
-        unitDirective = equalsIndex >= 0 ? line.substring(equalsIndex + 1).trim() : null;
+        unitDirective =
+            equalsIndex >= 0 ? line.substring(equalsIndex + 1).trim() : null;
         continue;
       }
-      final parts = line.split(_whitespace).where((part) => part.isNotEmpty).toList();
+      final parts =
+          line.split(_whitespace).where((part) => part.isNotEmpty).toList();
       if (parts.isEmpty) {
         continue;
       }
@@ -45,26 +49,34 @@ class SurferDatImportAdapter implements ImportAdapter {
         continue;
       }
       if (parts.length < 3) {
-        issues.add(ImportRowIssue(index: i + 1, message: 'Expected 3 numeric values.'));
+        issues.add(ImportRowIssue(
+            index: i + 1, message: 'Expected 3 numeric values.'));
         continue;
       }
-      final values = parts.take(3).map((value) => value.trim()).toList(growable: false);
-      if (!_isNumeric(values[0]) || !_isNumeric(values[1]) || !_isNumeric(values[2])) {
-        issues.add(ImportRowIssue(index: i + 1, message: 'Non-numeric value encountered.'));
+      final values =
+          parts.take(3).map((value) => value.trim()).toList(growable: false);
+      if (!_isNumeric(values[0]) ||
+          !_isNumeric(values[1]) ||
+          !_isNumeric(values[2])) {
+        issues.add(ImportRowIssue(
+            index: i + 1, message: 'Non-numeric value encountered.'));
         continue;
       }
       rows.add(values);
     }
 
-    header ??= const ['X', 'Y', 'Z'];
-    if (header.length > 3) {
-      header = header.take(3).toList(growable: false);
-    } else if (header.length < 3) {
-      header = [...header, for (var i = header.length; i < 3; i++) 'Value ${i + 1}'];
+    var headers = header ?? const ['X', 'Y', 'Z'];
+    if (headers.length > 3) {
+      headers = headers.take(3).toList(growable: false);
+    } else if (headers.length < 3) {
+      headers = [
+        ...headers,
+        for (var i = headers.length; i < 3; i++) 'Value ${i + 1}'
+      ];
     }
 
     return ImportTable(
-      headers: header!,
+      headers: headers,
       rows: rows,
       issues: issues,
       unitDirective: unitDirective,

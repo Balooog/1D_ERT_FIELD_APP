@@ -22,8 +22,16 @@ class HeaderBadges extends StatelessWidget {
           _badge('Green', summary.green.toString(), color: Colors.green),
           _badge('Yellow', summary.yellow.toString(), color: Colors.orange),
           _badge('Red', summary.red.toString(), color: Colors.red),
-          _badge('SP drift', summary.lastSpDrift == null ? '—' : '${summary.lastSpDrift!.toStringAsFixed(2)} mV'),
-          _badge('Contact Ω', summary.worstContact == null ? '—' : summary.worstContact!.toStringAsFixed(0)),
+          _badge(
+              'SP drift',
+              summary.lastSpDrift == null
+                  ? '—'
+                  : '${summary.lastSpDrift!.toStringAsFixed(2)} mV'),
+          _badge(
+              'Contact Ω',
+              summary.worstContact == null
+                  ? '—'
+                  : summary.worstContact!.toStringAsFixed(0)),
         ],
       ),
     );
@@ -31,13 +39,19 @@ class HeaderBadges extends StatelessWidget {
 
   Widget _badge(String label, String value, {Color? color}) {
     return Chip(
-      avatar: color != null ? CircleAvatar(backgroundColor: color, radius: 6) : null,
+      avatar: color != null
+          ? CircleAvatar(backgroundColor: color, radius: 6)
+          : null,
       label: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
         ],
       ),
     );

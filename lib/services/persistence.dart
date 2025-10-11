@@ -45,7 +45,8 @@ class PersistenceService {
     await file.writeAsString(data);
   }
 
-  Future<File> _resolveProjectFile(String name, {bool ensureDir = false}) async {
+  Future<File> _resolveProjectFile(String name,
+      {bool ensureDir = false}) async {
     final dir = await _directoryProvider();
     if (ensureDir && !await dir.exists()) {
       await dir.create(recursive: true);

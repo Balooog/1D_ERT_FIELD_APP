@@ -44,7 +44,10 @@ class _PointsTableState extends ConsumerState<PointsTable> {
         final controller = _controllers[point.id];
         final focusNode = _focusNodes[point.id];
         final text = point.notes ?? '';
-        if (controller != null && focusNode != null && !focusNode.hasFocus && controller.text != text) {
+        if (controller != null &&
+            focusNode != null &&
+            !focusNode.hasFocus &&
+            controller.text != text) {
           controller.text = text;
         }
       }
@@ -64,13 +67,15 @@ class _PointsTableState extends ConsumerState<PointsTable> {
 
   void _syncControllers() {
     final existingIds = widget.points.map((p) => p.id).toSet();
-    final keysToRemove = _controllers.keys.where((id) => !existingIds.contains(id)).toList();
+    final keysToRemove =
+        _controllers.keys.where((id) => !existingIds.contains(id)).toList();
     for (final id in keysToRemove) {
       _controllers.remove(id)?.dispose();
       _focusNodes.remove(id)?.dispose();
     }
     for (final point in widget.points) {
-      _controllers.putIfAbsent(point.id, () => TextEditingController(text: point.notes ?? ''));
+      _controllers.putIfAbsent(
+          point.id, () => TextEditingController(text: point.notes ?? ''));
       _focusNodes.putIfAbsent(point.id, () => FocusNode());
       final focusNode = _focusNodes[point.id]!;
       final controller = _controllers[point.id]!;
@@ -99,14 +104,17 @@ class _PointsTableState extends ConsumerState<PointsTable> {
           ? (point.rhoAppOhmM - predictedValue) / predictedValue
           : 0.0;
       final coefficientOfVariation =
-          point.sigmaRhoOhmM == null || point.rhoAppOhmM == 0 ? null : (point.sigmaRhoOhmM! / point.rhoAppOhmM);
+          point.sigmaRhoOhmM == null || point.rhoAppOhmM == 0
+              ? null
+              : (point.sigmaRhoOhmM! / point.rhoAppOhmM);
       final qaLevel = classifyPoint(
         residual: residual,
         coefficientOfVariation: coefficientOfVariation,
         point: point,
       );
       final qaColor = _qaColor(qaLevel);
-      final rhoText = point.rhoAppOhmM.isFinite ? point.rhoAppOhmM.toStringAsFixed(2) : '—';
+      final rhoText =
+          point.rhoAppOhmM.isFinite ? point.rhoAppOhmM.toStringAsFixed(2) : '—';
       final resistance = point.resistanceOhm;
       final sigma = point.sigmaRhoOhmM;
       final isExcluded = point.excluded;
@@ -114,15 +122,18 @@ class _PointsTableState extends ConsumerState<PointsTable> {
       rows.add(
         DataRow(
           color: isExcluded
-              ? WidgetStatePropertyAll(theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4))
+              ? WidgetStatePropertyAll(theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.4))
               : null,
           cells: [
             DataCell(Text('${i + 1}')),
             DataCell(Text(point.arrayType.name)),
             DataCell(Text(point.direction.label)),
-            DataCell(Text(widget.distanceUnit.formatSpacing(point.spacingMeters))),
+            DataCell(
+                Text(widget.distanceUnit.formatSpacing(point.spacingMeters))),
             DataCell(Text(rhoText)),
-            DataCell(Text(resistance.isFinite ? resistance.toStringAsFixed(2) : '—')),
+            DataCell(Text(
+                resistance.isFinite ? resistance.toStringAsFixed(2) : '—')),
             DataCell(Text(sigma != null ? sigma.toStringAsFixed(2) : '—')),
             DataCell(Center(
               child: Container(
@@ -131,7 +142,8 @@ class _PointsTableState extends ConsumerState<PointsTable> {
                 decoration: BoxDecoration(
                   color: qaColor,
                   shape: BoxShape.circle,
-                  border: Border.all(color: theme.colorScheme.onSurface, width: 0.5),
+                  border: Border.all(
+                      color: theme.colorScheme.onSurface, width: 0.5),
                 ),
               ),
             )),
@@ -148,7 +160,8 @@ class _PointsTableState extends ConsumerState<PointsTable> {
                   ),
                   textInputAction: TextInputAction.done,
                   onSubmitted: (value) => _commitNote(point.id, value),
-                  onEditingComplete: () => _commitNote(point.id, controller.text),
+                  onEditingComplete: () =>
+                      _commitNote(point.id, controller.text),
                 ),
               ),
             ),
@@ -156,7 +169,9 @@ class _PointsTableState extends ConsumerState<PointsTable> {
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 20),
                 tooltip: 'Delete point',
-                onPressed: () => ref.read(spacingPointsProvider.notifier).removePoint(point.id),
+                onPressed: () => ref
+                    .read(spacingPointsProvider.notifier)
+                    .removePoint(point.id),
               ),
             ),
           ],
@@ -171,7 +186,8 @@ class _PointsTableState extends ConsumerState<PointsTable> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minWidth: 720),
           child: DataTable(
-            headingTextStyle: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold),
+            headingTextStyle: theme.textTheme.labelMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
             dataRowMinHeight: 44,
             columns: [
               const DataColumn(label: Text('#')),
