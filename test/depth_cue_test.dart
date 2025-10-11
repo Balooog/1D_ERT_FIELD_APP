@@ -7,7 +7,8 @@ import 'package:resicheck/models/site.dart';
 import 'package:resicheck/ui/project_workflow/depth_profile_tab.dart';
 
 void main() {
-  testWidgets('depth table uses 0.5·a and averages valid resistivity', (tester) async {
+  testWidgets('depth table uses 0.5·a and averages valid resistivity',
+      (tester) async {
     final site = _buildSite();
     await tester.pumpWidget(
       MaterialApp(
@@ -17,7 +18,8 @@ void main() {
       ),
     );
 
-    final tables = tester.widgetList<DataTable>(find.byType(DataTable)).toList();
+    final tables =
+        tester.widgetList<DataTable>(find.byType(DataTable)).toList();
     expect(tables, isNotEmpty);
     final dataTable = tables.first;
     expect(dataTable.rows, hasLength(3));
@@ -49,7 +51,8 @@ class _ExpectedRow {
   final List<double> resistances;
 
   double averageRho() {
-    final averageResistance = resistances.reduce((a, b) => a + b) / resistances.length;
+    final averageResistance =
+        resistances.reduce((a, b) => a + b) / resistances.length;
     return rhoAWenner(spacing, averageResistance);
   }
 }
@@ -81,7 +84,11 @@ SiteRecord _buildSite() {
     );
   }
 
-  SpacingRecord record({required double spacing, required List<double> a, List<double> b = const [], List<double> badB = const []}) {
+  SpacingRecord record(
+      {required double spacing,
+      required List<double> a,
+      List<double> b = const [],
+      List<double> badB = const []}) {
     return SpacingRecord(
       spacingFeet: spacing,
       orientationA: history(OrientationKind.a, a),

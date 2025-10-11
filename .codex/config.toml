@@ -2,9 +2,12 @@
 require = true
 
 [commands]
-allow = ["bash scripts/ci/test_wsl.sh",
-         "flutter pub get", "dart format . --fix",
-         "flutter analyze", "flutter test -x widget_dialog"]
+allow = [
+  "bash scripts/ci/test_wsl.sh",
+  "dart format .",
+  "dart analyze",
+  "flutter --no-version-check test -x widget_dialog"
+]
 
 [sandbox]
 allow_network = false

@@ -65,7 +65,8 @@ class _ImportSheetState extends State<ImportSheet> {
         : 'Site-${widget.project.sites.length + 1}';
     _siteIdController = TextEditingController(text: defaultSiteId);
     _displayNameController = TextEditingController(text: defaultSiteId);
-    _selectedMergeSiteId = widget.initialSiteId ?? widget.project.sites.firstOrNull?.siteId;
+    _selectedMergeSiteId =
+        widget.initialSiteId ?? widget.project.sites.firstOrNull?.siteId;
     unawaited(_restoreUnitPreference());
   }
 
@@ -85,7 +86,8 @@ class _ImportSheetState extends State<ImportSheet> {
 
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
         child: SizedBox(
           height: MediaQuery.of(context).size.height * 0.9,
           child: Scaffold(
@@ -101,7 +103,8 @@ class _ImportSheetState extends State<ImportSheet> {
             body: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(
                     children: [
                       FilledButton.icon(
@@ -110,7 +113,8 @@ class _ImportSheetState extends State<ImportSheet> {
                             ? const SizedBox(
                                 width: 16,
                                 height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
                               )
                             : const Icon(Icons.upload_file),
                         label: const Text('Choose file'),
@@ -257,7 +261,8 @@ class _ImportSheetState extends State<ImportSheet> {
                       return ColumnMapRow(
                         descriptor: column,
                         selected: selected,
-                        onChanged: (target) => _updateAssignment(column.index, target),
+                        onChanged: (target) =>
+                            _updateAssignment(column.index, target),
                       );
                     },
                   ),
@@ -281,7 +286,8 @@ class _ImportSheetState extends State<ImportSheet> {
                 ),
                 if (preview.issues.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text('Detected file issues', style: Theme.of(context).textTheme.titleSmall),
+                  Text('Detected file issues',
+                      style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 4),
                   SizedBox(
                     height: 80,
@@ -290,7 +296,8 @@ class _ImportSheetState extends State<ImportSheet> {
                         for (final issue in preview.issues)
                           ListTile(
                             dense: true,
-                            leading: const Icon(Icons.warning_amber_outlined, size: 20),
+                            leading: const Icon(Icons.warning_amber_outlined,
+                                size: 20),
                             title: Text('Row ${issue.index}: ${issue.message}'),
                           ),
                       ],
@@ -355,10 +362,12 @@ class _ImportSheetState extends State<ImportSheet> {
     );
   }
 
-  Widget _buildFooter(BuildContext context, ImportValidationResult? validation) {
+  Widget _buildFooter(
+      BuildContext context, ImportValidationResult? validation) {
     final theme = Theme.of(context);
     final canValidate = _session != null && _mapping != null && !_validating;
-    final canImport = validation != null && validation.importedRows > 0 && !_validating;
+    final canImport =
+        validation != null && validation.importedRows > 0 && !_validating;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -384,13 +393,15 @@ class _ImportSheetState extends State<ImportSheet> {
                     for (final issue in validation.issues.take(6))
                       ListTile(
                         dense: true,
-                        leading: Icon(Icons.info_outline, color: theme.colorScheme.tertiary),
+                        leading: Icon(Icons.info_outline,
+                            color: theme.colorScheme.tertiary),
                         title: Text('Row ${issue.rowIndex}: ${issue.message}'),
                       ),
                     if (validation.issues.length > 6)
                       Padding(
                         padding: const EdgeInsets.only(left: 40, top: 4),
-                        child: Text('… and ${validation.issues.length - 6} more'),
+                        child:
+                            Text('… and ${validation.issues.length - 6} more'),
                       ),
                   ],
                 ),
@@ -474,12 +485,15 @@ class _ImportSheetState extends State<ImportSheet> {
                       child: Text(site.displayName),
                     ),
                 ],
-                onChanged: (value) => setState(() => _selectedMergeSiteId = value),
+                onChanged: (value) =>
+                    setState(() => _selectedMergeSiteId = value),
               ),
               CheckboxListTile(
                 value: _overwrite,
-                onChanged: (value) => setState(() => _overwrite = value ?? false),
-                title: const Text('Overwrite existing readings for matching spacings'),
+                onChanged: (value) =>
+                    setState(() => _overwrite = value ?? false),
+                title: const Text(
+                    'Overwrite existing readings for matching spacings'),
                 controlAffinity: ListTileControlAffinity.leading,
               ),
             ],
@@ -641,7 +655,8 @@ class _ImportSheetState extends State<ImportSheet> {
     );
   }
 
-  Widget? _buildUnitInferenceBanner(ImportPreview preview, ImportMapping mapping) {
+  Widget? _buildUnitInferenceBanner(
+      ImportPreview preview, ImportMapping mapping) {
     final detection = preview.unitDetection;
     if (!detection.hasGuess || detection.ambiguous) {
       return null;
@@ -766,7 +781,8 @@ class _ImportSheetState extends State<ImportSheet> {
         return;
       }
       final auto = _service.autoMap(session.preview);
-      final resolvedUnit = _resolveInitialUnit(session.preview.unitDetection, auto.distanceUnit);
+      final resolvedUnit =
+          _resolveInitialUnit(session.preview.unitDetection, auto.distanceUnit);
       setState(() {
         _session = session;
         _mapping = ImportMapping(
@@ -796,7 +812,8 @@ class _ImportSheetState extends State<ImportSheet> {
       updated[columnIndex] = target;
     }
     setState(() {
-      _mapping = ImportMapping(assignments: updated, distanceUnit: mapping.distanceUnit);
+      _mapping = ImportMapping(
+          assignments: updated, distanceUnit: mapping.distanceUnit);
       _validation = null;
     });
   }
@@ -853,7 +870,8 @@ class _ImportSheetState extends State<ImportSheet> {
         powerMilliAmps: widget.project.defaultPowerMilliAmps,
         stacks: widget.project.defaultStacks,
         soil: widget.project.sites.firstOrNull?.soil ?? SoilType.unknown,
-        moisture: widget.project.sites.firstOrNull?.moisture ?? MoistureLevel.normal,
+        moisture:
+            widget.project.sites.firstOrNull?.moisture ?? MoistureLevel.normal,
       );
       Navigator.of(context).pop(ImportSheetOutcome.newSite(site));
       return;

@@ -37,19 +37,6 @@ class ProjectShell extends StatefulWidget {
   State<ProjectShell> createState() => _ProjectShellState();
 }
 
-void _fireAndForget(Future<void> future) {
-  try {
-    // ignore: discarded_futures
-    unawaited(future);
-  } catch (_) {
-    future.ignore();
-  }
-}
-
-extension _FutureIgnore on Future<void> {
-  void ignore() {}
-}
-
 class _ProjectShellState extends State<ProjectShell> {
   late ProjectRecord _project;
   SiteRecord? _selectedSite;
@@ -117,7 +104,8 @@ class _ProjectShellState extends State<ProjectShell> {
     }
     setState(() {
       _project = saved;
-      _selectedSite = saved.siteById(_selectedSite?.siteId ?? '') ?? saved.sites.firstOrNull;
+      _selectedSite = saved.siteById(_selectedSite?.siteId ?? '') ??
+          saved.sites.firstOrNull;
       _saveIndicator = 'Saved ${DateFormat('HH:mm:ss').format(DateTime.now())}';
     });
   }
@@ -149,11 +137,13 @@ class _ProjectShellState extends State<ProjectShell> {
     _historyIndex = _history.length - 1;
   }
 
-  void _applyProjectUpdate(ProjectRecord Function(ProjectRecord current) updater) {
+  void _applyProjectUpdate(
+      ProjectRecord Function(ProjectRecord current) updater) {
     final updated = updater(_project);
     setState(() {
       _project = updated;
-      _selectedSite = updated.siteById(_selectedSite?.siteId ?? '') ?? updated.sites.firstOrNull;
+      _selectedSite = updated.siteById(_selectedSite?.siteId ?? '') ??
+          updated.sites.firstOrNull;
       _pushHistory(updated);
     });
     _scheduleAutosave();
@@ -186,8 +176,9 @@ class _ProjectShellState extends State<ProjectShell> {
             isBad: false,
           );
           final updatedHistory = history.addSample(sample);
-          final updatedRecord =
-              record.updateHistory(orientation, updatedHistory).applyAutoInterpretation();
+          final updatedRecord = record
+              .updateHistory(orientation, updatedHistory)
+              .applyAutoInterpretation();
           return updatedRecord;
         });
       });
@@ -451,7 +442,8 @@ class _ProjectShellState extends State<ProjectShell> {
   Future<void> _deleteSite(SiteRecord site) async {
     if (_project.sites.length <= 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Projects must contain at least one site.')),
+        const SnackBar(
+            content: Text('Projects must contain at least one site.')),
       );
       return;
     }
@@ -460,7 +452,8 @@ class _ProjectShellState extends State<ProjectShell> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Delete site'),
-          content: Text('Delete ${site.displayName}? This action cannot be undone.'),
+          content:
+              Text('Delete ${site.displayName}? This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -550,7 +543,8 @@ class _ProjectShellState extends State<ProjectShell> {
       final inversion = summary ?? _inversionResult;
       if (inversion == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Need at least two valid spacings to export PDF.')),
+          const SnackBar(
+              content: Text('Need at least two valid spacings to export PDF.')),
         );
         return;
       }
@@ -598,16 +592,21 @@ class _ProjectShellState extends State<ProjectShell> {
       if (entries.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No sites have enough data to export a PDF report.')),
+          const SnackBar(
+              content:
+                  Text('No sites have enough data to export a PDF report.')),
         );
         return;
       }
-      final file = await _exportService.exportBatchInversionPdf(_project, entries);
+      final file =
+          await _exportService.exportBatchInversionPdf(_project, entries);
       if (!mounted) {
         return;
       }
       final skipped = sites.length - entries.length;
-      final suffix = skipped > 0 ? ' (skipped $skipped site${skipped == 1 ? '' : 's'})' : '';
+      final suffix = skipped > 0
+          ? ' (skipped $skipped site${skipped == 1 ? '' : 's'})'
+          : '';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Saved batch PDF to ${file.path}$suffix')),
       );
@@ -656,8 +655,8 @@ class _ProjectShellState extends State<ProjectShell> {
     setState(() {
       _historyIndex--;
       _project = _history[_historyIndex];
-      _selectedSite =
-          _project.siteById(_selectedSite?.siteId ?? '') ?? _project.sites.firstOrNull;
+      _selectedSite = _project.siteById(_selectedSite?.siteId ?? '') ??
+          _project.sites.firstOrNull;
     });
   }
 
@@ -668,8 +667,8 @@ class _ProjectShellState extends State<ProjectShell> {
     setState(() {
       _historyIndex++;
       _project = _history[_historyIndex];
-      _selectedSite =
-          _project.siteById(_selectedSite?.siteId ?? '') ?? _project.sites.firstOrNull;
+      _selectedSite = _project.siteById(_selectedSite?.siteId ?? '') ??
+          _project.sites.firstOrNull;
     });
   }
 
@@ -793,7 +792,8 @@ class _ProjectShellState extends State<ProjectShell> {
                 ),
               ),
             IconButton(
-              icon: Icon(_showOutliers ? Icons.visibility : Icons.visibility_off),
+              icon:
+                  Icon(_showOutliers ? Icons.visibility : Icons.visibility_off),
               tooltip: _showOutliers ? 'Hide outliers' : 'Show outliers',
               onPressed: _toggleOutliers,
             ),
@@ -885,7 +885,8 @@ class _ProjectShellState extends State<ProjectShell> {
                   Container(
                     width: double.infinity,
                     color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Row(
                       children: [
                         Text(_saveIndicator),
@@ -943,7 +944,8 @@ class _ProjectShellState extends State<ProjectShell> {
                                     const SizedBox(height: 12),
                                     Expanded(
                                       flex: 5,
-                                      child: _buildInversionSummaryCard(context, site),
+                                      child: _buildInversionSummaryCard(
+                                          context, site),
                                     ),
                                   ],
                                 ),
@@ -983,7 +985,8 @@ class _ProjectShellState extends State<ProjectShell> {
                                     const SizedBox(height: 12),
                                     Expanded(
                                       flex: 5,
-                                      child: _buildInversionSummaryCard(context, site),
+                                      child: _buildInversionSummaryCard(
+                                          context, site),
                                     ),
                                   ],
                                 ),
@@ -1000,7 +1003,8 @@ class _ProjectShellState extends State<ProjectShell> {
                                     const SizedBox(height: 12),
                                     Expanded(
                                       flex: 2,
-                                      child: _buildRightDetailCard(context, site),
+                                      child:
+                                          _buildRightDetailCard(context, site),
                                     ),
                                   ],
                                 ),
@@ -1009,7 +1013,8 @@ class _ProjectShellState extends State<ProjectShell> {
                           );
                         }
                         return SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -1146,6 +1151,7 @@ class _ProjectShellState extends State<ProjectShell> {
         onSdChanged: _handleSdChanged,
         onInterpretationChanged: _handleInterpretationChanged,
         onToggleBad: _handleBadToggle,
+        onMetadataChanged: _handleMetadataChanged,
         onShowHistory: _showHistory,
         onFocusChanged: _recordFocus,
       ),
@@ -1172,10 +1178,8 @@ class _ProjectShellState extends State<ProjectShell> {
     for (final spacing in site.spacings) {
       final a = spacing.orientationA.latest;
       final b = spacing.orientationB.latest;
-      final hasValidA =
-          a != null && !a.isBad && a.resistanceOhm != null;
-      final hasValidB =
-          b != null && !b.isBad && b.resistanceOhm != null;
+      final hasValidA = a != null && !a.isBad && a.resistanceOhm != null;
+      final hasValidB = b != null && !b.isBad && b.resistanceOhm != null;
       if (hasValidA || hasValidB) {
         valid++;
       }
@@ -1297,4 +1301,3 @@ class SiteListPanel extends StatelessWidget {
     );
   }
 }
-

@@ -33,7 +33,8 @@ class LoggingService {
     final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
     final file = File('${directory.path}/session_$timestamp.log');
     _sink = file.openWrite(mode: FileMode.writeOnlyAppend);
-    _sink?.writeln('--- ResiCheck session started ${DateTime.now().toIso8601String()} ---');
+    _sink?.writeln(
+        '--- ResiCheck session started ${DateTime.now().toIso8601String()} ---');
 
     final previousDebugPrint = _previousDebugPrint;
     debugPrint = (String? message, {int? wrapWidth}) {
@@ -47,7 +48,8 @@ class LoggingService {
     _previousFlutterError = FlutterError.onError;
     final previousFlutterError = _previousFlutterError;
     FlutterError.onError = (FlutterErrorDetails details) {
-      final buffer = StringBuffer('FlutterError: ${details.exceptionAsString()}');
+      final buffer =
+          StringBuffer('FlutterError: ${details.exceptionAsString()}');
       if (details.stack != null) {
         buffer
           ..writeln()

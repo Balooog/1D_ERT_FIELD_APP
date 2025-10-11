@@ -35,13 +35,15 @@ class CsvImportAdapter implements ImportAdapter {
         continue;
       }
       final lower = trimmed.toLowerCase();
-      final isComment =
-          trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith(';');
+      final isComment = trimmed.startsWith('#') ||
+          trimmed.startsWith('//') ||
+          trimmed.startsWith(';');
       if (!headerFound) {
         if (lower.startsWith('unit=')) {
           final equalsIndex = trimmed.indexOf('=');
-          unitDirective =
-              equalsIndex >= 0 ? trimmed.substring(equalsIndex + 1).trim() : null;
+          unitDirective = equalsIndex >= 0
+              ? trimmed.substring(equalsIndex + 1).trim()
+              : null;
           continue;
         }
         if (isComment) {
@@ -57,8 +59,9 @@ class CsvImportAdapter implements ImportAdapter {
       if (isComment || lower.startsWith('unit=')) {
         if (lower.startsWith('unit=') && unitDirective == null) {
           final equalsIndex = trimmed.indexOf('=');
-          unitDirective =
-              equalsIndex >= 0 ? trimmed.substring(equalsIndex + 1).trim() : null;
+          unitDirective = equalsIndex >= 0
+              ? trimmed.substring(equalsIndex + 1).trim()
+              : null;
         }
         continue;
       }
@@ -66,7 +69,8 @@ class CsvImportAdapter implements ImportAdapter {
     }
 
     if (filteredLines.isEmpty) {
-      return ImportTable(headers: const [], rows: const [], unitDirective: unitDirective);
+      return ImportTable(
+          headers: const [], rows: const [], unitDirective: unitDirective);
     }
 
     final delimiter = _detectDelimiter(filteredLines);
@@ -77,7 +81,8 @@ class CsvImportAdapter implements ImportAdapter {
     );
     final rawRows = converter.convert(filteredLines.join('\n'));
     if (rawRows.isEmpty) {
-      return ImportTable(headers: const [], rows: const [], unitDirective: unitDirective);
+      return ImportTable(
+          headers: const [], rows: const [], unitDirective: unitDirective);
     }
 
     final normalized = rawRows
@@ -90,7 +95,8 @@ class CsvImportAdapter implements ImportAdapter {
         .toList(growable: false);
 
     if (normalized.isEmpty) {
-      return ImportTable(headers: const [], rows: const [], unitDirective: unitDirective);
+      return ImportTable(
+          headers: const [], rows: const [], unitDirective: unitDirective);
     }
 
     final headerResult = _normalizeHeaderRow(normalized.first);
@@ -100,9 +106,11 @@ class CsvImportAdapter implements ImportAdapter {
         (index) => 'column_${index + 1}',
       );
       final rows = normalized
-          .map((row) => row.take(inferredHeaders.length).toList(growable: false))
+          .map(
+              (row) => row.take(inferredHeaders.length).toList(growable: false))
           .toList(growable: false);
-      return ImportTable(headers: inferredHeaders, rows: rows, unitDirective: unitDirective);
+      return ImportTable(
+          headers: inferredHeaders, rows: rows, unitDirective: unitDirective);
     }
 
     final dataRows = <List<String>>[];
@@ -152,7 +160,8 @@ class CsvImportAdapter implements ImportAdapter {
     if (lines.isEmpty) {
       return ',';
     }
-    final sample = lines.where((line) => line.trim().isNotEmpty).take(10).toList();
+    final sample =
+        lines.where((line) => line.trim().isNotEmpty).take(10).toList();
     if (sample.isEmpty) {
       return ',';
     }

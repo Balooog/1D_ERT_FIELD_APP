@@ -71,6 +71,7 @@ Each PR opened by an agent must:
 - This app is **offline-first** and field-facing. Stability is prioritized over feature creep.  
 - Defensive coding and clear test coverage are preferred over aggressive refactoring.  
 - Agents should leave explanatory comments in code when applying non-trivial fixes.  
+- Local automation helpers: `.codex/config.toml` keeps approvals on while whitelisting the test loop, and `scripts/ci/test_wsl.sh` is the approved formatter/analyzer/test runner (see `docs/CODEX_TEST_LOOP.md`).  
 
 ---
 

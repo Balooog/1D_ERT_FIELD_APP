@@ -7,7 +7,8 @@ import 'package:resicheck/ui/project_workflow/table_panel.dart';
 
 void main() {
   group('TablePanel focus traversal', () {
-    testWidgets('tab order follows N–S long→short then W–E short→long', (tester) async {
+    testWidgets('tab order follows N–S long→short then W–E short→long',
+        (tester) async {
       final site = _buildSite();
       await tester.pumpWidget(
         MaterialApp(
@@ -29,7 +30,8 @@ void main() {
       );
 
       final dynamic state = tester.state(find.byType(TablePanel));
-      final List<FocusNode> order = List<FocusNode>.from(state.tabOrderForTest as List);
+      final List<FocusNode> order =
+          List<FocusNode>.from(state.tabOrderForTest as List);
       final labels = order.map((node) => node.debugLabel ?? '').toList();
 
       expect(
@@ -48,15 +50,17 @@ void main() {
 
   group('SD formatter', () {
     test('accepts 0–99.9 pattern', () {
-    final regExp = RegExp(TablePanel.sdPromptPattern);
+      final regExp = RegExp(TablePanel.sdPromptPattern);
       final valid = ['0', '5', '12', '99', '7.5', '12.3', ''];
       for (final value in valid) {
-        expect(regExp.hasMatch(value), isTrue, reason: 'expected "$value" to be allowed');
+        expect(regExp.hasMatch(value), isTrue,
+            reason: 'expected "$value" to be allowed');
       }
 
       final invalid = ['100', '12.34', '123', '1.23', 'abc'];
       for (final value in invalid) {
-        expect(regExp.hasMatch(value), isFalse, reason: 'expected "$value" to be rejected');
+        expect(regExp.hasMatch(value), isFalse,
+            reason: 'expected "$value" to be rejected');
       }
     });
   });

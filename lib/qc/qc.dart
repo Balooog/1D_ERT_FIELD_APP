@@ -128,7 +128,8 @@ class QcController extends StateNotifier<QcState> {
     }
     final n = included.length.toDouble();
     final denominator = (n * sumXX) - (sumX * sumX);
-    final slope = denominator == 0 ? 0 : ((n * sumXY) - (sumX * sumY)) / denominator;
+    final slope =
+        denominator == 0 ? 0 : ((n * sumXY) - (sumX * sumY)) / denominator;
     final intercept = (sumY - slope * sumX) / n;
 
     return [

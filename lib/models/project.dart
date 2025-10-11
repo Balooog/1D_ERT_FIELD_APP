@@ -35,8 +35,8 @@ class ProjectRecord {
       projectId: projectId,
       projectName: projectName,
       arrayType: arrayType,
-      canonicalSpacingsFeet: canonicalSpacingsFeet ??
-          const [2.5, 5, 10, 20, 40, 60],
+      canonicalSpacingsFeet:
+          canonicalSpacingsFeet ?? const [2.5, 5, 10, 20, 40, 60],
       defaultPowerMilliAmps: 0.5,
       defaultStacks: 4,
     );
@@ -47,11 +47,12 @@ class ProjectRecord {
     return ProjectRecord(
       projectId: migrated['project_id'] as String,
       projectName: migrated['project_name'] as String,
-      arrayType:
-          ArrayType.values.byName(migrated['array_type'] as String? ?? 'wenner'),
-      canonicalSpacingsFeet: (migrated['canonical_spacings_ft'] as List<dynamic>)
-          .map((dynamic e) => (e as num).toDouble())
-          .toList(),
+      arrayType: ArrayType.values
+          .byName(migrated['array_type'] as String? ?? 'wenner'),
+      canonicalSpacingsFeet:
+          (migrated['canonical_spacings_ft'] as List<dynamic>)
+              .map((dynamic e) => (e as num).toDouble())
+              .toList(),
       defaultPowerMilliAmps:
           (migrated['default_power_ma'] as num?)?.toDouble() ?? 0.5,
       defaultStacks: migrated['default_stacks'] as int? ?? 4,
@@ -93,7 +94,8 @@ class ProjectRecord {
       arrayType: arrayType ?? this.arrayType,
       canonicalSpacingsFeet:
           canonicalSpacingsFeet ?? this.canonicalSpacingsFeet,
-      defaultPowerMilliAmps: defaultPowerMilliAmps ?? this.defaultPowerMilliAmps,
+      defaultPowerMilliAmps:
+          defaultPowerMilliAmps ?? this.defaultPowerMilliAmps,
       defaultStacks: defaultStacks ?? this.defaultStacks,
       sites: sites ?? this.sites,
       schemaVersion: schemaVersion ?? this.schemaVersion,
@@ -122,7 +124,8 @@ class ProjectRecord {
 
   ProjectRecord upsertSite(SiteRecord site) {
     final updated = [...sites];
-    final index = updated.indexWhere((element) => element.siteId == site.siteId);
+    final index =
+        updated.indexWhere((element) => element.siteId == site.siteId);
     if (index >= 0) {
       updated[index] = site;
     } else {

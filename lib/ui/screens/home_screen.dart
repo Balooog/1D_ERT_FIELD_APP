@@ -94,7 +94,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           PopupMenuButton<String>(
             onSelected: _handleMenu,
             itemBuilder: (context) => const [
-              PopupMenuItem(value: 'import', child: Text('Import CSV (sample)')),
+              PopupMenuItem(
+                  value: 'import', child: Text('Import CSV (sample)')),
               PopupMenuItem(value: 'export', child: Text('Export CSV')),
               PopupMenuItem(value: 'settings', child: Text('Settings (stub)')),
             ],
@@ -112,7 +113,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   Expanded(
                     child: points.isEmpty
                         ? const Center(
-                            child: Text('No data yet. Import a CSV or start simulation.'),
+                            child: Text(
+                                'No data yet. Import a CSV or start simulation.'),
                           )
                         : SoundingChart(
                             points: points,
@@ -126,7 +128,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     child: Container(
                       height: 220,
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: Theme.of(context).colorScheme.outlineVariant,
@@ -188,11 +192,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Tooltip(
-                message: 'Generate a synthetic VES (ρₐ vs a-spacing) for demo/QA.',
+                message:
+                    'Generate a synthetic VES (ρₐ vs a-spacing) for demo/QA.',
                 child: FilledButton.tonalIcon(
                   icon: Icon(isSimulating ? Icons.stop : Icons.play_arrow),
-                  label: Text(isSimulating ? 'Stop simulation' : 'Simulate sounding'),
-                  onPressed: () => ref.read(simulationControllerProvider.notifier).toggle(),
+                  label: Text(
+                      isSimulating ? 'Stop simulation' : 'Simulate sounding'),
+                  onPressed: () =>
+                      ref.read(simulationControllerProvider.notifier).toggle(),
                 ),
               ),
             ),
@@ -230,7 +237,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               title: const Text('Settings'),
               content: const Text('Settings are not yet implemented.'),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('OK')),
               ],
             ),
           );
@@ -238,7 +247,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Widget _buildProjectPanel(ProjectState projectState, List<SpacingPoint> points) {
+  Widget _buildProjectPanel(
+      ProjectState projectState, List<SpacingPoint> points) {
     final theme = Theme.of(context);
     final isSaving = projectState.isSaving;
     return Padding(
@@ -247,14 +257,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         elevation: 0,
         child: ExpansionTile(
           initiallyExpanded: _projectExpanded,
-          onExpansionChanged: (expanded) => setState(() => _projectExpanded = expanded),
+          onExpansionChanged: (expanded) =>
+              setState(() => _projectExpanded = expanded),
           title: const Text('Project'),
-          childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          childrenPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           children: [
             TextField(
               controller: _projectNameController,
               focusNode: _projectNameFocus,
-              decoration: const InputDecoration(labelText: 'Project / Site name'),
+              decoration:
+                  const InputDecoration(labelText: 'Project / Site name'),
             ),
             const SizedBox(height: 8),
             TextField(
@@ -280,7 +293,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               initialValue: _distanceUnit,
               decoration: const InputDecoration(labelText: 'Distance units'),
               items: DistanceUnit.values
-                  .map((unit) => DropdownMenuItem(value: unit, child: Text(unit.label)))
+                  .map((unit) =>
+                      DropdownMenuItem(value: unit, child: Text(unit.label)))
                   .toList(),
               onChanged: (unit) {
                 if (unit != null) {
@@ -325,15 +339,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _applyProjectState(ProjectState state) {
     final project = state.project;
-    final site = project?.sites.isNotEmpty == true ? project!.sites.first : null;
+    final site =
+        project?.sites.isNotEmpty == true ? project!.sites.first : null;
     final meta = site?.meta ?? const <String, dynamic>{};
     final projectName = project?.projectName ?? '';
     final line = (meta['line'] as String?) ?? site?.displayName ?? '';
     final operator = meta['operator'] as String? ?? '';
     final notes = meta['notes'] as String? ?? '';
-    final distance = DistanceUnitX.parse(meta['distanceUnit'] as String?, fallback: _distanceUnit);
+    final distance = DistanceUnitX.parse(meta['distanceUnit'] as String?,
+        fallback: _distanceUnit);
 
-    void update(TextEditingController controller, FocusNode focusNode, String value) {
+    void update(
+        TextEditingController controller, FocusNode focusNode, String value) {
       if (!focusNode.hasFocus && controller.text != value) {
         controller.text = value;
       }
@@ -438,14 +455,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final site = project_models.Site(
       siteId: siteId.isNotEmpty ? siteId : 'site-1',
       displayName: siteId.isNotEmpty ? siteId : null,
-      dirA: project_models.DirectionReadings(dir: project_models.Direction.a, points: dirA),
-      dirB: project_models.DirectionReadings(dir: project_models.Direction.b, points: dirB),
+      dirA: project_models.DirectionReadings(
+          dir: project_models.Direction.a, points: dirA),
+      dirB: project_models.DirectionReadings(
+          dir: project_models.Direction.b, points: dirB),
       meta: meta.isEmpty ? null : meta,
     );
 
     return project_models.Project(
       projectName: name.isNotEmpty ? name : 'Untitled project',
-      arrayType: points.isNotEmpty ? points.first.arrayType.name : ArrayType.wenner.name,
+      arrayType: points.isNotEmpty
+          ? points.first.arrayType.name
+          : ArrayType.wenner.name,
       spacingsMeters: sortedPoints.map((p) => p.spacingMeters).toList(),
       sites: [site],
     );
@@ -463,7 +484,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       for (final entry in raw) {
         if (entry is Map) {
           try {
-            restored.add(SpacingPoint.fromJson(Map<String, dynamic>.from(entry as Map)));
+            restored
+                .add(SpacingPoint.fromJson(Map<String, dynamic>.from(entry)));
           } catch (_) {
             continue;
           }
@@ -476,7 +498,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final arrayType = _resolveArrayType(project.arrayType);
     final restored = <SpacingPoint>[];
 
-    void addPoints(project_models.Direction direction, List<project_models.SpacingPoint> source) {
+    void addPoints(project_models.Direction direction,
+        List<project_models.SpacingPoint> source) {
       for (var i = 0; i < source.length; i++) {
         final point = source[i];
         if (point.rho == null) continue;
@@ -548,7 +571,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             }
 
             final spacingFeet = parseValue(aFeetController);
-            final spacingMeters = spacingFeet != null ? feetToMeters(spacingFeet) : null;
+            final spacingMeters =
+                spacingFeet != null ? feetToMeters(spacingFeet) : null;
             final geometryFactor = spacingMeters != null && spacingMeters > 0
                 ? _geometryFactorForArray(arrayType, spacingMeters)
                 : null;
@@ -559,37 +583,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             final current = parseValue(currentController);
 
             final hasRho = rhoInput != null && rhoInput > 0;
-            final hasResistance = resistanceInput != null && resistanceInput > 0;
+            final hasResistance =
+                resistanceInput != null && resistanceInput > 0;
 
             double? resolvedRhoValue = hasRho ? rhoInput : null;
             double? resolvedResistanceValue;
             if (hasRho && geometryFactor != null && geometryFactor > 0) {
-              final rhoValue = rhoInput;
-              if (rhoValue != null) {
-                resolvedResistanceValue = rhoValue / geometryFactor;
-              }
-            } else if (!hasRho && hasResistance && geometryFactor != null && geometryFactor > 0) {
-              final resistanceValue = resistanceInput;
-              if (resistanceValue != null) {
-                resolvedResistanceValue = resistanceValue;
-                resolvedRhoValue = resistanceValue * geometryFactor;
-              }
+              resolvedResistanceValue = rhoInput / geometryFactor;
+            } else if (!hasRho &&
+                hasResistance &&
+                geometryFactor != null &&
+                geometryFactor > 0) {
+              resolvedResistanceValue = resistanceInput;
+              resolvedRhoValue = resistanceInput * geometryFactor;
             }
 
             final rhoValue = rhoInput;
             final resistanceValue = resistanceInput;
-            final computedResistance = rhoValue != null && geometryFactor != null && geometryFactor > 0
-                ? rhoValue / geometryFactor
-                : null;
-            final computedRho = resistanceValue != null && !hasRho && hasResistance && geometryFactor != null && geometryFactor > 0
+            final computedResistance =
+                rhoValue != null && geometryFactor != null && geometryFactor > 0
+                    ? rhoValue / geometryFactor
+                    : null;
+            final computedRho = resistanceValue != null &&
+                    !hasRho &&
+                    hasResistance &&
+                    geometryFactor != null &&
+                    geometryFactor > 0
                 ? resistanceValue * geometryFactor
                 : null;
 
-            final rhoFromVi = (voltage != null && current != null && current != 0 && spacingMeters != null)
-                ? _geometryFactorForArray(arrayType, spacingMeters) * (voltage / current)
+            final rhoFromVi = (voltage != null &&
+                    current != null &&
+                    current != 0 &&
+                    spacingMeters != null)
+                ? _geometryFactorForArray(arrayType, spacingMeters) *
+                    (voltage / current)
                 : null;
-            final rhoDiffPercent = (resolvedRhoValue != null && rhoFromVi != null && resolvedRhoValue != 0)
-                ? ((rhoFromVi - resolvedRhoValue).abs() / resolvedRhoValue) * 100
+            final rhoDiffPercent = (resolvedRhoValue != null &&
+                    rhoFromVi != null &&
+                    resolvedRhoValue != 0)
+                ? ((rhoFromVi - resolvedRhoValue).abs() / resolvedRhoValue) *
+                    100
                 : null;
 
             final hasVoltage = voltageController.text.trim().isNotEmpty;
@@ -598,11 +632,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 spacingFeet > 0 &&
                 resolvedRhoValue != null &&
                 resolvedRhoValue > 0 &&
-                (!hasResistance || geometryFactor != null && geometryFactor > 0);
+                (!hasResistance ||
+                    geometryFactor != null && geometryFactor > 0);
             final bool sigmaValid = sigmaRho == null || sigmaRho >= 0;
             final bool advancedPaired = hasVoltage == hasCurrent;
             final bool advancedCurrentValid = current == null || current > 0;
-            final bool isAddEnabled = baseValid && sigmaValid && advancedPaired && advancedCurrentValid;
+            final bool isAddEnabled = baseValid &&
+                sigmaValid &&
+                advancedPaired &&
+                advancedCurrentValid;
 
             return AlertDialog(
               title: const Text('Add manual point'),
@@ -615,11 +653,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         Expanded(
                           child: DropdownButtonFormField<ArrayType>(
                             initialValue: arrayType,
-                            decoration: const InputDecoration(labelText: 'Array'),
-                            onChanged: (value) => setState(() => arrayType = value ?? arrayType),
+                            decoration:
+                                const InputDecoration(labelText: 'Array'),
+                            onChanged: (value) =>
+                                setState(() => arrayType = value ?? arrayType),
                             items: const [
-                              DropdownMenuItem(value: ArrayType.wenner, child: Text('Wenner')),
-                              DropdownMenuItem(value: ArrayType.schlumberger, child: Text('Schlumberger')),
+                              DropdownMenuItem(
+                                  value: ArrayType.wenner,
+                                  child: Text('Wenner')),
+                              DropdownMenuItem(
+                                  value: ArrayType.schlumberger,
+                                  child: Text('Schlumberger')),
                             ],
                           ),
                         ),
@@ -627,10 +671,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         Expanded(
                           child: DropdownButtonFormField<SoundingDirection>(
                             initialValue: direction,
-                            decoration: const InputDecoration(labelText: 'Direction'),
-                            onChanged: (value) => setState(() => direction = value ?? direction),
+                            decoration:
+                                const InputDecoration(labelText: 'Direction'),
+                            onChanged: (value) =>
+                                setState(() => direction = value ?? direction),
                             items: SoundingDirection.values
-                                .map((dir) => DropdownMenuItem(value: dir, child: Text(dir.label)))
+                                .map((dir) => DropdownMenuItem(
+                                    value: dir, child: Text(dir.label)))
                                 .toList(),
                           ),
                         ),
@@ -642,7 +689,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         icon: const Icon(Icons.paste),
                         label: const Text('Bulk paste'),
                         onPressed: () async {
-                          final newDirection = await _showBulkPasteSheet(arrayType, direction);
+                          final newDirection =
+                              await _showBulkPasteSheet(arrayType, direction);
                           if (newDirection != null) {
                             setState(() => direction = newDirection);
                           }
@@ -651,8 +699,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     TextField(
                       controller: aFeetController,
-                      decoration: const InputDecoration(labelText: 'A-spacing (ft)'),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration:
+                          const InputDecoration(labelText: 'A-spacing (ft)'),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() {}),
                     ),
                     if (spacingMeters != null)
@@ -673,7 +723,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         labelText: 'Apparent ρ (Ω·m)',
                         helperText: 'Leave blank if you only logged apparent R',
                       ),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() {}),
                     ),
                     if (computedResistance != null)
@@ -683,7 +734,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
                             'Computed R ≈ ${computedResistance.toStringAsFixed(3)} Ω',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(fontStyle: FontStyle.italic),
                           ),
                         ),
                       ),
@@ -692,9 +746,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       controller: resistanceController,
                       decoration: const InputDecoration(
                         labelText: 'Apparent R (Ω)',
-                        helperText: 'Provide if you logged resistance instead of ρ',
+                        helperText:
+                            'Provide if you logged resistance instead of ρ',
                       ),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() {}),
                     ),
                     if (computedRho != null)
@@ -704,7 +760,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
                             'Computed ρ ≈ ${computedRho.toStringAsFixed(2)} Ω·m',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(fontStyle: FontStyle.italic),
                           ),
                         ),
                       ),
@@ -715,7 +774,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
                             'Enter apparent ρ or apparent R.',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
                                   color: Theme.of(context).colorScheme.error,
                                 ),
                           ),
@@ -724,13 +786,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: sigmaRhoController,
-                      decoration: const InputDecoration(labelText: 'Std dev σρ (Ω·m, optional)'),
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                          labelText: 'Std dev σρ (Ω·m, optional)'),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       onChanged: (_) => setState(() {}),
                     ),
                     TextField(
                       controller: notesController,
-                      decoration: const InputDecoration(labelText: 'Notes / tag (optional)'),
+                      decoration: const InputDecoration(
+                          labelText: 'Notes / tag (optional)'),
                       keyboardType: TextInputType.text,
                     ),
                     const SizedBox(height: 12),
@@ -755,8 +820,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'Δρ vs V/I: ${rhoDiffPercent.toStringAsFixed(1)}%',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: rhoDiffPercent > SpacingPoint.rhoQaThresholdPercent
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                color: rhoDiffPercent >
+                                        SpacingPoint.rhoQaThresholdPercent
                                     ? Colors.orange
                                     : Theme.of(context).colorScheme.onSurface,
                               ),
@@ -766,27 +835,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ExpansionTile(
                       title: const Text('Advanced'),
                       initiallyExpanded: advancedExpanded,
-                      onExpansionChanged: (value) => setState(() => advancedExpanded = value),
-                      childrenPadding: const EdgeInsets.symmetric(horizontal: 8),
+                      onExpansionChanged: (value) =>
+                          setState(() => advancedExpanded = value),
+                      childrenPadding:
+                          const EdgeInsets.symmetric(horizontal: 8),
                       children: [
                         TextField(
                           controller: voltageController,
-                          decoration: const InputDecoration(labelText: 'Potential (V)'),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration:
+                              const InputDecoration(labelText: 'Potential (V)'),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           onChanged: (_) => setState(() {}),
                         ),
                         TextField(
                           controller: currentController,
-                          decoration: const InputDecoration(labelText: 'Current (A)'),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration:
+                              const InputDecoration(labelText: 'Current (A)'),
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
                           onChanged: (_) => setState(() {}),
                         ),
                         if (rhoFromVi != null)
                           Padding(
-                            padding: const EdgeInsets.only(top: 8.0, bottom: 12),
+                            padding:
+                                const EdgeInsets.only(top: 8.0, bottom: 12),
                             child: Align(
                               alignment: Alignment.centerLeft,
-                              child: Text('ρ (from V/I): ${rhoFromVi.toStringAsFixed(2)} Ω·m'),
+                              child: Text(
+                                  'ρ (from V/I): ${rhoFromVi.toStringAsFixed(2)} Ω·m'),
                             ),
                           ),
                       ],
@@ -795,49 +872,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancel')),
                 FilledButton(
                   onPressed: isAddEnabled
                       ? () {
                           if (hasVoltage != hasCurrent) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Provide both Potential and Current for advanced QA.')),
+                              const SnackBar(
+                                  content: Text(
+                                      'Provide both Potential and Current for advanced QA.')),
                             );
                             return;
                           }
                           if (current != null && current <= 0) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Current must be greater than zero.')),
+                              const SnackBar(
+                                  content: Text(
+                                      'Current must be greater than zero.')),
                             );
                             return;
                           }
 
-                          final spacingFeetValue = spacingFeet;
-                          if (spacingFeetValue == null) {
+                          final spacingFeetValue = parseValue(aFeetController);
+                          if (spacingFeetValue == null ||
+                              spacingFeetValue <= 0) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('A-spacing is required.')),
+                              const SnackBar(
+                                  content: Text('A-spacing is required.')),
                             );
                             return;
                           }
-                          final spacingMetersValue = feetToMeters(spacingFeetValue);
-                          final geometry = _geometryFactorForArray(arrayType, spacingMetersValue);
+                          final spacingMetersValue =
+                              feetToMeters(spacingFeetValue);
+                          final geometry = _geometryFactorForArray(
+                              arrayType, spacingMetersValue);
                           double? finalRho = resolvedRhoValue;
                           double? finalResistance = resolvedResistanceValue;
-                          if (finalRho == null && hasResistance && geometry > 0) {
-                            final resistanceValue = resistanceInput;
-                            if (resistanceValue != null) {
-                              finalRho = resistanceValue * geometry;
-                              finalResistance = resistanceValue;
-                            }
+                          if (finalRho == null &&
+                              hasResistance &&
+                              geometry > 0) {
+                            finalRho = resistanceInput * geometry;
+                            finalResistance = resistanceInput;
                           }
                           if (finalRho == null || finalRho <= 0) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Could not resolve apparent resistivity.')),
+                              const SnackBar(
+                                  content: Text(
+                                      'Could not resolve apparent resistivity.')),
                             );
                             return;
                           }
-                          final sigmaValue = sigmaRho != null && sigmaRho >= 0 ? sigmaRho : null;
-                          final manualId = DateFormat('yyyyMMddHHmmss').format(DateTime.now());
+                          final sigmaValue = sigmaRho != null && sigmaRho >= 0
+                              ? sigmaRho
+                              : null;
+                          final manualId = DateFormat('yyyyMMddHHmmss')
+                              .format(DateTime.now());
                           try {
                             final point = SpacingPoint(
                               id: manualId,
@@ -855,9 +946,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               stacks: 1,
                               repeats: null,
                               timestamp: DateTime.now(),
-                              notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+                              notes: notesController.text.trim().isEmpty
+                                  ? null
+                                  : notesController.text.trim(),
                             );
-                            ref.read(spacingPointsProvider.notifier).addPoint(point);
+                            ref
+                                .read(spacingPointsProvider.notifier)
+                                .addPoint(point);
                             if (voltage != null && current != null) {
                               ref.read(telemetryProvider.notifier).addSample(
                                     current: current,
@@ -867,7 +962,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             Navigator.pop(ctx);
                           } catch (error) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Could not add point: ${error.toString()}')),
+                              SnackBar(
+                                  content: Text(
+                                      'Could not add point: ${error.toString()}')),
                             );
                           }
                         }
@@ -887,7 +984,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     SoundingDirection initialDirection,
   ) async {
     final pasteController = TextEditingController();
-    final bulkNotesController = TextEditingController(text: '${initialDirection.label} bulk');
+    final bulkNotesController =
+        TextEditingController(text: '${initialDirection.label} bulk');
     SoundingDirection selectedDirection = initialDirection;
     int? lastAdded;
     List<String> skippedMessages = const [];
@@ -901,23 +999,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           builder: (sheetCtx, setState) {
             final bottomInset = MediaQuery.of(sheetCtx).viewInsets.bottom;
             return Padding(
-              padding: EdgeInsets.only(left: 16, right: 16, top: 16, bottom: bottomInset + 16),
+              padding: EdgeInsets.only(
+                  left: 16, right: 16, top: 16, bottom: bottomInset + 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('Bulk paste points', style: Theme.of(sheetCtx).textTheme.titleMedium),
+                  Text('Bulk paste points',
+                      style: Theme.of(sheetCtx).textTheme.titleMedium),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<SoundingDirection>(
                     initialValue: selectedDirection,
                     decoration: const InputDecoration(labelText: 'Orientation'),
-                    onChanged: (value) => setState(() => selectedDirection = value ?? selectedDirection),
+                    onChanged: (value) => setState(
+                        () => selectedDirection = value ?? selectedDirection),
                     items: SoundingDirection.values
-                        .map((dir) => DropdownMenuItem(value: dir, child: Text(dir.label)))
+                        .map((dir) => DropdownMenuItem(
+                            value: dir, child: Text(dir.label)))
                         .toList(),
                   ),
                   TextField(
                     controller: bulkNotesController,
-                    decoration: const InputDecoration(labelText: 'Notes / tag (optional)'),
+                    decoration: const InputDecoration(
+                        labelText: 'Notes / tag (optional)'),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -936,7 +1039,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       TextButton(
                         onPressed: () => Navigator.pop(
                           sheetCtx,
-                          lastAdded != null && lastAdded! > 0 ? selectedDirection : null,
+                          lastAdded != null && lastAdded! > 0
+                              ? selectedDirection
+                              : null,
                         ),
                         child: const Text('Close'),
                       ),
@@ -945,31 +1050,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         onPressed: () {
                           final raw = pasteController.text;
                           final lines = raw.split(RegExp(r'\r?\n'));
-                          final notifier = ref.read(spacingPointsProvider.notifier);
+                          final notifier =
+                              ref.read(spacingPointsProvider.notifier);
                           final newSkipped = <String>[];
                           var added = 0;
                           for (var i = 0; i < lines.length; i++) {
                             final line = lines[i].trim();
                             if (line.isEmpty) continue;
-                            final parts = line.split(RegExp(r'[\s,]+')).where((token) => token.isNotEmpty).toList();
+                            final parts = line
+                                .split(RegExp(r'[\s,]+'))
+                                .where((token) => token.isNotEmpty)
+                                .toList();
                             if (parts.length < 2) {
-                              newSkipped.add('Row ${i + 1}: expected A(ft) and Ω values.');
+                              newSkipped.add(
+                                  'Row ${i + 1}: expected A(ft) and Ω values.');
                               continue;
                             }
                             final aFeet = double.tryParse(parts[0]);
                             final resistance = double.tryParse(parts[1]);
                             if (aFeet == null || resistance == null) {
-                              newSkipped.add('Row ${i + 1}: non-numeric value.');
+                              newSkipped
+                                  .add('Row ${i + 1}: non-numeric value.');
                               continue;
                             }
                             if (aFeet <= 0 || resistance <= 0) {
-                              newSkipped.add('Row ${i + 1}: values must be > 0.');
+                              newSkipped
+                                  .add('Row ${i + 1}: values must be > 0.');
                               continue;
                             }
                             final aMeters = feetToMeters(aFeet);
-                            final k = _geometryFactorForArray(arrayType, aMeters);
+                            final k =
+                                _geometryFactorForArray(arrayType, aMeters);
                             if (k <= 0) {
-                              newSkipped.add('Row ${i + 1}: geometry factor unavailable.');
+                              newSkipped.add(
+                                  'Row ${i + 1}: geometry factor unavailable.');
                               continue;
                             }
                             final rho = resistance * k;
@@ -980,7 +1094,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               rhoAppOhmM: rho,
                               direction: selectedDirection,
                               spacingMeters: aMeters,
-                              notes: notes.isEmpty ? '${selectedDirection.label} bulk' : notes,
+                              notes: notes.isEmpty
+                                  ? '${selectedDirection.label} bulk'
+                                  : notes,
                             );
                             notifier.addPoint(point);
                             added++;
@@ -988,7 +1104,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           setState(() {
                             lastAdded = added;
                             skippedMessages = newSkipped;
-                            summary = 'Added ${added.toString()} row(s). Skipped ${newSkipped.length}.';
+                            summary =
+                                'Added ${added.toString()} row(s). Skipped ${newSkipped.length}.';
                           });
                         },
                         child: const Text('Import'),
@@ -999,7 +1116,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const SizedBox(height: 12),
                     Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(summary!, style: Theme.of(sheetCtx).textTheme.bodySmall),
+                      child: Text(summary!,
+                          style: Theme.of(sheetCtx).textTheme.bodySmall),
                     ),
                     if (skippedMessages.isNotEmpty)
                       ...skippedMessages.map(
@@ -1010,7 +1128,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             style: Theme.of(sheetCtx)
                                 .textTheme
                                 .bodySmall
-                                ?.copyWith(color: Theme.of(sheetCtx).colorScheme.error),
+                                ?.copyWith(
+                                    color:
+                                        Theme.of(sheetCtx).colorScheme.error),
                           ),
                         ),
                       ),
