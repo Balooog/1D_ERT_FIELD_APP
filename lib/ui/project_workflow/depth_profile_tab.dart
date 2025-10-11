@@ -62,8 +62,15 @@ class _DepthProfileTabState extends State<DepthProfileTab> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
-              Expanded(
-                child: _buildDepthTable(context, steps, unitLabel: depthUnitLabel),
+              Flexible(
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(
+                  child: _buildDepthTable(
+                    context,
+                    steps,
+                    unitLabel: depthUnitLabel,
+                  ),
+                ),
               ),
             ],
           ),
@@ -110,36 +117,32 @@ class _DepthProfileTabState extends State<DepthProfileTab> {
     );
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildDepthHeaderRow(unitLabel, headerStyle),
         const Divider(height: 12),
-        Expanded(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final step in visibleSteps)
-                  _buildDepthDataRow(
-                    depthLabel: formatCompactValue(
-                        widget.distanceUnit.fromMeters(step.depthMeters)),
-                    rhoLabel: formatCompactValue(step.rho),
-                    style: valueStyle,
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final step in visibleSteps)
+              _buildDepthDataRow(
+                depthLabel: formatCompactValue(
+                    widget.distanceUnit.fromMeters(step.depthMeters)),
+                rhoLabel: formatCompactValue(step.rho),
+                style: valueStyle,
+              ),
+            if (hiddenCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '+$hiddenCount more spacing${hiddenCount == 1 ? '' : 's'}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.outline,
                   ),
-                if (hiddenCount > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      '+$hiddenCount more spacing${hiddenCount == 1 ? '' : 's'}',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.outline,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+                ),
+              ),
+          ],
         ),
       ],
     );
