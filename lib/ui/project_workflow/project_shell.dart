@@ -36,6 +36,19 @@ class ProjectShell extends StatefulWidget {
   State<ProjectShell> createState() => _ProjectShellState();
 }
 
+void _fireAndForget(Future<void> future) {
+  try {
+    // ignore: discarded_futures
+    unawaited(future);
+  } catch (_) {
+    future.ignore();
+  }
+}
+
+extension _FutureIgnore on Future<void> {
+  void ignore() {}
+}
+
 class _ProjectShellState extends State<ProjectShell> {
   late ProjectRecord _project;
   SiteRecord? _selectedSite;

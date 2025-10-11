@@ -1,4 +1,13 @@
 import 'dart:io';
+import 'dart:math' as math;
+
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -6,7 +15,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import 'package:csv/csv.dart';
 
-import '../models/calc.dart';
+import '../models/calc.dart' as calc;
 import '../models/direction_reading.dart';
 import '../models/project.dart';
 import '../models/site.dart';
@@ -371,7 +380,7 @@ class ExportService {
     final resistance = sample?.resistanceOhm;
     final rho = resistance == null
         ? null
-        : rhoAWenner(spacing.spacingFeet, resistance);
+        : calc.rhoAWenner(spacing.spacingFeet, resistance);
     return [
       site.siteId,
       history.label,
@@ -394,7 +403,7 @@ class ExportService {
   ) {
     final sample = history.latest;
     final resistance = sample?.resistanceOhm ?? 0;
-    final rho = rhoAWenner(spacing.spacingFeet, resistance);
+    final rho = calc.rhoAWenner(spacing.spacingFeet, resistance);
     final sd = sample?.standardDeviationPercent ?? 0;
     final isBad = sample?.isBad ?? false;
     return '${spacing.spacingFeet},${history.label},$resistance,$rho,$sd,${isBad ? 1 : 0}';
