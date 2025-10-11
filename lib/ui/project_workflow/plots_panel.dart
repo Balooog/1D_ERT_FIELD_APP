@@ -617,21 +617,19 @@ class InversionPlotPanel extends StatelessWidget {
     final measurementSpots = <FlSpot>[];
     final predictedSpots = <FlSpot>[];
     for (var i = 0; i < summary.observedRho.length; i++) {
-      final observed = summary.observedRho[i].toDouble();
+      final observed = summary.observedRho[i];
       if (!observed.isFinite || observed <= 0) {
         continue;
       }
       final depth = i < summary.measurementDepthsM.length
-          ? summary.measurementDepthsM[i].toDouble()
-          : (summary.measurementDepthsM.isEmpty
-              ? 0.0
-              : summary.measurementDepthsM.last.toDouble());
+          ? summary.measurementDepthsM[i]
+          : (summary.measurementDepthsM.isEmpty ? 0 : summary.measurementDepthsM.last);
       measurementSpots.add(FlSpot(_log10(observed), -depth));
       final predicted = i < summary.predictedRho.length
-          ? summary.predictedRho[i].toDouble()
+          ? summary.predictedRho[i]
           : summary.predictedRho.isEmpty
               ? observed
-              : summary.predictedRho.last.toDouble();
+              : summary.predictedRho.last;
       if (predicted.isFinite && predicted > 0) {
         predictedSpots.add(FlSpot(_log10(predicted), -depth));
       }
