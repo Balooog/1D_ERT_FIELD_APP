@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 
-import 'calc.dart';
+import 'package:resicheck/utils/units.dart' as units;
+
 import 'direction_reading.dart';
 
 enum SoilType {
@@ -93,9 +94,11 @@ class SpacingRecord {
 
   double get tapeOutsideFeet => spacingFeet * 1.5;
 
-  double get tapeInsideMeters => feetToMeters(tapeInsideFeet);
+  double get tapeInsideMeters =>
+      units.feetToMeters(tapeInsideFeet.toDouble());
 
-  double get tapeOutsideMeters => feetToMeters(tapeOutsideFeet);
+  double get tapeOutsideMeters =>
+      units.feetToMeters(tapeOutsideFeet.toDouble());
 
   DirectionReadingHistory historyFor(OrientationKind orientation) {
     switch (orientation) {
