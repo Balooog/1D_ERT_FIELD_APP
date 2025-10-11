@@ -10,6 +10,39 @@ import '../../models/site.dart';
 import '../../utils/format.dart';
 import '../../state/prefs.dart';
 
+const double _kTableHeaderHeight = 56;
+const double _kTableRowHeight = 56;
+
+Widget _headerCell(
+  BuildContext context,
+  String label, {
+  double minWidth = 120,
+  TextStyle? style,
+}) {
+  final textStyle = style ?? Theme.of(context).textTheme.titleSmall;
+  return Tooltip(
+    message: label,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: minWidth,
+        maxHeight: _kTableHeaderHeight,
+      ),
+      child: SizedBox(
+        height: _kTableHeaderHeight,
+        child: Center(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: textStyle,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 class TablePanel extends StatefulWidget {
   const TablePanel({
     super.key,
@@ -369,6 +402,7 @@ class _TablePanelState extends State<TablePanel> {
                     child: FocusTraversalGroup(
                       policy: OrderedTraversalPolicy(),
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
@@ -377,6 +411,7 @@ class _TablePanelState extends State<TablePanel> {
                               vertical: 4,
                             ),
                             child: _buildTableHeader(
+                              context,
                               headingStyle,
                               orientationALabel,
                               orientationBLabel,
@@ -415,38 +450,42 @@ class _TablePanelState extends State<TablePanel> {
   }
 
   Widget _buildTableHeader(
+    BuildContext context,
     TextStyle? style,
     String orientationALabel,
     String orientationBLabel,
   ) {
-    Widget buildCell(String text, double width) {
-      return SizedBox(
-        width: width,
-        child: Tooltip(
-          message: text,
-          child: Center(
-            child: Text(
-              text,
-              style: style,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-      );
-    }
-
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        buildCell('a-spacing (ft)', 130),
+        _headerCell(
+          context,
+          'a-spacing (ft)',
+          minWidth: 130,
+          style: style,
+        ),
         const SizedBox(width: 12),
-        buildCell('Pins at (ft)', 120),
+        _headerCell(
+          context,
+          'Pins at (ft)',
+          minWidth: 120,
+          style: style,
+        ),
         const SizedBox(width: 12),
-        buildCell('Res $orientationALabel (Ω)', 150),
+        _headerCell(
+          context,
+          'Res $orientationALabel (Ω)',
+          minWidth: 150,
+          style: style,
+        ),
         const SizedBox(width: 12),
-        buildCell('Res $orientationBLabel (Ω)', 150),
+        _headerCell(
+          context,
+          'Res $orientationBLabel (Ω)',
+          minWidth: 150,
+          style: style,
+        ),
       ],
     );
   }
@@ -531,29 +570,23 @@ class _TablePanelState extends State<TablePanel> {
     );
   }
 
-  Widget _wrapTightCell({required Widget child, double? maxWidth}) {
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Flexible(
-          fit: FlexFit.loose,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.center,
-            child: child,
-          ),
-        ),
-      ],
+  Widget _wrapTightCell({
+    required Widget child,
+    double? maxWidth,
+    double minWidth = 0,
+    double height = _kTableRowHeight,
+  }) {
+    final constraints = BoxConstraints(
+      minWidth: minWidth,
+      maxWidth: maxWidth ?? double.infinity,
+      minHeight: height,
+      maxHeight: height,
     );
-    final wrapped = maxWidth != null
-        ? ConstrainedBox(constraints: BoxConstraints(maxWidth: maxWidth), child: content)
-        : content;
-    return SizedBox(
-      height: 56,
-      child: Align(
-        alignment: Alignment.center,
-        child: wrapped,
+    return ConstrainedBox(
+      constraints: constraints,
+      child: SizedBox(
+        height: height,
+        child: Center(child: child),
       ),
     );
   }
@@ -571,6 +604,7 @@ class _TablePanelState extends State<TablePanel> {
             : 'Tap to record interpretation notes';
     return _wrapTightCell(
       maxWidth: 130,
+      height: 68,
       child: ClipRect(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -739,12 +773,12 @@ class _TablePanelState extends State<TablePanel> {
         ? theme.colorScheme.error
         : theme.textTheme.labelSmall?.color ?? theme.colorScheme.onSurfaceVariant;
     final buttonStyle = TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
-      minimumSize: const Size(0, 26),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      minimumSize: const Size(0, 28),
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+      visualDensity: const VisualDensity(horizontal: -2, vertical: -4),
     );
-    const controlDensity = VisualDensity(horizontal: -4, vertical: -4);
+    const controlDensity = VisualDensity(horizontal: -2, vertical: -4);
 
     final decoration = hide
         ? _hiddenResistanceDecoration
@@ -754,12 +788,14 @@ class _TablePanelState extends State<TablePanel> {
       opacity: hide ? 0.45 : 1.0,
       child: _wrapTightCell(
         maxWidth: 150,
+        minWidth: 140,
+        height: 68,
         child: ClipRect(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                height: 32,
+                height: 36,
                 child: FocusTraversalOrder(
                   order: NumericFocusOrder(rank),
                   child: TextField(
@@ -807,27 +843,25 @@ class _TablePanelState extends State<TablePanel> {
                                   forcePrompt: true,
                                 ),
                         style: buttonStyle,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'SD $sdText',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: sdColor,
-                              fontWeight: sdWarning
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                            ),
+                        child: Text(
+                          'SD $sdText',
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: sdColor,
+                            fontWeight:
+                                sdWarning ? FontWeight.w600 : FontWeight.w400,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 3),
+                    const SizedBox(width: 6),
                     IconButton(
-                      iconSize: 16,
+                      iconSize: 18,
                       visualDensity: controlDensity,
                       padding: EdgeInsets.zero,
                       constraints:
-                          const BoxConstraints(minWidth: 26, minHeight: 26),
+                          const BoxConstraints.tightFor(height: 28, width: 32),
                       tooltip: isBad
                           ? 'Marked bad — tap to clear flag'
                           : 'Mark reading bad',
@@ -846,11 +880,11 @@ class _TablePanelState extends State<TablePanel> {
                       ),
                     ),
                     IconButton(
-                      iconSize: 16,
+                      iconSize: 18,
                       visualDensity: controlDensity,
                       padding: EdgeInsets.zero,
                       constraints:
-                          const BoxConstraints(minWidth: 26, minHeight: 26),
+                          const BoxConstraints.tightFor(height: 28, width: 32),
                       tooltip: 'Show edit history',
                       onPressed: () => widget.onShowHistory(
                         row.record.spacingFeet,
@@ -1347,4 +1381,62 @@ class _SdPromptResult {
 
   final double? sd;
   final bool askAgain;
+}
+
+@visibleForTesting
+class TablePanelDebugFixture extends StatelessWidget {
+  const TablePanelDebugFixture({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime(2024, 1, 1, 12);
+    final spacings = [5.0, 10.0, 15.0, 20.0]
+        .map(
+          (spacing) => SpacingRecord(
+            spacingFeet: spacing,
+            orientationA: DirectionReadingHistory(
+              orientation: OrientationKind.a,
+              label: 'N–S',
+              samples: [
+                DirectionReadingSample(
+                  timestamp: now,
+                  resistanceOhm: 100 + spacing,
+                  standardDeviationPercent: 2.5,
+                ),
+              ],
+            ),
+            orientationB: DirectionReadingHistory(
+              orientation: OrientationKind.b,
+              label: 'W–E',
+              samples: [
+                DirectionReadingSample(
+                  timestamp: now,
+                  resistanceOhm: 95 + spacing,
+                  standardDeviationPercent: 3.0,
+                ),
+              ],
+            ),
+          ),
+        )
+        .toList();
+
+    final site = SiteRecord(
+      siteId: 'debug-site',
+      displayName: 'Debug Site',
+      spacings: spacings,
+    );
+
+    return TablePanel(
+      site: site,
+      projectDefaultStacks: 4,
+      showOutliers: true,
+      onResistanceChanged: (_, __, ___, ____) {},
+      onSdChanged: (_, __, ___) {},
+      onInterpretationChanged: (_, __) {},
+      onToggleBad: (_, __, ___) {},
+      onMetadataChanged: ({double? power, int? stacks, SoilType? soil, MoistureLevel? moisture}) {},
+      onShowHistory: (_, __) async {},
+      onFocusChanged: (_, __) {},
+    );
+  }
 }
