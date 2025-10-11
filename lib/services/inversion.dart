@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import '../models/calc.dart';
 import '../models/inversion_model.dart';
 import '../models/site.dart';
 import '../models/spacing_point.dart';
@@ -55,7 +54,8 @@ class TwoLayerInversionResult {
   final double? thicknessM;
   final DateTime solvedAt;
 
-  double? get thicknessFeet => thicknessM == null ? null : metersToFeet(thicknessM!);
+  double? get thicknessFeet =>
+      thicknessM == null ? null : units.metersToFeet(thicknessM!);
 
   double get maxDepthMeters {
     final candidates = <double>[];
@@ -1102,7 +1102,7 @@ _SiteInversionInput _aggregateSiteForInversion(SiteRecord site) {
     rhoNs.add(rhoA ?? average);
     rhoWe.add(rhoB ?? average);
     observed.add(average);
-    depths.add(feetToMeters(spacing.spacingFeet * 0.5));
+    depths.add(units.feetToMeters(spacing.spacingFeet * 0.5));
   }
   return _SiteInversionInput(
     spacingFeet: spacingFeet,
