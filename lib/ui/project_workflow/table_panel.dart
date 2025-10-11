@@ -695,6 +695,7 @@ class _TablePanelState extends State<TablePanel> {
 
     return _wrapTightCell(
       maxWidth: 120,
+      height: 68,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1153,9 +1154,12 @@ class _TablePanelState extends State<TablePanel> {
               children: [
                 Icon(Icons.lock_outline, size: 14, color: theme.colorScheme.outline),
                 const SizedBox(width: 6),
-                Text(
-                  'Project default: ${widget.projectDefaultStacks} stacks',
-                  style: theme.textTheme.labelSmall,
+                Flexible(
+                  child: Text(
+                    'Project default: ${widget.projectDefaultStacks} stacks',
+                    style: theme.textTheme.labelSmall,
+                    softWrap: true,
+                  ),
                 ),
               ],
             ),
