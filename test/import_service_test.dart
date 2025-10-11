@@ -47,6 +47,7 @@ void main() {
       );
       expect(session.preview.unitDetection.unit, ImportDistanceUnit.meters);
       final mapping = service.autoMap(session.preview);
+      expect(mapping.assignments.length, 5);
       expect(mapping.distanceUnit, ImportDistanceUnit.meters);
       final validation = service.validate(session, mapping);
       expect(validation.importedRows, 5);

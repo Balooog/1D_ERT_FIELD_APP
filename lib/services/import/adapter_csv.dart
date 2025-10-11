@@ -20,27 +20,41 @@ class CsvImportAdapter implements ImportAdapter {
       decoded = decoded.substring(1);
     }
 
-    final lines = decoded.split('\n');
+    final splitter = const LineSplitter();
+    final lines = splitter.convert(decoded);
     final filteredLines = <String>[];
     String? unitDirective;
+    var headerFound = false;
     for (final raw in lines) {
-      if (raw.isEmpty) {
+      var sanitized = raw.replaceAll('\r', '');
+      if (sanitized.isEmpty) {
         continue;
       }
-      final trimmed = raw.trim();
+      final trimmed = sanitized.trim();
       if (trimmed.isEmpty) {
+        continue;
+      }
+      final lower = trimmed.toLowerCase();
+      if (!headerFound) {
+        if (lower.startsWith('unit=')) {
+          final equalsIndex = trimmed.indexOf('=');
+          unitDirective = equalsIndex >= 0 ? trimmed.substring(equalsIndex + 1).trim() : null;
+          continue;
+        }
+        if (trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith(';')) {
+          continue;
+        }
+        if (sanitized.codeUnitAt(0) == 0xFEFF) {
+          sanitized = sanitized.substring(1);
+        }
+        filteredLines.add(sanitized);
+        headerFound = true;
         continue;
       }
       if (trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith(';')) {
         continue;
       }
-      final lower = trimmed.toLowerCase();
-      if (lower.startsWith('unit=')) {
-        final equalsIndex = trimmed.indexOf('=');
-        unitDirective = equalsIndex >= 0 ? trimmed.substring(equalsIndex + 1).trim() : null;
-        continue;
-      }
-      filteredLines.add(raw.replaceAll('\r', ''));
+      filteredLines.add(sanitized);
     }
 
     if (filteredLines.isEmpty) {

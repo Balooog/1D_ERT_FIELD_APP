@@ -160,10 +160,14 @@ class _TablePanelState extends State<TablePanel> {
   List<_FieldKey> _tabSequence = const [];
 
   List<FocusNode> get tabOrderForTest {
-    return [
-      for (final key in _tabSequence)
-        if (_focusNodes[key] != null) _focusNodes[key]!,
-    ];
+    final nodes = <FocusNode>[];
+    for (final key in _tabSequence) {
+      final node = _focusNodes[key];
+      if (node != null) {
+        nodes.add(node);
+      }
+    }
+    return nodes;
   }
 
   @override
@@ -541,78 +545,84 @@ class _TablePanelState extends State<TablePanel> {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 130),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Tooltip(
-              message:
-                  'Inside: ${formatCompactValue(row.insideFeet)} ft (${formatMetersTooltip(row.insideMeters)} m)\n'
-                  'Outside: ${formatCompactValue(row.outsideFeet)} ft (${formatMetersTooltip(row.outsideMeters)} m)',
-              child: Text(
-                '$spacingText ft',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+        child: ClipRect(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Tooltip(
+                  message:
+                      'Inside: ${formatCompactValue(row.insideFeet)} ft (${formatMetersTooltip(row.insideMeters)} m)\n'
+                      'Outside: ${formatCompactValue(row.outsideFeet)} ft (${formatMetersTooltip(row.outsideMeters)} m)',
+                  child: Text(
+                    '$spacingText ft',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Tooltip(
-              message: tooltip,
-              child: GestureDetector(
-                onTap: () => _editInterpretation(row),
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                  child: hasCustom
-                      ? Text(
-                          customNote!,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
-                        )
-                      : consistencyLabel != null
-                          ? Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    consistencyLabel,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: _consistencyColor(autoNote, theme),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.info_outline,
-                                  size: 14,
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ],
-                            )
-                          : Text(
-                              'Add note',
-                              maxLines: 1,
+                const SizedBox(height: 4),
+                Tooltip(
+                  message: tooltip,
+                  child: GestureDetector(
+                    onTap: () => _editInterpretation(row),
+                    behavior: HitTestBehavior.opaque,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                      child: hasCustom
+                          ? Text(
+                              customNote!,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.secondary,
-                                fontStyle: FontStyle.italic,
+                                color: theme.colorScheme.primary,
                               ),
-                            ),
+                            )
+                          : consistencyLabel != null
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        consistencyLabel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                        style: theme.textTheme.labelSmall?.copyWith(
+                                          color: _consistencyColor(autoNote, theme),
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      Icons.info_outline,
+                                      size: 14,
+                                      color: theme.colorScheme.outline,
+                                    ),
+                                  ],
+                                )
+                              : Text(
+                                  'Add note',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: theme.colorScheme.secondary,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -715,113 +725,119 @@ class _TablePanelState extends State<TablePanel> {
         opacity: hide ? 0.45 : 1.0,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 150),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 32,
-                child: FocusTraversalOrder(
-                  order: NumericFocusOrder(rank),
-                  child: TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    enabled: !hide,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    textInputAction: TextInputAction.next,
-                    textAlign: TextAlign.right,
-                    maxLengthEnforcement:
-                        MaxLengthEnforcement.truncateAfterCompositionEnds,
-                    inputFormatters: [
-                      LengthLimitingTextInputFormatter(6),
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'^[0-9]{0,4}(\.[0-9]{0,2})?$'),
+          child: ClipRect(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    height: 32,
+                    child: FocusTraversalOrder(
+                      order: NumericFocusOrder(rank),
+                      child: TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        enabled: !hide,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(decimal: true),
+                        textInputAction: TextInputAction.next,
+                        textAlign: TextAlign.right,
+                        maxLengthEnforcement:
+                            MaxLengthEnforcement.truncateAfterCompositionEnds,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(6),
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^[0-9]{0,4}(\.[0-9]{0,2})?$'),
+                          ),
+                        ],
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          height: 1.1,
+                        ),
+                        decoration: decoration,
+                        onChanged: (_) => setState(() {}),
+                        onSubmitted: (value) => _submitResistance(key, value),
+                        onEditingComplete: () =>
+                            _submitResistance(key, controller.text),
                       ),
-                    ],
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      height: 1.1,
                     ),
-                    decoration: decoration,
-                    onChanged: (_) => setState(() {}),
-                    onSubmitted: (value) => _submitResistance(key, value),
-                    onEditingComplete: () =>
-                        _submitResistance(key, controller.text),
                   ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 28,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: TextButton(
-                        onPressed: hide
-                            ? null
-                            : () => _handleSdPrompt(
-                                  key,
-                                  shouldMoveFocus: false,
-                                  forcePrompt: true,
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    height: 28,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Flexible(
+                          child: TextButton(
+                            onPressed: hide
+                                ? null
+                                : () => _handleSdPrompt(
+                                      key,
+                                      shouldMoveFocus: false,
+                                      forcePrompt: true,
+                                    ),
+                            style: buttonStyle,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'SD $sdText',
+                                style: theme.textTheme.labelSmall?.copyWith(
+                                  color: sdColor,
+                                  fontWeight: sdWarning
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
                                 ),
-                        style: buttonStyle,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            'SD $sdText',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: sdColor,
-                              fontWeight: sdWarning
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                        const SizedBox(width: 3),
+                        IconButton(
+                          iconSize: 16,
+                          visualDensity: controlDensity,
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 26, minHeight: 26),
+                          tooltip: isBad
+                              ? 'Marked bad — tap to clear flag'
+                              : 'Mark reading bad',
+                          onPressed: hide
+                              ? null
+                              : () => widget.onToggleBad(
+                                    row.record.spacingFeet,
+                                    orientation,
+                                    !isBad,
+                                  ),
+                          icon: Icon(
+                            isBad ? Icons.flag : Icons.outlined_flag,
+                            color: isBad
+                                ? theme.colorScheme.error
+                                : theme.colorScheme.outline,
+                          ),
+                        ),
+                        IconButton(
+                          iconSize: 16,
+                          visualDensity: controlDensity,
+                          padding: EdgeInsets.zero,
+                          constraints:
+                              const BoxConstraints(minWidth: 26, minHeight: 26),
+                          tooltip: 'Show edit history',
+                          onPressed: () => widget.onShowHistory(
+                            row.record.spacingFeet,
+                            orientation,
+                          ),
+                          icon: const Icon(Icons.history),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 3),
-                    IconButton(
-                      iconSize: 16,
-                      visualDensity: controlDensity,
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints(minWidth: 26, minHeight: 26),
-                      tooltip: isBad
-                          ? 'Marked bad — tap to clear flag'
-                          : 'Mark reading bad',
-                      onPressed: hide
-                          ? null
-                          : () => widget.onToggleBad(
-                                row.record.spacingFeet,
-                                orientation,
-                                !isBad,
-                              ),
-                      icon: Icon(
-                        isBad ? Icons.flag : Icons.outlined_flag,
-                        color: isBad
-                            ? theme.colorScheme.error
-                            : theme.colorScheme.outline,
-                      ),
-                    ),
-                    IconButton(
-                      iconSize: 16,
-                      visualDensity: controlDensity,
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints(minWidth: 26, minHeight: 26),
-                      tooltip: 'Show edit history',
-                      onPressed: () => widget.onShowHistory(
-                        row.record.spacingFeet,
-                        orientation,
-                      ),
-                      icon: const Icon(Icons.history),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -993,7 +1009,7 @@ class _TablePanelState extends State<TablePanel> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceVariant,
+              color: theme.colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
@@ -1058,8 +1074,9 @@ class _TablePanelState extends State<TablePanel> {
     node.addListener(() {
       if (!mounted) return;
       setState(() {});
-      if (node.hasFocus && key.orientation != null) {
-        widget.onFocusChanged(key.spacingFeet, key.orientation!);
+      final orientation = key.orientation;
+      if (node.hasFocus && orientation != null) {
+        widget.onFocusChanged(key.spacingFeet, orientation);
       }
     });
     return node;
@@ -1067,9 +1084,13 @@ class _TablePanelState extends State<TablePanel> {
 
   void _submitResistance(_FieldKey key, String value) {
     final parsed = _clampResistance(_parseMaybeDouble(value));
+    final orientation = key.orientation;
+    if (orientation == null) {
+      return;
+    }
     widget.onResistanceChanged(
       key.spacingFeet,
-      key.orientation!,
+      orientation,
       parsed,
       null,
     );
@@ -1096,7 +1117,13 @@ class _TablePanelState extends State<TablePanel> {
       return;
     }
 
-    final orientation = key.orientation!;
+    final orientation = key.orientation;
+    if (orientation == null) {
+      if (shouldMoveFocus) {
+        _moveFocus(key);
+      }
+      return;
+    }
     final sample = orientation == OrientationKind.a ? row.aSample : row.bSample;
     final sdValue = sample?.standardDeviationPercent;
     final label = orientation == OrientationKind.a
@@ -1119,8 +1146,9 @@ class _TablePanelState extends State<TablePanel> {
         setState(() {
           _askForSd = result.askAgain;
         });
-        if (_prefs != null) {
-          await _prefs!.setAskForSd(result.askAgain);
+        final prefs = _prefs;
+        if (prefs != null) {
+          await prefs.setAskForSd(result.askAgain);
         }
       }
     }

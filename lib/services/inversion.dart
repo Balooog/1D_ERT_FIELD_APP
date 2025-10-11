@@ -177,7 +177,11 @@ OneDInversionResult _runLayeredInversion({
                     .clamp(minRho, maxRho)
                     .toDouble();
           }
-          final restartLambda = (regLambda * 0.6).clamp(0.12, 0.3);
+          var restartLambda = regLambda * 0.6;
+          if (layerCount < 3) {
+            restartLambda *= 0.65;
+          }
+          restartLambda = restartLambda.clamp(0.12, 0.3);
 
           final restartAttempt = _solveForDepths(
             aggregated: aggregated,
@@ -603,6 +607,21 @@ List<double> _estimateLayerResistivities(
     return [math.exp(boundedLog).clamp(minRho, maxRho).toDouble()];
   }
   final allLogs = aggregated.map((m) => math.log(m.rho)).toList()..sort();
+  final sortedRhos = aggregated
+      .map((m) => m.rho.clamp(minRho, maxRho).toDouble())
+      .toList()
+    ..sort();
+  double? firstLayerLower;
+  double? firstLayerUpper;
+  if (sortedRhos.isNotEmpty) {
+    final q25 = _quantile(sortedRhos, 0.25);
+    final q75 = _quantile(sortedRhos, 0.75);
+    final iqr = q75 - q25;
+    final lo = iqr > 0 ? q25 - 1.8 * iqr : q25;
+    final hi = iqr > 0 ? q75 + 1.8 * iqr : q75;
+    firstLayerLower = math.max(minRho, lo);
+    firstLayerUpper = math.min(maxRho, hi);
+  }
   final resistivities = <double>[];
   for (var i = 0; i < depths.length; i++) {
     final top = i == 0 ? 0.0 : depths[i - 1];
@@ -648,6 +667,9 @@ List<double> _estimateLayerResistivities(
     if (lowerLogBound != null && upperLogBound != null) {
       final logRho = math.log(rho).clamp(lowerLogBound, upperLogBound);
       rho = math.exp(logRho).clamp(minRho, maxRho).toDouble();
+    }
+    if (i == 0 && firstLayerLower != null && firstLayerUpper != null) {
+      rho = rho.clamp(firstLayerLower, firstLayerUpper).toDouble();
     }
     resistivities.add(rho);
   }

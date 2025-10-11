@@ -150,51 +150,53 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-          if (snapshot.hasError) {
-            return Center(
-              child: Text('Failed to load projects: ${snapshot.error}'),
-            );
-          }
-          final projects = snapshot.data ?? const [];
-          if (projects.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.folder_open, size: 64),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No projects found. Import existing data (Ctrl+I) or create a new project.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleMedium,
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text('Failed to load projects: ${snapshot.error}'),
+                );
+              }
+              final projects = snapshot.data ?? const [];
+              if (projects.isEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.folder_open, size: 64),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No projects found. Import existing data (Ctrl+I) or create a new project.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          icon: const Icon(Icons.add),
+                          label: const Text('Create project'),
+                          onPressed: _showCreateDialog,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      icon: const Icon(Icons.add),
-                      label: const Text('Create project'),
-                      onPressed: _showCreateDialog,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-          return ListView.separated(
-            itemCount: projects.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final summary = projects[index];
-              return ListTile(
-                leading: const Icon(Icons.workspaces_outline),
-                title: Text(summary.projectName),
-                subtitle: Text('Last opened: ${summary.lastOpened.toLocal()}'),
-                onTap: () => _openProject(summary),
+                  ),
+                );
+              }
+              return ListView.separated(
+                itemCount: projects.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final summary = projects[index];
+                  return ListTile(
+                    leading: const Icon(Icons.workspaces_outline),
+                    title: Text(summary.projectName),
+                    subtitle:
+                        Text('Last opened: ${summary.lastOpened.toLocal()}'),
+                    onTap: () => _openProject(summary),
+                  );
+                },
               );
             },
-          );
-            },
+          ),
         ),
       ),
     );
