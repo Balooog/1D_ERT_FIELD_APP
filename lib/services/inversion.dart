@@ -51,6 +51,13 @@ class _LogClamp {
   final double upper;
 }
 
+class _LogBand {
+  const _LogBand({required this.lower, required this.upper});
+
+  final double lower;
+  final double upper;
+}
+
 Future<OneDInversionResult> invert1DWenner({
   required List<double> aFt,
   required List<double> rhoAppNS,
@@ -183,30 +190,47 @@ OneDInversionResult _runLayeredInversion({
           }
           restartLambda = restartLambda.clamp(0.12, 0.3);
 
-          final restartAttempt = _solveForDepths(
-            aggregated: aggregated,
-            depths: adjustedDepths,
-            minRho: minRho,
-            maxRho: maxRho,
-            minThick: minThick,
-            maxThick: maxThick,
-            regLambda: restartLambda,
-            lowerLogBound: logClamp.lower,
-            upperLogBound: logClamp.upper,
-            seedResistivities: seedResistivities,
-          );
+          _clampFirstLayerSeed(seedResistivities, aggregated, minRho, maxRho);
 
-          final restartLayers =
-              _effectiveLayerCount(restartAttempt.resistivities);
-          final restartImprovesLayers = restartLayers > effectiveLayers;
-          final restartImprovesMisfit =
-              restartAttempt.misfit <= bestAttempt.misfit;
-          final restartAcceptableMisfit =
-              restartAttempt.misfit <= bestAttempt.misfit * 1.05;
+          var lambdaForAttempt = restartLambda;
+          List<double>? attemptSeed = seedResistivities;
+          for (var attemptIndex = 0; attemptIndex < 2; attemptIndex++) {
+            final restartAttempt = _solveForDepths(
+              aggregated: aggregated,
+              depths: adjustedDepths,
+              minRho: minRho,
+              maxRho: maxRho,
+              minThick: minThick,
+              maxThick: maxThick,
+              regLambda: lambdaForAttempt,
+              lowerLogBound: logClamp.lower,
+              upperLogBound: logClamp.upper,
+              seedResistivities: attemptSeed,
+            );
 
-          if (restartImprovesMisfit ||
-              (restartImprovesLayers && restartAcceptableMisfit)) {
-            bestAttempt = restartAttempt;
+            if (_shouldAcceptRestart(bestAttempt, restartAttempt)) {
+              bestAttempt = restartAttempt;
+              break;
+            }
+
+            final misfitBlewUp = bestAttempt.misfit.isFinite
+                ? restartAttempt.misfit >= bestAttempt.misfit * 2
+                : restartAttempt.misfit.isInfinite;
+            if (!misfitBlewUp || attemptIndex == 1) {
+              break;
+            }
+
+            lambdaForAttempt = math.max(regLambda * 0.8, 0.2);
+            attemptSeed = _estimateLayerResistivities(
+              aggregated,
+              depths: adjustedDepths,
+              minRho: minRho,
+              maxRho: maxRho,
+              regLambda: lambdaForAttempt,
+              lowerLogBound: logClamp.lower,
+              upperLogBound: logClamp.upper,
+            );
+            _clampFirstLayerSeed(attemptSeed, aggregated, minRho, maxRho);
           }
         }
       }
@@ -233,6 +257,63 @@ OneDInversionResult _runLayeredInversion({
   }
 
   return bestAttempt.toResult();
+}
+
+bool _shouldAcceptRestart(
+  _InversionAttempt current,
+  _InversionAttempt candidate,
+) {
+  if (!candidate.misfit.isFinite) {
+    return false;
+  }
+  if (!current.misfit.isFinite) {
+    return true;
+  }
+  if (current.misfit <= 0) {
+    return candidate.misfit < current.misfit;
+  }
+  final improvement = current.misfit - candidate.misfit;
+  return improvement > current.misfit * 0.05;
+}
+
+void _clampFirstLayerSeed(
+  List<double>? seed,
+  List<_AggregatedMeasurement> aggregated,
+  double minRho,
+  double maxRho,
+) {
+  if (seed == null || seed.isEmpty || aggregated.isEmpty) {
+    return;
+  }
+  final band = _firstLayerLogBand(aggregated, minRho, maxRho);
+  if (band == null) {
+    return;
+  }
+  final clamped = math.log(seed.first.clamp(minRho, maxRho))
+      .clamp(band.lower, band.upper);
+  seed[0] = math.exp(clamped).clamp(minRho, maxRho).toDouble();
+}
+
+_LogBand? _firstLayerLogBand(
+  List<_AggregatedMeasurement> aggregated,
+  double minRho,
+  double maxRho,
+) {
+  if (aggregated.isEmpty) {
+    return null;
+  }
+  final logs = aggregated
+      .map((m) => math.log(m.rho.clamp(minRho, maxRho)))
+      .toList()
+    ..sort();
+  final minLog = math.log(minRho);
+  final maxLog = math.log(maxRho);
+  final q25 = _quantile(logs, 0.25);
+  final q75 = _quantile(logs, 0.75);
+  final iqr = q75 - q25;
+  final lower = (q25 - 1.8 * iqr).clamp(minLog, maxLog);
+  final upper = (q75 + 1.8 * iqr).clamp(minLog, maxLog);
+  return _LogBand(lower: lower, upper: upper);
 }
 
 _LogClamp _logClampFor(

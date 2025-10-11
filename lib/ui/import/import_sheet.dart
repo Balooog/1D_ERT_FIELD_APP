@@ -179,6 +179,7 @@ class _ImportSheetState extends State<ImportSheet> {
     ImportMapping mapping,
     ImportValidationResult? validation,
   ) {
+    final inferenceBanner = _buildUnitInferenceBanner(preview, mapping);
     final conversionBanner = _buildConversionBanner(mapping);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -238,6 +239,10 @@ class _ImportSheetState extends State<ImportSheet> {
                 ),
                 const SizedBox(height: 12),
                 _buildUnitDetectionInfo(preview, mapping),
+                if (inferenceBanner != null) ...[
+                  const SizedBox(height: 8),
+                  inferenceBanner,
+                ],
                 if (conversionBanner != null) ...[
                   const SizedBox(height: 8),
                   conversionBanner,
@@ -549,14 +554,39 @@ class _ImportSheetState extends State<ImportSheet> {
     await _persistUnitPreference(unit);
   }
 
+  Future<void> _promptUnitOverride() async {
+    final mapping = _mapping;
+    if (mapping == null) {
+      return;
+    }
+    final selected = await showDialog<ImportDistanceUnit>(
+      context: context,
+      builder: (context) {
+        return SimpleDialog(
+          title: const Text('Select units'),
+          children: [
+            for (final unit in ImportDistanceUnit.values)
+              SimpleDialogOption(
+                onPressed: () => Navigator.of(context).pop(unit),
+                child: Text(unit.label),
+              ),
+          ],
+        );
+      },
+    );
+    if (selected != null && selected != mapping.distanceUnit) {
+      await _setMappingUnit(selected);
+    }
+  }
+
   Widget _buildUnitDetectionInfo(ImportPreview preview, ImportMapping mapping) {
     final detection = preview.unitDetection;
     final theme = Theme.of(context);
     final headline = detection.hasGuess
         ? detection.ambiguous
-            ? 'Guessed ${detection.unit!.label}. Confirm using the Units menu.'
-            : 'Detected ${detection.unit!.label}.'
-        : 'Units not detected. Defaulted to ${mapping.distanceUnit.label}.';
+            ? 'Detected ${detection.unit!.label.toLowerCase()} (confidence low — confirm).'
+            : 'Detected ${detection.unit!.label.toLowerCase()} automatically.'
+        : 'Units not detected. Defaulted to ${mapping.distanceUnit.label.toLowerCase()}.';
     final bulletNotes = <String>[];
     if (detection.reason != null && detection.reason!.isNotEmpty) {
       bulletNotes.add(detection.reason!);
@@ -609,6 +639,67 @@ class _ImportSheetState extends State<ImportSheet> {
         ],
       ),
     );
+  }
+
+  Widget? _buildUnitInferenceBanner(ImportPreview preview, ImportMapping mapping) {
+    final detection = preview.unitDetection;
+    if (!detection.hasGuess || detection.ambiguous) {
+      return null;
+    }
+    if (detection.unit != mapping.distanceUnit) {
+      return null;
+    }
+    final theme = Theme.of(context);
+    final reasonLabel = _inferenceSummary(detection.reason);
+    final label =
+        'Units set to ${mapping.distanceUnit.label.toLowerCase()}$reasonLabel';
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.straighten, color: theme.colorScheme.primary, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall,
+            ),
+          ),
+          TextButton(
+            onPressed: _promptUnitOverride,
+            child: const Text('Change'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _inferenceSummary(String? reason) {
+    if (reason == null || reason.isEmpty) {
+      return ' (auto)';
+    }
+    final lower = reason.toLowerCase();
+    if (lower.contains('header')) {
+      return ' (inferred from header)';
+    }
+    if (lower.contains('directive')) {
+      return ' (from unit directive)';
+    }
+    if (lower.contains('filename')) {
+      return ' (from filename)';
+    }
+    if (lower.contains('spacing')) {
+      return ' (from spacing heuristic)';
+    }
+    if (lower.contains('sample')) {
+      return ' (based on sample text)';
+    }
+    return ' (auto)';
   }
 
   Widget? _buildConversionBanner(ImportMapping mapping) {

@@ -386,8 +386,8 @@ class _TablePanelState extends State<TablePanel> {
                           DataTable(
                             headingTextStyle: headingStyle,
                             dataTextStyle: dataStyle,
-                            dataRowMinHeight: 48,
-                            dataRowMaxHeight: 56,
+                            dataRowMinHeight: 56,
+                            dataRowMaxHeight: 68,
                             headingRowHeight: 0,
                             columnSpacing: 12,
                             horizontalMargin: 12,
@@ -531,6 +531,33 @@ class _TablePanelState extends State<TablePanel> {
     );
   }
 
+  Widget _wrapTightCell({required Widget child, double? maxWidth}) {
+    final content = Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Flexible(
+          fit: FlexFit.loose,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: child,
+          ),
+        ),
+      ],
+    );
+    final wrapped = maxWidth != null
+        ? ConstrainedBox(constraints: BoxConstraints(maxWidth: maxWidth), child: content)
+        : content;
+    return SizedBox(
+      height: 56,
+      child: Align(
+        alignment: Alignment.center,
+        child: wrapped,
+      ),
+    );
+  }
+
   Widget _buildSpacingCell(ThemeData theme, _RowConfig row) {
     final spacingText = formatCompactValue(row.record.spacingFeet);
     final customNote = row.record.interpretation?.trim();
@@ -542,87 +569,81 @@ class _TablePanelState extends State<TablePanel> {
         : consistencyLabel != null
             ? 'Consistency compares N–S vs W–E using SD-weighted difference. Lower is better (default threshold ${const QcConfig().sdThresholdPercent.toStringAsFixed(0)}%).'
             : 'Tap to record interpretation notes';
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 130),
-        child: ClipRect(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.center,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Tooltip(
-                  message:
-                      'Inside: ${formatCompactValue(row.insideFeet)} ft (${formatMetersTooltip(row.insideMeters)} m)\n'
-                      'Outside: ${formatCompactValue(row.outsideFeet)} ft (${formatMetersTooltip(row.outsideMeters)} m)',
-                  child: Text(
-                    '$spacingText ft',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+    return _wrapTightCell(
+      maxWidth: 130,
+      child: ClipRect(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Tooltip(
+              message:
+                  'Inside: ${formatCompactValue(row.insideFeet)} ft (${formatMetersTooltip(row.insideMeters)} m)\n'
+                  'Outside: ${formatCompactValue(row.outsideFeet)} ft (${formatMetersTooltip(row.outsideMeters)} m)',
+              child: Text(
+                '$spacingText ft',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 4),
-                Tooltip(
-                  message: tooltip,
-                  child: GestureDetector(
-                    onTap: () => _editInterpretation(row),
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                      child: hasCustom
-                          ? Text(
-                              customNote!,
-                              maxLines: 2,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Tooltip(
+              message: tooltip,
+              child: GestureDetector(
+                onTap: () => _editInterpretation(row),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+                  child: hasCustom
+                      ? Text(
+                          customNote!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.primary,
+                          ),
+                        )
+                      : consistencyLabel != null
+                          ? Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    consistencyLabel,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: _consistencyColor(autoNote, theme),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 14,
+                                  color: theme.colorScheme.outline,
+                                ),
+                              ],
+                            )
+                          : Text(
+                              'Add note',
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                               style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.primary,
+                                color: theme.colorScheme.secondary,
+                                fontStyle: FontStyle.italic,
                               ),
-                            )
-                          : consistencyLabel != null
-                              ? Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        consistencyLabel,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        textAlign: TextAlign.center,
-                                        style: theme.textTheme.labelSmall?.copyWith(
-                                          color: _consistencyColor(autoNote, theme),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      Icons.info_outline,
-                                      size: 14,
-                                      color: theme.colorScheme.outline,
-                                    ),
-                                  ],
-                                )
-                              : Text(
-                                  'Add note',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
-                                  style: theme.textTheme.labelSmall?.copyWith(
-                                    color: theme.colorScheme.secondary,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
-                    ),
-                  ),
+                            ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -635,19 +656,28 @@ class _TablePanelState extends State<TablePanel> {
         'Inside electrodes at ${formatMetersTooltip(row.insideMeters)} m\n'
         'Outside electrodes at ${formatMetersTooltip(row.outsideMeters)} m';
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 120),
-        child: Tooltip(
-          message: tooltip,
-          child: Text(
-            '$inside / $outside',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFeatures: const [FontFeature.tabularFigures()],
+    return _wrapTightCell(
+      maxWidth: 120,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Tooltip(
+            message: tooltip,
+            child: Text(
+              '$inside / $outside',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
             ),
           ),
-        ),
+          const SizedBox(height: 4),
+          Text(
+            '${formatCompactValue(row.insideMeters)} m · ${formatCompactValue(row.outsideMeters)} m',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.outline,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -720,124 +750,118 @@ class _TablePanelState extends State<TablePanel> {
         ? _hiddenResistanceDecoration
         : _resistanceDecoration;
 
-    return Center(
-      child: Opacity(
-        opacity: hide ? 0.45 : 1.0,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 150),
-          child: ClipRect(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.center,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(
-                    height: 32,
-                    child: FocusTraversalOrder(
-                      order: NumericFocusOrder(rank),
-                      child: TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        enabled: !hide,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
-                        textInputAction: TextInputAction.next,
-                        textAlign: TextAlign.right,
-                        maxLengthEnforcement:
-                            MaxLengthEnforcement.truncateAfterCompositionEnds,
-                        inputFormatters: [
-                          LengthLimitingTextInputFormatter(6),
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^[0-9]{0,4}(\.[0-9]{0,2})?$'),
-                          ),
-                        ],
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                          height: 1.1,
-                        ),
-                        decoration: decoration,
-                        onChanged: (_) => setState(() {}),
-                        onSubmitted: (value) => _submitResistance(key, value),
-                        onEditingComplete: () =>
-                            _submitResistance(key, controller.text),
+    return Opacity(
+      opacity: hide ? 0.45 : 1.0,
+      child: _wrapTightCell(
+        maxWidth: 150,
+        child: ClipRect(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 32,
+                child: FocusTraversalOrder(
+                  order: NumericFocusOrder(rank),
+                  child: TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    enabled: !hide,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    textInputAction: TextInputAction.next,
+                    textAlign: TextAlign.right,
+                    maxLengthEnforcement:
+                        MaxLengthEnforcement.truncateAfterCompositionEnds,
+                    inputFormatters: [
+                      LengthLimitingTextInputFormatter(6),
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'^[0-9]{0,4}(\.[0-9]{0,2})?$'),
                       ),
+                    ],
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                      height: 1.1,
                     ),
+                    decoration: decoration,
+                    onChanged: (_) => setState(() {}),
+                    onSubmitted: (value) => _submitResistance(key, value),
+                    onEditingComplete: () =>
+                        _submitResistance(key, controller.text),
                   ),
-                  const SizedBox(height: 4),
-                  SizedBox(
-                    height: 28,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Flexible(
-                          child: TextButton(
-                            onPressed: hide
-                                ? null
-                                : () => _handleSdPrompt(
-                                      key,
-                                      shouldMoveFocus: false,
-                                      forcePrompt: true,
-                                    ),
-                            style: buttonStyle,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                'SD $sdText',
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: sdColor,
-                                  fontWeight: sdWarning
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 28,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: TextButton(
+                        onPressed: hide
+                            ? null
+                            : () => _handleSdPrompt(
+                                  key,
+                                  shouldMoveFocus: false,
+                                  forcePrompt: true,
                                 ),
-                              ),
+                        style: buttonStyle,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            'SD $sdText',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: sdColor,
+                              fontWeight: sdWarning
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 3),
-                        IconButton(
-                          iconSize: 16,
-                          visualDensity: controlDensity,
-                          padding: EdgeInsets.zero,
-                          constraints:
-                              const BoxConstraints(minWidth: 26, minHeight: 26),
-                          tooltip: isBad
-                              ? 'Marked bad — tap to clear flag'
-                              : 'Mark reading bad',
-                          onPressed: hide
-                              ? null
-                              : () => widget.onToggleBad(
-                                    row.record.spacingFeet,
-                                    orientation,
-                                    !isBad,
-                                  ),
-                          icon: Icon(
-                            isBad ? Icons.flag : Icons.outlined_flag,
-                            color: isBad
-                                ? theme.colorScheme.error
-                                : theme.colorScheme.outline,
-                          ),
-                        ),
-                        IconButton(
-                          iconSize: 16,
-                          visualDensity: controlDensity,
-                          padding: EdgeInsets.zero,
-                          constraints:
-                              const BoxConstraints(minWidth: 26, minHeight: 26),
-                          tooltip: 'Show edit history',
-                          onPressed: () => widget.onShowHistory(
-                            row.record.spacingFeet,
-                            orientation,
-                          ),
-                          icon: const Icon(Icons.history),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 3),
+                    IconButton(
+                      iconSize: 16,
+                      visualDensity: controlDensity,
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 26, minHeight: 26),
+                      tooltip: isBad
+                          ? 'Marked bad — tap to clear flag'
+                          : 'Mark reading bad',
+                      onPressed: hide
+                          ? null
+                          : () => widget.onToggleBad(
+                                row.record.spacingFeet,
+                                orientation,
+                                !isBad,
+                              ),
+                      icon: Icon(
+                        isBad ? Icons.flag : Icons.outlined_flag,
+                        color: isBad
+                            ? theme.colorScheme.error
+                            : theme.colorScheme.outline,
+                      ),
+                    ),
+                    IconButton(
+                      iconSize: 16,
+                      visualDensity: controlDensity,
+                      padding: EdgeInsets.zero,
+                      constraints:
+                          const BoxConstraints(minWidth: 26, minHeight: 26),
+                      tooltip: 'Show edit history',
+                      onPressed: () => widget.onShowHistory(
+                        row.record.spacingFeet,
+                        orientation,
+                      ),
+                      icon: const Icon(Icons.history),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
