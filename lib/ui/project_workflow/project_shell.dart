@@ -9,6 +9,7 @@ import '../../models/direction_reading.dart';
 import '../../models/project.dart';
 import '../../models/site.dart';
 import '../../services/export_service.dart';
+import '../../services/inversion.dart';
 import '../../services/storage_service.dart';
 import '../../services/templates_service.dart';
 import '../../utils/distance_unit.dart';
@@ -51,6 +52,9 @@ class _ProjectShellState extends State<ProjectShell> {
   double? _focusedSpacing;
   OrientationKind? _focusedOrientation;
   DistanceUnit _distanceUnit = DistanceUnit.feet;
+  TwoLayerInversionResult? _inversionResult;
+  bool _inversionLoading = false;
+  Future<TwoLayerInversionResult?>? _inversionTask;
 
   @override
   void initState() {
@@ -62,6 +66,9 @@ class _ProjectShellState extends State<ProjectShell> {
     _history.add(_project);
     _historyIndex = 0;
     _loadTemplates();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshInversion();
+    });
   }
 
   @override
@@ -111,6 +118,7 @@ class _ProjectShellState extends State<ProjectShell> {
     setState(() {
       _selectedSite = site;
     });
+    unawaited(_refreshInversion());
   }
 
   void _recordFocus(double spacingFt, OrientationKind orientation) {
@@ -134,6 +142,7 @@ class _ProjectShellState extends State<ProjectShell> {
       _pushHistory(updated);
     });
     _scheduleAutosave();
+    unawaited(_refreshInversion());
   }
 
   void _handleReadingSubmitted(
@@ -417,6 +426,92 @@ class _ProjectShellState extends State<ProjectShell> {
     }
   }
 
+  Future<void> _exportSitePdf() async {
+    final site = _selectedSite;
+    if (site == null) {
+      return;
+    }
+    final siteId = site.siteId;
+    try {
+      final summary = await _refreshInversion();
+      if (!mounted) {
+        return;
+      }
+      final resolvedSite = _project.siteById(siteId) ?? site;
+      final inversion = summary ?? _inversionResult;
+      if (inversion == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Need at least two valid spacings to export PDF.')),
+        );
+        return;
+      }
+      final entry = InversionReportEntry(
+        site: resolvedSite,
+        result: inversion,
+        distanceUnit: _distanceUnit,
+      );
+      final file = await _exportService.exportInversionPdf(_project, entry);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved PDF to ${file.path}')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF export failed: $error')),
+      );
+    }
+  }
+
+  Future<void> _exportAllSitesPdf() async {
+    final sites = _project.sites;
+    if (sites.isEmpty) {
+      return;
+    }
+    try {
+      final entries = <InversionReportEntry>[];
+      for (final site in sites) {
+        final summary = await invertTwoLayerSite(site);
+        if (summary != null) {
+          entries.add(
+            InversionReportEntry(
+              site: site,
+              result: summary,
+              distanceUnit: _distanceUnit,
+            ),
+          );
+        }
+      }
+      if (entries.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No sites have enough data to export a PDF report.')),
+        );
+        return;
+      }
+      final file = await _exportService.exportBatchInversionPdf(_project, entries);
+      if (!mounted) {
+        return;
+      }
+      final skipped = sites.length - entries.length;
+      final suffix = skipped > 0 ? ' (skipped $skipped site${skipped == 1 ? '' : 's'})' : '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved batch PDF to ${file.path}$suffix')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Batch PDF export failed: $error')),
+      );
+    }
+  }
+
   Future<void> _showImportSheet() async {
     final outcome = await showModalBottomSheet<ImportSheetOutcome>(
       context: context,
@@ -511,6 +606,52 @@ class _ProjectShellState extends State<ProjectShell> {
     return points;
   }
 
+  Future<TwoLayerInversionResult?> _refreshInversion() {
+    final inFlight = _inversionTask;
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final future = _solveCurrentInversion();
+    _inversionTask = future;
+    future.whenComplete(() {
+      if (identical(_inversionTask, future)) {
+        _inversionTask = null;
+      }
+    });
+    return future;
+  }
+
+  Future<TwoLayerInversionResult?> _solveCurrentInversion() async {
+    final site = _selectedSite;
+    if (site == null) {
+      if (mounted) {
+        setState(() {
+          _inversionResult = null;
+          _inversionLoading = false;
+        });
+      }
+      return null;
+    }
+    final siteId = site.siteId;
+    if (mounted) {
+      setState(() {
+        _inversionLoading = true;
+      });
+    }
+    final summary = await invertTwoLayerSite(site);
+    if (!mounted) {
+      return summary;
+    }
+    if (_selectedSite == null || _selectedSite!.siteId != siteId) {
+      return summary;
+    }
+    setState(() {
+      _inversionResult = summary;
+      _inversionLoading = false;
+    });
+    return summary;
+  }
+
   @override
   Widget build(BuildContext context) {
     final site = _selectedSite;
@@ -547,10 +688,36 @@ class _ProjectShellState extends State<ProjectShell> {
               tooltip: _showOutliers ? 'Hide outliers' : 'Show outliers',
               onPressed: _toggleOutliers,
             ),
-            IconButton(
-              icon: const Icon(Icons.save_alt),
-              tooltip: 'Export CSV & DAT',
-              onPressed: _exportSite,
+            PopupMenuButton<String>(
+              tooltip: 'Export',
+              icon: const Icon(Icons.file_download),
+              onSelected: (value) {
+                switch (value) {
+                  case 'csv':
+                    _exportSite();
+                    break;
+                  case 'pdf_site':
+                    unawaited(_exportSitePdf());
+                    break;
+                  case 'pdf_all':
+                    unawaited(_exportAllSitesPdf());
+                    break;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'csv',
+                  child: Text('Export CSV & DAT'),
+                ),
+                PopupMenuItem(
+                  value: 'pdf_site',
+                  child: Text('Save site PDF…'),
+                ),
+                PopupMenuItem(
+                  value: 'pdf_all',
+                  child: Text('Save all sites to PDF'),
+                ),
+              ],
             ),
             PopupMenuButton<String>(
               tooltip: 'Add',
@@ -659,15 +826,37 @@ class _ProjectShellState extends State<ProjectShell> {
                           child: Row(
                             children: [
                               Expanded(
-                                child: PlotsPanel(
-                                  project: _project,
-                                  selectedSite: site,
-                                  showOutliers: _showOutliers,
-                                  lockAxes: _lockAxes,
-                                  showAllSites: _showAllSites,
-                                  template: _selectedTemplate,
-                                  averageGhost: averageGhost,
-                                ),
+                                child: _showAllSites
+                                    ? PlotsPanel(
+                                        project: _project,
+                                        selectedSite: site,
+                                        showOutliers: _showOutliers,
+                                        lockAxes: _lockAxes,
+                                        showAllSites: true,
+                                        template: _selectedTemplate,
+                                        averageGhost: averageGhost,
+                                      )
+                                    : Column(
+                                        children: [
+                                          Expanded(
+                                            child: PlotsPanel(
+                                              project: _project,
+                                              selectedSite: site,
+                                              showOutliers: _showOutliers,
+                                              lockAxes: _lockAxes,
+                                              showAllSites: false,
+                                              template: _selectedTemplate,
+                                              averageGhost: averageGhost,
+                                            ),
+                                          ),
+                                          InversionPlotPanel(
+                                            result: _inversionResult,
+                                            isLoading: _inversionLoading,
+                                            distanceUnit: _distanceUnit,
+                                            siteLabel: site.displayName,
+                                          ),
+                                        ],
+                                      ),
                               ),
                               SizedBox(
                                 width: 420,

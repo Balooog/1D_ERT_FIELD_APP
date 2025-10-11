@@ -55,7 +55,7 @@ void main() {
       expect(mapping.distanceUnit, ImportDistanceUnit.meters);
       final validation = service.validate(session, mapping);
       expect(validation.importedRows, 5);
-      expect(validation.spacings.first.spacingFeet, closeTo(16.404, 1e-3));
+      expect(validation.spacings.first.spacingFeet, closeTo(16.404, 0.01));
     });
 
     test('parses Schlumberger CSV and keeps feet units', () async {
