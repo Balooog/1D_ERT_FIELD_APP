@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import '../models/calc.dart' as calc;
 import '../models/inversion_model.dart';
 import '../models/site.dart';
 import '../models/spacing_point.dart';
@@ -1087,11 +1088,11 @@ _SiteInversionInput _aggregateSiteForInversion(SiteRecord site) {
     }
     double? rhoA;
     if (hasA) {
-      rhoA = rhoAWenner(spacing.spacingFeet, aSample!.resistanceOhm!);
+      rhoA = calc.rhoAWenner(spacing.spacingFeet, aSample!.resistanceOhm!);
     }
     double? rhoB;
     if (hasB) {
-      rhoB = rhoAWenner(spacing.spacingFeet, bSample!.resistanceOhm!);
+      rhoB = calc.rhoAWenner(spacing.spacingFeet, bSample!.resistanceOhm!);
     }
     final values = <double>[if (rhoA != null) rhoA, if (rhoB != null) rhoB];
     if (values.isEmpty) {
