@@ -1,6 +1,10 @@
 import 'dart:math' as math;
 
-import '../utils/units.dart';
+import '../utils/units.dart' as units;
+
+double feetToMeters(double feet) => units.feetToMeters(feet);
+
+double metersToFeet(double meters) => units.metersToFeet(meters);
 
 class QcConfig {
   const QcConfig({

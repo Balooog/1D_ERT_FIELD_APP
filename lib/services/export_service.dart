@@ -1,28 +1,18 @@
 import 'dart:io';
-import 'dart:math' as math;
-
-import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-
-import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
-
-import 'package:intl/intl.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 
 import 'package:csv/csv.dart';
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
-import '../models/calc.dart' as calc;
-import '../models/direction_reading.dart';
-import '../models/project.dart';
-import '../models/site.dart';
-import '../services/inversion.dart';
-import '../utils/distance_unit.dart';
-import '../utils/units.dart';
-import 'storage_service.dart';
+import 'package:resicheck/models/calc.dart' as calc;
+import 'package:resicheck/models/direction_reading.dart';
+import 'package:resicheck/models/project.dart';
+import 'package:resicheck/models/site.dart';
+import 'package:resicheck/services/inversion.dart';
+import 'package:resicheck/services/storage_service.dart';
+import 'package:resicheck/utils/distance_unit.dart';
+import 'package:resicheck/utils/units.dart' as units;
 
 class InversionReportEntry {
   InversionReportEntry({
@@ -203,14 +193,26 @@ class ExportService {
   pw.Widget _buildPdfSummary(InversionReportEntry entry) {
     final result = entry.result;
     final chips = <pw.Widget>[
-      _summaryChip('ρ₁', _formatRhoValue(result.rho1), _pdfBlue),
-      _summaryChip('ρ₂', _formatRhoValue(result.rho2), _pdfOrange),
+      _summaryChip(
+        'ρ₁',
+        _formatRhoValue(result.rho1.toDouble()),
+        _pdfBlue,
+      ),
+      _summaryChip(
+        'ρ₂',
+        _formatRhoValue(result.rho2.toDouble()),
+        _pdfOrange,
+      ),
       if (result.halfSpaceRho != null)
-        _summaryChip('ρ₃', _formatRhoValue(result.halfSpaceRho!), _pdfVermillion),
+        _summaryChip(
+          'ρ₃',
+          _formatRhoValue(result.halfSpaceRho!.toDouble()),
+          _pdfVermillion,
+        ),
       if (result.thicknessM != null)
         _summaryChip(
           'h',
-          '${_formatSpacing(entry.distanceUnit, result.thicknessM!)} ${_unitLabel(entry.distanceUnit)}',
+          '${_formatSpacing(entry.distanceUnit, result.thicknessM!.toDouble())} ${_unitLabel(entry.distanceUnit)}',
           PdfColors.blueGrey600,
         ),
       _summaryChip('RMS', '${(result.rms * 100).toStringAsFixed(1)} %', PdfColors.indigo),
@@ -228,9 +230,9 @@ class ExportService {
     final lines = <String>[
       'Solver RMS: $rmsPercent %',
       if (result.thicknessM != null)
-        'Layer thickness: ${_formatSpacing(entry.distanceUnit, result.thicknessM!)} ${_unitLabel(entry.distanceUnit)}',
+        'Layer thickness: ${_formatSpacing(entry.distanceUnit, result.thicknessM!.toDouble())} ${_unitLabel(entry.distanceUnit)}',
       if (result.halfSpaceRho != null)
-        'Half-space resistivity: ${_formatRhoValue(result.halfSpaceRho!)} Ω·m',
+        'Half-space resistivity: ${_formatRhoValue(result.halfSpaceRho!.toDouble())} Ω·m',
     ];
     return pw.Container(
       width: double.infinity,
@@ -297,12 +299,19 @@ class ExportService {
     final rows = <List<String>>[];
     final result = entry.result;
     for (var i = 0; i < result.spacingFeet.length; i++) {
-      final spacingMeters = feetToMeters(result.spacingFeet[i]);
-      final depthMeters = i < result.measurementDepthsM.length
-          ? result.measurementDepthsM[i]
-          : (result.measurementDepthsM.isEmpty ? 0 : result.measurementDepthsM.last);
-      final observed = i < result.observedRho.length ? result.observedRho[i] : 0;
-      final predicted = i < result.predictedRho.length ? result.predictedRho[i] : observed;
+      final double spacingFeet = result.spacingFeet[i].toDouble();
+      final double spacingMeters = units.feetToMeters(spacingFeet);
+      final double depthMeters = i < result.measurementDepthsM.length
+          ? result.measurementDepthsM[i].toDouble()
+          : (result.measurementDepthsM.isEmpty
+              ? 0.0
+              : result.measurementDepthsM.last.toDouble());
+      final double observed = i < result.observedRho.length
+          ? result.observedRho[i].toDouble()
+          : 0.0;
+      final double predicted = i < result.predictedRho.length
+          ? result.predictedRho[i].toDouble()
+          : observed;
       rows.add([
         _formatSpacing(entry.distanceUnit, spacingMeters),
         _formatSpacing(entry.distanceUnit, depthMeters),
@@ -310,7 +319,7 @@ class ExportService {
         _formatRhoValue(predicted),
       ]);
     }
-    return pw.Table.fromTextArray(
+    return pw.TableHelper.fromTextArray(
       headers: headers,
       data: rows,
       border: pw.TableBorder.all(color: PdfColors.grey500, width: 0.4),
