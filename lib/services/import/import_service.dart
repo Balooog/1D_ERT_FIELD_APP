@@ -535,13 +535,16 @@ class ImportService {
             'Spacing median ${median.toStringAsFixed(1)} within meter range',
           );
         }
+        bool nearMultiple(double value, double step, double tolerance) {
+          final remainder = value % step;
+          return remainder <= tolerance || (step - remainder) <= tolerance;
+        }
         final multiplesOfFive = values
             .where((value) {
               if (value < 5) {
                 return false;
               }
-              final quotient = value / 5;
-              return (quotient - quotient.round()).abs() < 0.08;
+              return nearMultiple(value, 5, 0.01);
             })
             .length;
         if (values.length >= 3 && multiplesOfFive >= (values.length * 0.6) && max >= 20) {

@@ -455,38 +455,41 @@ class _TablePanelState extends State<TablePanel> {
     String orientationALabel,
     String orientationBLabel,
   ) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _headerCell(
-          context,
-          'a-spacing (ft)',
-          minWidth: 130,
-          style: style,
-        ),
-        const SizedBox(width: 12),
-        _headerCell(
-          context,
-          'Pins at (ft)',
-          minWidth: 120,
-          style: style,
-        ),
-        const SizedBox(width: 12),
-        _headerCell(
-          context,
-          'Res $orientationALabel (Ω)',
-          minWidth: 150,
-          style: style,
-        ),
-        const SizedBox(width: 12),
-        _headerCell(
-          context,
-          'Res $orientationBLabel (Ω)',
-          minWidth: 150,
-          style: style,
-        ),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _headerCell(
+            context,
+            'a-spacing (ft)',
+            minWidth: 130,
+            style: style,
+          ),
+          const SizedBox(width: 12),
+          _headerCell(
+            context,
+            'Pins at (ft)',
+            minWidth: 120,
+            style: style,
+          ),
+          const SizedBox(width: 12),
+          _headerCell(
+            context,
+            'Res $orientationALabel (Ω)',
+            minWidth: 150,
+            style: style,
+          ),
+          const SizedBox(width: 12),
+          _headerCell(
+            context,
+            'Res $orientationBLabel (Ω)',
+            minWidth: 150,
+            style: style,
+          ),
+        ],
+      ),
     );
   }
 
@@ -958,63 +961,94 @@ class _TablePanelState extends State<TablePanel> {
     }
   }
   Widget _buildMetadata(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 420;
+        final content = <Widget>[
           Text(
             widget.site.displayName,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  initialValue: widget.site.powerMilliAmps.toStringAsFixed(2),
-                  decoration: const InputDecoration(
-                    labelText: 'Power (mA)',
-                    isDense: true,
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  textInputAction: TextInputAction.next,
-                  onFieldSubmitted: (value) {
-                    final parsed = double.tryParse(value);
-                    if (parsed != null) {
-                      widget.onMetadataChanged(power: parsed);
-                    }
-                  },
+          if (isCompact) ...[
+            SizedBox(width: double.infinity, child: _buildPowerField()),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: _buildStacksControls(context),
+            ),
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildPowerField()),
+                const SizedBox(width: 12),
+                ..._buildStacksControls(context).map(
+                  (widget) => Flexible(fit: FlexFit.loose, child: widget),
                 ),
-              ),
-              const SizedBox(width: 12),
-              ..._buildStacksControls(context),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildSoilDropdown(
-                  context,
-                  value: widget.site.soil,
-                  onChanged: (soil) => widget.onMetadataChanged(soil: soil),
+          if (isCompact) ...[
+            _buildSoilDropdown(
+              context,
+              value: widget.site.soil,
+              onChanged: (soil) => widget.onMetadataChanged(soil: soil),
+            ),
+            const SizedBox(height: 8),
+            _buildMoistureDropdown(
+              context,
+              value: widget.site.moisture,
+              onChanged: (level) => widget.onMetadataChanged(moisture: level),
+            ),
+          ] else
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSoilDropdown(
+                    context,
+                    value: widget.site.soil,
+                    onChanged: (soil) => widget.onMetadataChanged(soil: soil),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildMoistureDropdown(
-                  context,
-                  value: widget.site.moisture,
-                  onChanged: (level) =>
-                      widget.onMetadataChanged(moisture: level),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildMoistureDropdown(
+                    context,
+                    value: widget.site.moisture,
+                    onChanged: (level) => widget.onMetadataChanged(moisture: level),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
+        ];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: content,
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPowerField() {
+    return TextFormField(
+      initialValue: widget.site.powerMilliAmps.toStringAsFixed(2),
+      decoration: const InputDecoration(
+        labelText: 'Power (mA)',
+        isDense: true,
       ),
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.next,
+      onFieldSubmitted: (value) {
+        final parsed = double.tryParse(value);
+        if (parsed != null) {
+          widget.onMetadataChanged(power: parsed);
+        }
+      },
     );
   }
 

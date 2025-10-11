@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
@@ -9,6 +10,7 @@ import '../../models/direction_reading.dart';
 import '../../models/project.dart';
 import '../../models/site.dart';
 import '../../services/export_service.dart';
+import '../../services/inversion.dart';
 import '../../services/storage_service.dart';
 import '../../services/templates_service.dart';
 import '../../utils/distance_unit.dart';
@@ -51,6 +53,9 @@ class _ProjectShellState extends State<ProjectShell> {
   double? _focusedSpacing;
   OrientationKind? _focusedOrientation;
   DistanceUnit _distanceUnit = DistanceUnit.feet;
+  TwoLayerInversionResult? _inversionResult;
+  bool _inversionLoading = false;
+  Future<TwoLayerInversionResult?>? _inversionTask;
 
   @override
   void initState() {
@@ -62,6 +67,9 @@ class _ProjectShellState extends State<ProjectShell> {
     _history.add(_project);
     _historyIndex = 0;
     _loadTemplates();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshInversion();
+    });
   }
 
   @override
@@ -111,6 +119,7 @@ class _ProjectShellState extends State<ProjectShell> {
     setState(() {
       _selectedSite = site;
     });
+    unawaited(_refreshInversion());
   }
 
   void _recordFocus(double spacingFt, OrientationKind orientation) {
@@ -134,6 +143,7 @@ class _ProjectShellState extends State<ProjectShell> {
       _pushHistory(updated);
     });
     _scheduleAutosave();
+    unawaited(_refreshInversion());
   }
 
   void _handleReadingSubmitted(
@@ -283,8 +293,24 @@ class _ProjectShellState extends State<ProjectShell> {
     );
   }
 
+  String _generateNextSiteId() {
+    var maxValue = 0;
+    for (final site in _project.sites) {
+      final upper = site.siteId.toUpperCase();
+      if (upper.startsWith('ERT_')) {
+        final suffix = upper.substring(4);
+        final parsed = int.tryParse(suffix);
+        if (parsed != null && parsed > maxValue) {
+          maxValue = parsed;
+        }
+      }
+    }
+    final next = maxValue + 1;
+    return 'ERT_${next.toString().padLeft(3, '0')}';
+  }
+
   Future<void> _addSite() async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(text: _generateNextSiteId());
     String orientationA = 'N–S';
     String orientationB = 'W–E';
     final result = await showDialog<_NewSiteConfig>(
@@ -377,6 +403,84 @@ class _ProjectShellState extends State<ProjectShell> {
     });
   }
 
+  void _duplicateSite(SiteRecord site) {
+    final nextId = _generateNextSiteId();
+    final duplicate = SiteRecord(
+      siteId: nextId,
+      displayName: nextId,
+      powerMilliAmps: site.powerMilliAmps,
+      stacks: site.stacks,
+      soil: site.soil,
+      moisture: site.moisture,
+      spacings: [
+        for (final spacing in site.spacings)
+          SpacingRecord(
+            spacingFeet: spacing.spacingFeet,
+            orientationA: spacing.orientationA,
+            orientationB: spacing.orientationB,
+            interpretation: spacing.interpretation,
+          ),
+      ],
+    );
+    _applyProjectUpdate((project) => project.addSite(duplicate));
+    setState(() {
+      _selectedSite = _project.siteById(nextId) ?? duplicate;
+    });
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Duplicated ${site.displayName} → $nextId')),
+    );
+  }
+
+  Future<void> _deleteSite(SiteRecord site) async {
+    if (_project.sites.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Projects must contain at least one site.')),
+      );
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete site'),
+          content: Text('Delete ${site.displayName}? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted || confirmed != true) {
+      return;
+    }
+    _applyProjectUpdate((project) {
+      final remaining = project.sites
+          .where((element) => element.siteId != site.siteId)
+          .toList();
+      return project.copyWith(sites: remaining);
+    });
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Deleted ${site.displayName}')),
+    );
+  }
+
   void _toggleAllSitesView() {
     setState(() {
       _showAllSites = !_showAllSites;
@@ -413,6 +517,92 @@ class _ProjectShellState extends State<ProjectShell> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Export failed: $error')),
+      );
+    }
+  }
+
+  Future<void> _exportSitePdf() async {
+    final site = _selectedSite;
+    if (site == null) {
+      return;
+    }
+    final siteId = site.siteId;
+    try {
+      final summary = await _refreshInversion();
+      if (!mounted) {
+        return;
+      }
+      final resolvedSite = _project.siteById(siteId) ?? site;
+      final inversion = summary ?? _inversionResult;
+      if (inversion == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Need at least two valid spacings to export PDF.')),
+        );
+        return;
+      }
+      final entry = InversionReportEntry(
+        site: resolvedSite,
+        result: inversion,
+        distanceUnit: _distanceUnit,
+      );
+      final file = await _exportService.exportInversionPdf(_project, entry);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved PDF to ${file.path}')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF export failed: $error')),
+      );
+    }
+  }
+
+  Future<void> _exportAllSitesPdf() async {
+    final sites = _project.sites;
+    if (sites.isEmpty) {
+      return;
+    }
+    try {
+      final entries = <InversionReportEntry>[];
+      for (final site in sites) {
+        final summary = await invertTwoLayerSite(site);
+        if (summary != null) {
+          entries.add(
+            InversionReportEntry(
+              site: site,
+              result: summary,
+              distanceUnit: _distanceUnit,
+            ),
+          );
+        }
+      }
+      if (entries.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No sites have enough data to export a PDF report.')),
+        );
+        return;
+      }
+      final file = await _exportService.exportBatchInversionPdf(_project, entries);
+      if (!mounted) {
+        return;
+      }
+      final skipped = sites.length - entries.length;
+      final suffix = skipped > 0 ? ' (skipped $skipped site${skipped == 1 ? '' : 's'})' : '';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Saved batch PDF to ${file.path}$suffix')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Batch PDF export failed: $error')),
       );
     }
   }
@@ -511,6 +701,52 @@ class _ProjectShellState extends State<ProjectShell> {
     return points;
   }
 
+  Future<TwoLayerInversionResult?> _refreshInversion() {
+    final inFlight = _inversionTask;
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final future = _solveCurrentInversion();
+    _inversionTask = future;
+    future.whenComplete(() {
+      if (identical(_inversionTask, future)) {
+        _inversionTask = null;
+      }
+    });
+    return future;
+  }
+
+  Future<TwoLayerInversionResult?> _solveCurrentInversion() async {
+    final site = _selectedSite;
+    if (site == null) {
+      if (mounted) {
+        setState(() {
+          _inversionResult = null;
+          _inversionLoading = false;
+        });
+      }
+      return null;
+    }
+    final siteId = site.siteId;
+    if (mounted) {
+      setState(() {
+        _inversionLoading = true;
+      });
+    }
+    final summary = await invertTwoLayerSite(site);
+    if (!mounted) {
+      return summary;
+    }
+    if (_selectedSite == null || _selectedSite!.siteId != siteId) {
+      return summary;
+    }
+    setState(() {
+      _inversionResult = summary;
+      _inversionLoading = false;
+    });
+    return summary;
+  }
+
   @override
   Widget build(BuildContext context) {
     final site = _selectedSite;
@@ -547,10 +783,36 @@ class _ProjectShellState extends State<ProjectShell> {
               tooltip: _showOutliers ? 'Hide outliers' : 'Show outliers',
               onPressed: _toggleOutliers,
             ),
-            IconButton(
-              icon: const Icon(Icons.save_alt),
-              tooltip: 'Export CSV & DAT',
-              onPressed: _exportSite,
+            PopupMenuButton<String>(
+              tooltip: 'Export',
+              icon: const Icon(Icons.file_download),
+              onSelected: (value) {
+                switch (value) {
+                  case 'csv':
+                    _exportSite();
+                    break;
+                  case 'pdf_site':
+                    unawaited(_exportSitePdf());
+                    break;
+                  case 'pdf_all':
+                    unawaited(_exportAllSitesPdf());
+                    break;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'csv',
+                  child: Text('Export CSV & DAT'),
+                ),
+                PopupMenuItem(
+                  value: 'pdf_site',
+                  child: Text('Save site PDF…'),
+                ),
+                PopupMenuItem(
+                  value: 'pdf_all',
+                  child: Text('Save all sites to PDF'),
+                ),
+              ],
             ),
             PopupMenuButton<String>(
               tooltip: 'Add',
@@ -653,21 +915,51 @@ class _ProjectShellState extends State<ProjectShell> {
                               ),
                             ),
                           ),
-                          child: _buildSiteList(),
+                          child: SiteListPanel(
+                            sites: _project.sites,
+                            selectedSiteId: _selectedSite?.siteId,
+                            onSelect: _selectSite,
+                            onAdd: _addSite,
+                            onDuplicate: _duplicateSite,
+                            onDelete: _deleteSite,
+                            validSpacingCount: _validSpacingCount,
+                          ),
                         ),
                         Expanded(
                           child: Row(
                             children: [
                               Expanded(
-                                child: PlotsPanel(
-                                  project: _project,
-                                  selectedSite: site,
-                                  showOutliers: _showOutliers,
-                                  lockAxes: _lockAxes,
-                                  showAllSites: _showAllSites,
-                                  template: _selectedTemplate,
-                                  averageGhost: averageGhost,
-                                ),
+                                child: _showAllSites
+                                    ? PlotsPanel(
+                                        project: _project,
+                                        selectedSite: site,
+                                        showOutliers: _showOutliers,
+                                        lockAxes: _lockAxes,
+                                        showAllSites: true,
+                                        template: _selectedTemplate,
+                                        averageGhost: averageGhost,
+                                      )
+                                    : Column(
+                                        children: [
+                                          Expanded(
+                                            child: PlotsPanel(
+                                              project: _project,
+                                              selectedSite: site,
+                                              showOutliers: _showOutliers,
+                                              lockAxes: _lockAxes,
+                                              showAllSites: false,
+                                              template: _selectedTemplate,
+                                              averageGhost: averageGhost,
+                                            ),
+                                          ),
+                                          InversionPlotPanel(
+                                            result: _inversionResult,
+                                            isLoading: _inversionLoading,
+                                            distanceUnit: _distanceUnit,
+                                            siteLabel: site.displayName,
+                                          ),
+                                        ],
+                                      ),
                               ),
                               SizedBox(
                                 width: 420,
@@ -705,22 +997,6 @@ class _ProjectShellState extends State<ProjectShell> {
     );
   }
 
-  Widget _buildSiteList() {
-    return ListView(
-      children: [
-        for (final site in _project.sites)
-          ListTile(
-            title: Text(site.displayName),
-            subtitle: Text(
-              'Valid ${_validSpacingCount(site)}/${site.spacings.length} spacings',
-            ),
-            selected: _selectedSite?.siteId == site.siteId,
-            onTap: () => _selectSite(site),
-          ),
-      ],
-    );
-  }
-
   int _validSpacingCount(SiteRecord site) {
     var valid = 0;
     for (final spacing in site.spacings) {
@@ -748,5 +1024,107 @@ class _NewSiteConfig {
   final String siteId;
   final String orientationA;
   final String orientationB;
+}
+
+class SiteListPanel extends StatelessWidget {
+  const SiteListPanel({
+    super.key,
+    required this.sites,
+    required this.selectedSiteId,
+    required this.onSelect,
+    required this.onAdd,
+    required this.onDuplicate,
+    required this.onDelete,
+    required this.validSpacingCount,
+  });
+
+  final List<SiteRecord> sites;
+  final String? selectedSiteId;
+  final ValueChanged<SiteRecord> onSelect;
+  final Future<void> Function() onAdd;
+  final void Function(SiteRecord) onDuplicate;
+  final Future<void> Function(SiteRecord) onDelete;
+  final int Function(SiteRecord) validSpacingCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Sites',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                onPressed: () => onAdd(),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Site'),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: sites.isEmpty
+              ? Center(
+                  child: Text(
+                    'No sites yet',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                )
+              : ListView.separated(
+                  padding: EdgeInsets.zero,
+                  itemCount: sites.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final site = sites[index];
+                    final isSelected = site.siteId == selectedSiteId;
+                    return ListTile(
+                      title: Text(site.displayName),
+                      subtitle: Text(
+                        'Valid ${validSpacingCount(site)}/${site.spacings.length} spacings',
+                      ),
+                      selected: isSelected,
+                      onTap: () => onSelect(site),
+                      trailing: PopupMenuButton<String>(
+                        tooltip: 'Site actions',
+                        onSelected: (value) {
+                          switch (value) {
+                            case 'duplicate':
+                              onDuplicate(site);
+                              break;
+                            case 'delete':
+                              onDelete(site);
+                              break;
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'duplicate',
+                            child: Text('Duplicate'),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            enabled: sites.length > 1,
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
 }
 
