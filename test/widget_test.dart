@@ -14,5 +14,7 @@ void main() {
     final addPointFinder = find.bySemanticsLabel('Add Point');
     expect(addPointFinder, findsOneWidget);
     expect(find.text('Add Point'), findsOneWidget);
+    expect(find.text('Add Site'), findsOneWidget);
+    expect(find.text('Sites'), findsWidgets);
   });
 }

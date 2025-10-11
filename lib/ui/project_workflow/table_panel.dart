@@ -455,38 +455,41 @@ class _TablePanelState extends State<TablePanel> {
     String orientationALabel,
     String orientationBLabel,
   ) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        _headerCell(
-          context,
-          'a-spacing (ft)',
-          minWidth: 130,
-          style: style,
-        ),
-        const SizedBox(width: 12),
-        _headerCell(
-          context,
-          'Pins at (ft)',
-          minWidth: 120,
-          style: style,
-        ),
-        const SizedBox(width: 12),
-        _headerCell(
-          context,
-          'Res $orientationALabel (Ω)',
-          minWidth: 150,
-          style: style,
-        ),
-        const SizedBox(width: 12),
-        _headerCell(
-          context,
-          'Res $orientationBLabel (Ω)',
-          minWidth: 150,
-          style: style,
-        ),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _headerCell(
+            context,
+            'a-spacing (ft)',
+            minWidth: 130,
+            style: style,
+          ),
+          const SizedBox(width: 12),
+          _headerCell(
+            context,
+            'Pins at (ft)',
+            minWidth: 120,
+            style: style,
+          ),
+          const SizedBox(width: 12),
+          _headerCell(
+            context,
+            'Res $orientationALabel (Ω)',
+            minWidth: 150,
+            style: style,
+          ),
+          const SizedBox(width: 12),
+          _headerCell(
+            context,
+            'Res $orientationBLabel (Ω)',
+            minWidth: 150,
+            style: style,
+          ),
+        ],
+      ),
     );
   }
 

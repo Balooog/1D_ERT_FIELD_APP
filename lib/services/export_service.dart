@@ -5,14 +5,19 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+
 import 'package:csv/csv.dart';
 
-import '../models/calc.dart';
+import '../models/calc.dart' as calc;
 import '../models/direction_reading.dart';
 import '../models/project.dart';
 import '../models/site.dart';
 import '../services/inversion.dart';
 import '../utils/distance_unit.dart';
+import '../utils/units.dart' as units;
 import 'storage_service.dart';
 
 class InversionReportEntry {
@@ -26,6 +31,8 @@ class InversionReportEntry {
   final TwoLayerInversionResult result;
   final DistanceUnit distanceUnit;
 }
+
+const bool kExportChartsEnabled = false;
 
 class ExportService {
   ExportService(this.storageService);
@@ -154,18 +161,12 @@ class ExportService {
             pw.SizedBox(height: 12),
             _buildPdfSummary(entry),
             pw.SizedBox(height: 16),
-            pw.Container(
-              height: 220,
-              padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.grey500, width: 0.5),
-                borderRadius: pw.BorderRadius.circular(8),
-              ),
-              child: pw.CustomPaint(
-                painter: _InversionPdfPainter(entry.result, entry.distanceUnit),
-              ),
-            ),
-            pw.SizedBox(height: 16),
+            _buildPdfSummaryFooter(entry),
+            if (!kExportChartsEnabled) ...[
+              pw.SizedBox(height: 12),
+              _buildChartDisabledNotice(),
+            ],
+            pw.SizedBox(height: 12),
             _buildPdfTable(entry),
           ],
         ),
@@ -223,6 +224,57 @@ class ExportService {
     );
   }
 
+  pw.Widget _buildPdfSummaryFooter(InversionReportEntry entry) {
+    final result = entry.result;
+    final rmsPercent = (result.rms * 100).toStringAsFixed(1);
+    final lines = <String>[
+      'Solver RMS: $rmsPercent %',
+      if (result.thicknessM != null)
+        'Layer thickness: ${_formatSpacing(entry.distanceUnit, result.thicknessM!)} ${_unitLabel(entry.distanceUnit)}',
+      if (result.halfSpaceRho != null)
+        'Half-space resistivity: ${_formatRhoValue(result.halfSpaceRho!)} Ω·m',
+    ];
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: pw.BoxDecoration(
+        color: _mixColors(PdfColors.white, PdfColors.blueGrey100, 0.35),
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: PdfColors.blueGrey300, width: 0.4),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          for (final line in lines)
+            pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 2),
+              child: pw.Text(
+                line,
+                style: const pw.TextStyle(fontSize: 10.5),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildChartDisabledNotice() {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: pw.BoxDecoration(
+        color: _mixColors(PdfColors.white, PdfColors.blueGrey100, 0.25),
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: PdfColors.blueGrey200, width: 0.4),
+      ),
+      child: pw.Text(
+        'Inversion charts are temporarily disabled for stability. '
+        'Enable kExportChartsEnabled once the painter is restored.',
+        style: const pw.TextStyle(fontSize: 9.5, color: PdfColors.blueGrey800),
+      ),
+    );
+  }
+
   pw.Widget _summaryChip(String label, String value, PdfColor color) {
     final background = _mixColors(PdfColors.white, color, 0.12);
     final border = _mixColors(color, PdfColors.black, 0.2);
@@ -264,12 +316,17 @@ class ExportService {
     final rows = <List<String>>[];
     final result = entry.result;
     for (var i = 0; i < result.spacingFeet.length; i++) {
-      final spacingMeters = feetToMeters(result.spacingFeet[i]);
+      final spacingMeters = units.feetToMeters(result.spacingFeet[i]).toDouble();
       final depthMeters = i < result.measurementDepthsM.length
-          ? result.measurementDepthsM[i]
-          : (result.measurementDepthsM.isEmpty ? 0 : result.measurementDepthsM.last);
-      final observed = i < result.observedRho.length ? result.observedRho[i] : 0;
-      final predicted = i < result.predictedRho.length ? result.predictedRho[i] : observed;
+          ? result.measurementDepthsM[i].toDouble()
+          : (result.measurementDepthsM.isEmpty
+              ? 0.0
+              : result.measurementDepthsM.last.toDouble());
+      final observed =
+          i < result.observedRho.length ? result.observedRho[i].toDouble() : 0.0;
+      final predicted = i < result.predictedRho.length
+          ? result.predictedRho[i].toDouble()
+          : observed;
       rows.add([
         _formatSpacing(entry.distanceUnit, spacingMeters),
         _formatSpacing(entry.distanceUnit, depthMeters),
@@ -277,7 +334,7 @@ class ExportService {
         _formatRhoValue(predicted),
       ]);
     }
-    return pw.Table.fromTextArray(
+    return pw.TableHelper.fromTextArray(
       headers: headers,
       data: rows,
       border: pw.TableBorder.all(color: PdfColors.grey500, width: 0.4),
@@ -347,7 +404,7 @@ class ExportService {
     final resistance = sample?.resistanceOhm;
     final rho = resistance == null
         ? null
-        : rhoAWenner(spacing.spacingFeet, resistance);
+        : calc.rhoAWenner(spacing.spacingFeet, resistance);
     return [
       site.siteId,
       history.label,
@@ -370,7 +427,7 @@ class ExportService {
   ) {
     final sample = history.latest;
     final resistance = sample?.resistanceOhm ?? 0;
-    final rho = rhoAWenner(spacing.spacingFeet, resistance);
+    final rho = calc.rhoAWenner(spacing.spacingFeet, resistance);
     final sd = sample?.standardDeviationPercent ?? 0;
     final isBad = sample?.isBad ?? false;
     return '${spacing.spacingFeet},${history.label},$resistance,$rho,$sd,${isBad ? 1 : 0}';
@@ -386,174 +443,3 @@ class ExportService {
 const PdfColor _pdfBlue = PdfColor.fromInt(0xFF0072B2);
 const PdfColor _pdfOrange = PdfColor.fromInt(0xFFE69F00);
 const PdfColor _pdfVermillion = PdfColor.fromInt(0xFFD55E00);
-const PdfColor _pdfGray = PdfColor.fromInt(0xFF595959);
-
-class _InversionPdfPainter extends pw.CustomPainter {
-  _InversionPdfPainter(this.result, this.distanceUnit);
-
-  final TwoLayerInversionResult result;
-  final DistanceUnit distanceUnit;
-
-  @override
-  void paint(pw.Context context, pw.Canvas canvas, pw.Size size) {
-    final left = 36.0;
-    final right = size.width - 16.0;
-    final top = 12.0;
-    final bottom = size.height - 26.0;
-    final chartWidth = math.max(right - left, 1);
-    final chartHeight = math.max(bottom - top, 1);
-
-    final minRho = math.max(result.minRho * 0.8, 0.5);
-    final maxRho = result.maxRho * 1.2;
-    final minLog = math.log(minRho) / math.ln10;
-    final maxLog = math.log(maxRho) / math.ln10;
-    final logSpan = (maxLog - minLog).abs() < 1e-3 ? 1 : maxLog - minLog;
-    final depthMax = math.max(result.maxDepthMeters * 1.1, 0.5);
-
-    double mapX(double rho) {
-      final log = math.log(rho) / math.ln10;
-      final normalized = (log - minLog) / logSpan;
-      return left + normalized * chartWidth;
-    }
-
-    double mapY(double depthMeters) {
-      final normalized = depthMeters / depthMax;
-      return top + normalized * chartHeight;
-    }
-
-    final axisPaint = pw.Paint()
-      ..color = PdfColors.grey600
-      ..strokeWidth = 0.7;
-    final gridPaint = pw.Paint()
-      ..color = PdfColors.grey400
-      ..strokeWidth = 0.4;
-
-    canvas.drawLine(pw.Offset(left, top), pw.Offset(left, bottom), axisPaint);
-    canvas.drawLine(pw.Offset(left, bottom), pw.Offset(right, bottom), axisPaint);
-
-    final depthTicks = _buildDepthTicks(depthMax);
-    final resistivityTicks = _buildResistivityTicks(minLog, maxLog);
-    final font = pw.Theme.of(context).defaultTextStyle.font ?? pw.Font.helvetica();
-    const tickFontSize = 8.0;
-
-    for (final tick in depthTicks) {
-      final y = mapY(tick);
-      canvas.drawLine(pw.Offset(left, y), pw.Offset(right, y), gridPaint);
-      final label = distanceUnit.formatSpacing(tick);
-      final metrics = font.stringMetrics(label, tickFontSize);
-      canvas.drawString(
-        font,
-        tickFontSize,
-        label,
-        pw.Offset(left - metrics.width - 4, y + metrics.descent),
-      );
-    }
-
-    for (final tick in resistivityTicks) {
-      final rho = math.pow(10, tick).toDouble();
-      final x = mapX(rho);
-      canvas.drawLine(pw.Offset(x, top), pw.Offset(x, bottom), gridPaint);
-      final label = rho.toStringAsFixed(0);
-      final metrics = font.stringMetrics(label, tickFontSize);
-      canvas.drawString(
-        font,
-        tickFontSize,
-        label,
-        pw.Offset(x - metrics.width / 2, bottom + metrics.ascent + 4),
-      );
-    }
-
-    canvas.drawString(
-      font,
-      tickFontSize + 2,
-      'Depth (${_unitLabel(distanceUnit)})',
-      pw.Offset(left - 30, top - 6),
-    );
-    canvas.drawString(
-      font,
-      tickFontSize + 2,
-      'Resistivity (Ω·m)',
-      pw.Offset((left + right) / 2 - 38, bottom + 18),
-    );
-
-    final profilePath = pw.Path();
-    final boundary = result.thicknessM ??
-        (result.layerDepths.isNotEmpty ? result.layerDepths.first : depthMax / 2);
-    final cappedBoundary = math.min(boundary, depthMax);
-    profilePath.moveTo(mapX(result.rho1), mapY(0));
-    profilePath.lineTo(mapX(result.rho1), mapY(cappedBoundary));
-    profilePath.lineTo(mapX(result.rho2), mapY(cappedBoundary));
-    profilePath.lineTo(mapX(result.rho2), mapY(depthMax));
-    canvas.drawPath(
-      profilePath,
-      pw.Paint()
-        ..color = _pdfOrange
-        ..strokeWidth = 1.2
-        ..style = pw.PaintingStyle.stroke,
-    );
-
-    if (result.predictedRho.isNotEmpty && result.measurementDepthsM.isNotEmpty) {
-      final predictedPath = pw.Path();
-      for (var i = 0; i < result.predictedRho.length; i++) {
-        final rho = result.predictedRho[i];
-        if (!rho.isFinite || rho <= 0) {
-          continue;
-        }
-        final depth = i < result.measurementDepthsM.length
-            ? result.measurementDepthsM[i]
-            : result.measurementDepthsM.last;
-        final point = pw.Offset(mapX(rho), mapY(depth));
-        if (predictedPath.isEmpty) {
-          predictedPath.moveTo(point.x, point.y);
-        } else {
-          predictedPath.lineTo(point.x, point.y);
-        }
-      }
-      canvas.drawPath(
-        predictedPath,
-        pw.Paint()
-          ..color = _pdfBlue
-          ..strokeWidth = 0.9
-          ..style = pw.PaintingStyle.stroke
-          ..dashPattern = const [4, 2],
-      );
-    }
-
-    for (var i = 0; i < result.observedRho.length; i++) {
-      final rho = result.observedRho[i];
-      if (!rho.isFinite || rho <= 0) {
-        continue;
-      }
-      final depth = i < result.measurementDepthsM.length
-          ? result.measurementDepthsM[i]
-          : (result.measurementDepthsM.isEmpty ? 0 : result.measurementDepthsM.last);
-      final center = pw.Offset(mapX(rho), mapY(depth));
-      canvas.drawCircle(
-        center,
-        2.2,
-        pw.Paint()
-          ..color = _pdfGray
-          ..style = pw.PaintingStyle.fill,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _InversionPdfPainter oldDelegate) {
-    return oldDelegate.result != result || oldDelegate.distanceUnit != distanceUnit;
-  }
-
-  List<double> _buildDepthTicks(double depth) {
-    const tickCount = 4;
-    final step = depth / tickCount;
-    return List<double>.generate(tickCount + 1, (index) => index * step);
-  }
-
-  List<int> _buildResistivityTicks(double minLog, double maxLog) {
-    final start = minLog.floor();
-    final end = maxLog.ceil();
-    return [for (var i = start; i <= end; i++) i];
-  }
-
-  String _unitLabel(DistanceUnit unit) => unit == DistanceUnit.feet ? 'ft' : 'm';
-}

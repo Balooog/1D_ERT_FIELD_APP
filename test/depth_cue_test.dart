@@ -19,7 +19,7 @@ void main() {
 
     final tables = tester.widgetList<DataTable>(find.byType(DataTable)).toList();
     expect(tables, isNotEmpty);
-    final dataTable = tables.single;
+    final dataTable = tables.first;
     expect(dataTable.rows, hasLength(3));
 
     final expectedRows = [
