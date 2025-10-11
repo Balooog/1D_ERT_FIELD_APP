@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../models/project.dart';
 import '../../services/storage_service.dart';
+import '../import/import_sheet.dart';
 import 'project_shell.dart';
 
 class ProjectWorkflowHomePage extends StatefulWidget {
@@ -34,30 +37,119 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
     return _storage.recentProjects();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('ResiCheck Projects'),
+  Future<void> _startImport() async {
+    final name = await _promptImportProjectName();
+    if (name == null) {
+      return;
+    }
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    final tempProject = ProjectRecord.newProject(
+      projectId: 'import-${DateTime.now().millisecondsSinceEpoch}',
+      projectName: trimmed,
+    );
+    final outcome = await showModalBottomSheet<ImportSheetOutcome>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => ImportSheet(project: tempProject),
+    );
+    if (outcome == null) {
+      return;
+    }
+    final created = await _storage.createProject(trimmed);
+    final directory = await _storage.projectDirectory(created);
+    final updated = created.upsertSite(outcome.site);
+    await _storage.saveProject(updated, directoryOverride: directory);
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ProjectShell(
+        initialProject: updated,
+        storageService: _storage,
+        projectDirectory: directory,
+      ),
+    ));
+    await _refresh();
+  }
+
+  Future<String?> _promptImportProjectName() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Import project'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Project name'),
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh projects list',
-            onPressed: _refresh,
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isEmpty) {
+                return;
+              }
+              Navigator.of(context).pop(value);
+            },
+            child: const Text('Continue'),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreateDialog,
-        icon: const Icon(Icons.add),
-        label: const Text('New Project'),
-      ),
-      body: FutureBuilder<List<ProjectSummary>>(
-        future: _recentFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    );
+    controller.dispose();
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyI, control: true):
+            () => unawaited(_startImport()),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Scaffold(
+          appBar: AppBar(
+            title: const Text('ResiCheck Projects'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Refresh projects list',
+                onPressed: _refresh,
+              ),
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'import') {
+                    unawaited(_startImport());
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'import',
+                    child: Text('Import from file…'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _showCreateDialog,
+            icon: const Icon(Icons.add),
+            label: const Text('New Project'),
+          ),
+          body: FutureBuilder<List<ProjectSummary>>(
+            future: _recentFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
           if (snapshot.hasError) {
             return Center(
               child: Text('Failed to load projects: ${snapshot.error}'),
@@ -74,7 +166,7 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
                     const Icon(Icons.folder_open, size: 64),
                     const SizedBox(height: 16),
                     Text(
-                      'No projects found. Create a new project to start logging field data.',
+                      'No projects found. Import existing data (Ctrl+I) or create a new project.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
@@ -102,7 +194,8 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
               );
             },
           );
-        },
+            },
+        ),
       ),
     );
   }

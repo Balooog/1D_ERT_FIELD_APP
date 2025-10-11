@@ -44,6 +44,13 @@ class _InversionAttempt {
   }
 }
 
+class _LogClamp {
+  const _LogClamp(this.lower, this.upper);
+
+  final double lower;
+  final double upper;
+}
+
 Future<OneDInversionResult> invert1DWenner({
   required List<double> aFt,
   required List<double> rhoAppNS,
@@ -108,6 +115,8 @@ OneDInversionResult _runLayeredInversion({
     maxThick: maxThick,
   );
 
+  final logClamp = _logClampFor(aggregated, minRho, maxRho);
+
   final baseAttempt = _solveForDepths(
     aggregated: aggregated,
     depths: baseDepths,
@@ -116,6 +125,8 @@ OneDInversionResult _runLayeredInversion({
     minThick: minThick,
     maxThick: maxThick,
     regLambda: regLambda,
+    lowerLogBound: logClamp.lower,
+    upperLogBound: logClamp.upper,
   );
 
   var bestAttempt = baseAttempt;
@@ -166,7 +177,7 @@ OneDInversionResult _runLayeredInversion({
                     .clamp(minRho, maxRho)
                     .toDouble();
           }
-          final restartLambda = (regLambda * 0.8).clamp(0.15, 0.35);
+          final restartLambda = (regLambda * 0.6).clamp(0.12, 0.3);
 
           final restartAttempt = _solveForDepths(
             aggregated: aggregated,
@@ -176,6 +187,8 @@ OneDInversionResult _runLayeredInversion({
             minThick: minThick,
             maxThick: maxThick,
             regLambda: restartLambda,
+            lowerLogBound: logClamp.lower,
+            upperLogBound: logClamp.upper,
             seedResistivities: seedResistivities,
           );
 
@@ -204,6 +217,8 @@ OneDInversionResult _runLayeredInversion({
       maxThick: maxThick,
       minRho: minRho,
       maxRho: maxRho,
+      lowerLogBound: logClamp.lower,
+      upperLogBound: logClamp.upper,
     );
     final segmentedBetter = segmentedAttempt.misfit.isFinite &&
         (!bestAttempt.misfit.isFinite ||
@@ -214,6 +229,30 @@ OneDInversionResult _runLayeredInversion({
   }
 
   return bestAttempt.toResult();
+}
+
+_LogClamp _logClampFor(
+  List<_AggregatedMeasurement> aggregated,
+  double minRho,
+  double maxRho,
+) {
+  final minLog = math.log(minRho);
+  final maxLog = math.log(maxRho);
+  if (aggregated.isEmpty) {
+    return _LogClamp(minLog, maxLog);
+  }
+  final logs = aggregated
+      .map((m) => math.log(m.rho.clamp(minRho, maxRho)))
+      .toList()
+    ..sort();
+  final median = _quantile(logs, 0.5);
+  final q1 = _quantile(logs, 0.25);
+  final q3 = _quantile(logs, 0.75);
+  final iqr = q3 - q1;
+  final band = iqr > 0 ? 1.8 * iqr : (maxLog - minLog) * 0.5;
+  final lower = (median - band).clamp(minLog, maxLog);
+  final upper = (median + band).clamp(minLog, maxLog);
+  return _LogClamp(lower, upper);
 }
 
 OneDInversionResult _fallbackResult(List<_AggregatedMeasurement> aggregated) {
@@ -242,6 +281,8 @@ _InversionAttempt _solveForDepths({
   required double minThick,
   required double maxThick,
   required double regLambda,
+  double? lowerLogBound,
+  double? upperLogBound,
   List<double>? seedResistivities,
 }) {
   final spacingMeters = aggregated.map((m) => m.spacingMeters).toList();
@@ -252,6 +293,8 @@ _InversionAttempt _solveForDepths({
     minRho: minRho,
     maxRho: maxRho,
     regLambda: regLambda,
+    lowerLogBound: lowerLogBound,
+    upperLogBound: upperLogBound,
     seed: seedResistivities,
   );
   final logRhos = resistivities.map(math.log).toList();
@@ -273,6 +316,8 @@ _InversionAttempt _segmentalApproximation({
   required double maxThick,
   required double minRho,
   required double maxRho,
+  double? lowerLogBound,
+  double? upperLogBound,
 }) {
   if (aggregated.isEmpty) {
     return const _InversionAttempt(
@@ -285,12 +330,14 @@ _InversionAttempt _segmentalApproximation({
 
   final count = aggregated.length;
   final targetLayers = math.max(1, math.min(maxLayers, count));
-  final logs = List<double>.generate(
-    count,
-    (index) => math.log(
-      aggregated[index].rho.clamp(minRho, maxRho),
-    ),
-  );
+  final logs = List<double>.generate(count, (index) {
+    final rho = aggregated[index].rho.clamp(minRho, maxRho);
+    var logValue = math.log(rho);
+    if (lowerLogBound != null && upperLogBound != null) {
+      logValue = logValue.clamp(lowerLogBound, upperLogBound);
+    }
+    return logValue;
+  });
   final prefix = List<double>.filled(count + 1, 0);
   final prefixSq = List<double>.filled(count + 1, 0);
   for (var i = 0; i < count; i++) {
@@ -355,9 +402,13 @@ _InversionAttempt _segmentalApproximation({
     final depths = aggregated
         .map((m) => feetToMeters(m.spacingFt * 0.5))
         .toList();
-    final resistivities = aggregated
-        .map((m) => m.rho.clamp(minRho, maxRho).toDouble())
-        .toList();
+    final resistivities = aggregated.map((m) {
+      var logValue = math.log(m.rho.clamp(minRho, maxRho));
+      if (lowerLogBound != null && upperLogBound != null) {
+        logValue = logValue.clamp(lowerLogBound, upperLogBound);
+      }
+      return math.exp(logValue).clamp(minRho, maxRho).toDouble();
+    }).toList();
     final observed = aggregated.map((m) => m.rho).toList();
     return _InversionAttempt(
       depths: depths,
@@ -384,7 +435,10 @@ _InversionAttempt _segmentalApproximation({
     final length = finish - start;
     final sum = prefix[finish] - prefix[start];
     final meanLog = length == 0 ? 0.0 : sum / length;
-    final rho = math.exp(meanLog).clamp(minRho, maxRho).toDouble();
+    final boundedLog = (lowerLogBound != null && upperLogBound != null)
+        ? meanLog.clamp(lowerLogBound, upperLogBound)
+        : meanLog;
+    final rho = math.exp(boundedLog).clamp(minRho, maxRho).toDouble();
     resistivities.add(rho);
     final depthIndex = math.max(0, finish - 1);
     final depth = feetToMeters(aggregated[depthIndex].spacingFt * 0.5);
@@ -536,11 +590,17 @@ List<double> _estimateLayerResistivities(
   required double minRho,
   required double maxRho,
   required double regLambda,
+  double? lowerLogBound,
+  double? upperLogBound,
   List<double>? seed,
 }) {
   if (depths.isEmpty) {
     final median = _median(aggregated.map((m) => m.rho).toList()) ?? minRho;
-    return [median.clamp(minRho, maxRho).toDouble()];
+    final logMedian = math.log(median.clamp(minRho, maxRho));
+    final boundedLog = (lowerLogBound != null && upperLogBound != null)
+        ? logMedian.clamp(lowerLogBound, upperLogBound)
+        : logMedian;
+    return [math.exp(boundedLog).clamp(minRho, maxRho).toDouble()];
   }
   final allLogs = aggregated.map((m) => math.log(m.rho)).toList()..sort();
   final resistivities = <double>[];
@@ -570,10 +630,24 @@ List<double> _estimateLayerResistivities(
         logValue = (logsInLayer[mid - 1] + logsInLayer[mid]) / 2;
       }
     }
+    if (lowerLogBound != null && upperLogBound != null) {
+      logValue = logValue.clamp(lowerLogBound, upperLogBound);
+    }
+    if (i == 0 && allLogs.isNotEmpty) {
+      final shallow = _quantile(allLogs, 0.25);
+      logValue = math.min(logValue, shallow);
+      if (lowerLogBound != null) {
+        logValue = math.max(logValue, lowerLogBound);
+      }
+    }
     var rho = math.exp(logValue).clamp(minRho, maxRho).toDouble();
     if (seed != null && i < seed.length) {
       final blended = 0.25 * seed[i] + 0.75 * rho;
       rho = blended.clamp(minRho, maxRho).toDouble();
+    }
+    if (lowerLogBound != null && upperLogBound != null) {
+      final logRho = math.log(rho).clamp(lowerLogBound, upperLogBound);
+      rho = math.exp(logRho).clamp(minRho, maxRho).toDouble();
     }
     resistivities.add(rho);
   }

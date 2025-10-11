@@ -159,10 +159,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Row(
           children: [
             Expanded(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.add),
-                label: const Text('Add Point'),
-                onPressed: _showAddPointDialog,
+              child: Semantics(
+                label: 'Add Point',
+                button: true,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Point'),
+                  onPressed: _showAddPointDialog,
+                ),
               ),
             ),
             const SizedBox(width: 8),
@@ -202,8 +206,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     switch (value) {
       case 'import':
         final bundle = rootBundle;
-        final data = await bundle.loadString('assets/samples/sample_wenner.csv');
-        final file = File('${Directory.systemTemp.path}/sample_wenner.csv');
+        final data = await bundle.loadString('assets/samples/Wenner1D.csv');
+        final file = File('${Directory.systemTemp.path}/Wenner1D.csv');
         await file.writeAsString(data);
         final points = await CsvIoService().readFile(file);
         ref.read(spacingPointsProvider.notifier).setPoints(points);

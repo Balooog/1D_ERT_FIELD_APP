@@ -1,0 +1,8 @@
+# Synthetic Schlumberger array (feet)
+Unit=feet
+ab2_ft mn_ft rho_ohm_m
+10.0 5.0 210.5
+20.0 5.0 262.7
+40.0 10.0 384.2
+80.0 15.0 526.9
+120.0 20.0 648.3
