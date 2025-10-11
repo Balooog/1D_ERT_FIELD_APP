@@ -7,7 +7,6 @@ import 'package:path/path.dart' as p;
 import '../models/enums.dart';
 import '../models/spacing_point.dart';
 import '../services/geometry_factors.dart' as geom;
-import '../utils/units.dart';
 
 class CsvColumns {
   static const aSpacingFt = 'a_spacing_ft';
