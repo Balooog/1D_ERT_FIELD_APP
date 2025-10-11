@@ -43,12 +43,13 @@ class _DepthProfileTabState extends State<DepthProfileTab> {
         'Depth cue: $trend toward ${formatCompactValue(depthValue)} $depthUnitLabel (~${formatMetersTooltip(deepest.depthMeters)} m, ≈${formatCompactValue(deepest.rho)} Ω·m).';
 
     return SizedBox(
-      height: 220,
+      height: 160,
       child: Card(
         margin: const EdgeInsets.all(12),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
