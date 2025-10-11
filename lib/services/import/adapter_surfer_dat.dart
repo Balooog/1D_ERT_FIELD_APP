@@ -11,11 +11,15 @@ class SurferDatImportAdapter implements ImportAdapter {
 
   @override
   Future<ImportTable> parse(ImportSource source) async {
-    final decoded = utf8.decode(source.bytes, allowMalformed: true);
+    var decoded = utf8.decode(source.bytes, allowMalformed: true);
+    if (decoded.isNotEmpty && decoded.codeUnitAt(0) == 0xFEFF) {
+      decoded = decoded.substring(1);
+    }
     final lines = decoded.split(RegExp(r'\r?\n'));
     final issues = <ImportRowIssue>[];
     final rows = <List<String>>[];
     List<String>? header;
+    String? unitDirective;
 
     for (var i = 0; i < lines.length; i++) {
       final rawLine = lines[i];
@@ -23,7 +27,13 @@ class SurferDatImportAdapter implements ImportAdapter {
       if (line.isEmpty) {
         continue;
       }
-      if (line.startsWith('#') || line.startsWith('//')) {
+      if (line.startsWith('#') || line.startsWith('//') || line.startsWith(';')) {
+        continue;
+      }
+      final lower = line.toLowerCase();
+      if (lower.startsWith('unit=')) {
+        final equalsIndex = line.indexOf('=');
+        unitDirective = equalsIndex >= 0 ? line.substring(equalsIndex + 1).trim() : null;
         continue;
       }
       final parts = line.split(_whitespace).where((part) => part.isNotEmpty).toList();
@@ -57,6 +67,7 @@ class SurferDatImportAdapter implements ImportAdapter {
       headers: header!,
       rows: rows,
       issues: issues,
+      unitDirective: unitDirective,
     );
   }
 

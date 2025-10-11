@@ -25,7 +25,9 @@ dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/samples/
+    - assets/samples/sample_project.json
+    - assets/samples/Wenner1D.csv
+    - assets/samples/Schlum1D.csv
     - assets/templates/
 
 dev_dependencies:
