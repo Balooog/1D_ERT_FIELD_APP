@@ -169,6 +169,15 @@ When the emulator is running, `flutter devices` should list an `android-x64` dev
 
 > **Simulate note:** The Simulate button drives the UI with synthetic mock streams for demos and training; it does not compute an SP profile from your last manual point.
 
+## Inversion visualisation & PDF export
+
+- **Two-layer inversion plot.** The project workspace now includes an `InversionPlotPanel` that renders the best-fit two-layer profile with a colorblind-safe palette for layer contrast and overlays predicted vs observed curves alongside RMS context.
+- **Single-site PDF export.** Use the site overflow menu to generate a report containing project metadata, a bitmap of the inversion panel, and a tabular breakdown of apparent vs fitted resistivities. Logs are written to `logs/export_*.txt` for audit trails.
+- **Batch export.** The `File → Export All Sites to PDF` action assembles multi-page reports sorted by site name, mirroring the single-site layout while summarising RMS for each sounding.
+- **Unit-aware formatting.** Exported reports automatically adopt the project's active distance unit (feet or metres) for spacing and depth, applying consistent rounding rules shared with the importer and table panels.
+
+All PDF generation is implemented with the `pdf`/`printing` packages, keeping the app offline-first and requiring no platform-specific viewers.
+
 ## CSV schema
 
 Sample CSV fixtures live at `assets/samples/Wenner1D.csv` and `assets/samples/Schlum1D.csv`.
