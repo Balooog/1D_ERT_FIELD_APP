@@ -453,10 +453,14 @@ class ImportService {
     for (final column in columns) {
       final suffixUnit = _unitFromHeaderSuffix(column.header);
       if (suffixUnit != null) {
+        final suffix = suffixUnit == ImportDistanceUnit.meters ? '_m' : '_ft';
+        final qualifier = suffixUnit == ImportDistanceUnit.feet
+            ? ' (filename or directive)'
+            : '';
         addSignal(
           suffixUnit,
           0.95,
-          'Header "${column.header}" ends with ${suffixUnit == ImportDistanceUnit.meters ? '_m' : '_ft'}',
+          'Header "${column.header}" ends with $suffix$qualifier',
           priority: 0,
         );
       }

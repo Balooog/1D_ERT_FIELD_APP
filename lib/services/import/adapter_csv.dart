@@ -127,19 +127,14 @@ class CsvImportAdapter implements ImportAdapter {
   }
 
   _HeaderNormalizationResult _normalizeHeaderRow(List<String> headerRow) {
+    final tokens = _normalizeHeaderTokens(headerRow);
     final activeIndices = <int>[];
     final normalizedHeaders = <String>[];
     var numericCount = 0;
-    for (var i = 0; i < headerRow.length; i++) {
-      final raw = headerRow[i].trim();
-      final normalized = _normalizeHeaderToken(raw);
-      if (normalized.isEmpty && raw.isEmpty) {
-        continue;
-      }
-      activeIndices.add(i);
-      final candidate = normalized.isEmpty ? 'column_${activeIndices.length}' : normalized;
-      normalizedHeaders.add(_dedupeHeader(candidate, normalizedHeaders));
-      if (_looksNumeric(raw)) {
+    for (final token in tokens) {
+      activeIndices.add(token.index);
+      normalizedHeaders.add(token.normalized);
+      if (_looksNumeric(token.raw)) {
         numericCount++;
       }
     }
@@ -151,17 +146,6 @@ class CsvImportAdapter implements ImportAdapter {
       activeIndices: activeIndices,
       isLikelyDataRow: isLikelyDataRow,
     );
-  }
-
-  String _dedupeHeader(String candidate, List<String> existing) {
-    if (!existing.contains(candidate)) {
-      return candidate;
-    }
-    var suffix = 2;
-    while (existing.contains('${candidate}_$suffix')) {
-      suffix++;
-    }
-    return '${candidate}_$suffix';
   }
 
   String _detectDelimiter(List<String> lines) {
@@ -221,16 +205,55 @@ class _HeaderNormalizationResult {
   final bool isLikelyDataRow;
 }
 
-String _normalizeHeaderToken(String value) {
+class _NormalizedHeaderToken {
+  _NormalizedHeaderToken({
+    required this.index,
+    required this.normalized,
+    required this.raw,
+  });
+
+  final int index;
+  final String normalized;
+  final String raw;
+}
+
+String _norm(String value) {
   if (value.isEmpty) {
     return '';
   }
-  final snake = value
+  return value
       .trim()
       .replaceAll(RegExp(r'[\s\-]+'), '_')
       .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '')
-      .replaceAll(RegExp(r'_+'), '_');
-  return snake.toLowerCase();
+      .replaceAll(RegExp(r'_+'), '_')
+      .toLowerCase();
+}
+
+List<_NormalizedHeaderToken> _normalizeHeaderTokens(List<String> raw) {
+  final seen = <String>{};
+  final tokens = <_NormalizedHeaderToken>[];
+  for (var i = 0; i < raw.length; i++) {
+    final original = raw[i];
+    final trimmed = original.trim();
+    if (trimmed.isEmpty) {
+      continue;
+    }
+    final normalized = _norm(trimmed);
+    if (normalized.isEmpty) {
+      continue;
+    }
+    if (!seen.add(normalized)) {
+      continue;
+    }
+    tokens.add(
+      _NormalizedHeaderToken(
+        index: i,
+        normalized: normalized,
+        raw: trimmed,
+      ),
+    );
+  }
+  return tokens;
 }
 
 bool _looksNumeric(String value) {

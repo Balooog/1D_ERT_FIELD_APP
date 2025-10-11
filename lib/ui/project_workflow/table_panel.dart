@@ -996,63 +996,106 @@ class _TablePanelState extends State<TablePanel> {
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<SoilType>(
-                  initialValue: widget.site.soil,
-                  decoration: const InputDecoration(
-                    labelText: 'Soil',
-                    isDense: true,
-                  ),
-                  isDense: true,
-                  iconSize: 18,
-                  menuMaxHeight: 240,
-                  alignment: AlignmentDirectional.centerStart,
-                  style: theme.textTheme.bodySmall,
-                  items: SoilType.values
-                      .map(
-                        (soil) => DropdownMenuItem(
-                          value: soil,
-                          child: Text(
-                            soil.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
+                child: _buildSoilDropdown(
+                  context,
+                  value: widget.site.soil,
                   onChanged: (soil) => widget.onMetadataChanged(soil: soil),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<MoistureLevel>(
-                  initialValue: widget.site.moisture,
-                  decoration: const InputDecoration(
-                    labelText: 'Moisture',
-                    isDense: true,
-                  ),
-                  isDense: true,
-                  iconSize: 18,
-                  menuMaxHeight: 240,
-                  alignment: AlignmentDirectional.centerStart,
-                  style: theme.textTheme.bodySmall,
-                  items: MoistureLevel.values
-                      .map(
-                        (level) => DropdownMenuItem(
-                          value: level,
-                          child: Text(
-                            level.label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (level) => widget.onMetadataChanged(moisture: level),
+                child: _buildMoistureDropdown(
+                  context,
+                  value: widget.site.moisture,
+                  onChanged: (level) =>
+                      widget.onMetadataChanged(moisture: level),
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSoilDropdown(
+    BuildContext context, {
+    required SoilType value,
+    required ValueChanged<SoilType?> onChanged,
+  }) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 120, maxHeight: 56),
+      child: SizedBox(
+        height: 44,
+        child: DropdownButtonFormField<SoilType>(
+          value: value,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Soil',
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            border: OutlineInputBorder(),
+          ),
+          iconSize: 18,
+          menuMaxHeight: 240,
+          alignment: AlignmentDirectional.centerStart,
+          style: theme.textTheme.bodySmall,
+          items: SoilType.values
+              .map(
+                (soil) => DropdownMenuItem(
+                  value: soil,
+                  child: Text(
+                    _soilShortLabel(soil),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMoistureDropdown(
+    BuildContext context, {
+    required MoistureLevel value,
+    required ValueChanged<MoistureLevel?> onChanged,
+  }) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 120, maxHeight: 56),
+      child: SizedBox(
+        height: 44,
+        child: DropdownButtonFormField<MoistureLevel>(
+          value: value,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Moisture',
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            border: OutlineInputBorder(),
+          ),
+          iconSize: 18,
+          menuMaxHeight: 240,
+          alignment: AlignmentDirectional.centerStart,
+          style: theme.textTheme.bodySmall,
+          items: MoistureLevel.values
+              .map(
+                (level) => DropdownMenuItem(
+                  value: level,
+                  child: Text(
+                    level.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
+        ),
       ),
     );
   }
@@ -1438,5 +1481,21 @@ class TablePanelDebugFixture extends StatelessWidget {
       onShowHistory: (_, __) async {},
       onFocusChanged: (_, __) {},
     );
+  }
+
+}
+
+String _soilShortLabel(SoilType soil) {
+  switch (soil) {
+    case SoilType.unknown:
+      return 'Unknown';
+    case SoilType.clay:
+      return 'Clay';
+    case SoilType.sandy:
+      return 'Sandy';
+    case SoilType.gravelly:
+      return 'Gravel';
+    case SoilType.mixed:
+      return 'Mixed';
   }
 }
