@@ -10,6 +10,7 @@ const double kQaGreenResidualLimit = 0.05;
 const double kQaYellowResidualLimit = 0.15;
 const double kQaSpLimitMv = 5;
 const double kQaContactLimitOhm = 5000;
+const double _kQaEpsilon = 1e-6;
 
 class QaThresholds {
   const QaThresholds();
@@ -32,10 +33,11 @@ QaLevel classifyPoint({
   final spDrift = point.spDriftMv?.abs() ?? 0;
   final maxContact = point.contactRMax ?? 0;
 
-  final exceedsRedCv = cv >= kQaYellowCvLimit;
-  final exceedsRedResidual = absResidual >= kQaYellowResidualLimit;
-  final exceedsYellowCv = cv >= kQaGreenCvLimit;
-  final exceedsYellowResidual = absResidual >= kQaGreenResidualLimit;
+  final exceedsRedCv = cv >= (kQaYellowCvLimit - _kQaEpsilon);
+  final exceedsRedResidual = absResidual >= (kQaYellowResidualLimit - _kQaEpsilon);
+  final exceedsYellowCv = cv >= (kQaGreenCvLimit - _kQaEpsilon);
+  final exceedsYellowResidual =
+      absResidual >= (kQaGreenResidualLimit - _kQaEpsilon);
 
   if (exceedsRedCv || exceedsRedResidual || spDrift >= kQaSpLimitMv || maxContact >= kQaContactLimitOhm) {
     return QaLevel.red;
