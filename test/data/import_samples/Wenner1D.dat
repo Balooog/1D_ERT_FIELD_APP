@@ -1,0 +1,8 @@
+; Synthetic Wenner 1-D sounding (meters)
+Unit=meters
+a_m placeholder rho_ohm_m
+5.0 0.0 225.3
+10.0 0.0 312.6
+20.0 0.0 442.8
+40.0 0.0 612.4
+60.0 0.0 792.1

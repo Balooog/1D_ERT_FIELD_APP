@@ -525,6 +525,7 @@ class _ProjectShellState extends State<ProjectShell> {
         _autosave.flush();
       },
       onExport: _exportSite,
+      onImport: _showImportSheet,
       onNewSite: _addSite,
       onUndo: _undo,
       onRedo: _redo,
@@ -551,24 +552,56 @@ class _ProjectShellState extends State<ProjectShell> {
               tooltip: 'Export CSV & DAT',
               onPressed: _exportSite,
             ),
-            IconButton(
-              icon: const Icon(Icons.file_open),
-              tooltip: 'Import data',
-              onPressed: _showImportSheet,
-            ),
-            IconButton(
-              icon: const Icon(Icons.add_location_alt),
-              tooltip: 'New site',
-              onPressed: _addSite,
+            PopupMenuButton<String>(
+              tooltip: 'Add',
+              icon: const Icon(Icons.add),
+              onSelected: (value) {
+                switch (value) {
+                  case 'import':
+                    _showImportSheet();
+                    break;
+                  case 'new_site':
+                    _addSite();
+                    break;
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'import',
+                  child: Text('Import from file…'),
+                ),
+                PopupMenuItem(
+                  value: 'new_site',
+                  child: Text('New site'),
+                ),
+              ],
             ),
             const SizedBox(width: 8),
           ],
         ),
         body: site == null
             ? Center(
-                child: Text(
-                  'No sites yet. Add a site to begin collecting readings.',
-                  style: Theme.of(context).textTheme.titleMedium,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'No sites yet. Import existing data or add a new site to begin.',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.file_open),
+                      label: const Text('Import from file…'),
+                      onPressed: _showImportSheet,
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.add_location_alt),
+                      label: const Text('New site'),
+                      onPressed: _addSite,
+                    ),
+                  ],
                 ),
               )
             : Column(

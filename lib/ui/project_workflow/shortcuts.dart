@@ -10,6 +10,7 @@ class ProjectWorkflowShortcuts extends StatelessWidget {
     required this.onToggleLockAxes,
     required this.onSave,
     required this.onExport,
+    required this.onImport,
     required this.onNewSite,
     required this.onUndo,
     required this.onRedo,
@@ -22,6 +23,7 @@ class ProjectWorkflowShortcuts extends StatelessWidget {
   final VoidCallback onToggleLockAxes;
   final VoidCallback onSave;
   final VoidCallback onExport;
+  final VoidCallback onImport;
   final VoidCallback onNewSite;
   final VoidCallback onUndo;
   final VoidCallback onRedo;
@@ -40,6 +42,8 @@ class ProjectWorkflowShortcuts extends StatelessWidget {
             const _SaveIntent(),
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyE):
             const _ExportIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyI):
+            const _ImportIntent(),
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyZ):
             const _UndoIntent(),
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.keyZ):
@@ -69,6 +73,10 @@ class ProjectWorkflowShortcuts extends StatelessWidget {
           }),
           _ExportIntent: CallbackAction<_ExportIntent>(onInvoke: (_) {
             onExport();
+            return null;
+          }),
+          _ImportIntent: CallbackAction<_ImportIntent>(onInvoke: (_) {
+            onImport();
             return null;
           }),
           _NewSiteIntent: CallbackAction<_NewSiteIntent>(onInvoke: (_) {
@@ -112,6 +120,10 @@ class _SaveIntent extends Intent {
 
 class _ExportIntent extends Intent {
   const _ExportIntent();
+}
+
+class _ImportIntent extends Intent {
+  const _ImportIntent();
 }
 
 class _NewSiteIntent extends Intent {

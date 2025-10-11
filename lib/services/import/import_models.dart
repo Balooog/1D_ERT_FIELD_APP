@@ -68,11 +68,31 @@ class ImportTable {
     required this.headers,
     required this.rows,
     List<ImportRowIssue>? issues,
+    this.unitDirective,
   }) : issues = List.unmodifiable(issues ?? const []);
 
   final List<String> headers;
   final List<List<String>> rows;
   final List<ImportRowIssue> issues;
+  final String? unitDirective;
+}
+
+class ImportUnitDetection {
+  const ImportUnitDetection({
+    this.unit,
+    this.reason,
+    this.evidence = const [],
+    this.confidence = 0.0,
+    this.ambiguous = false,
+  });
+
+  final ImportDistanceUnit? unit;
+  final String? reason;
+  final List<String> evidence;
+  final double confidence;
+  final bool ambiguous;
+
+  bool get hasGuess => unit != null;
 }
 
 class ImportColumnDescriptor {
@@ -99,6 +119,7 @@ class ImportPreview {
     required this.previewRows,
     required this.columns,
     required this.issues,
+    required this.unitDetection,
   });
 
   final String typeLabel;
@@ -107,6 +128,7 @@ class ImportPreview {
   final List<List<String>> previewRows;
   final List<ImportColumnDescriptor> columns;
   final List<ImportRowIssue> issues;
+  final ImportUnitDetection unitDetection;
 }
 
 class ImportSession {

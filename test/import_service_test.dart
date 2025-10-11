@@ -15,6 +15,7 @@ Future<Uint8List> _loadBytes(String relativePath) async {
 Uint8List _buildSampleWorkbook() {
   final workbook = Excel.createExcel();
   final sheet = workbook['Sheet1'];
+  sheet.appendRow(const ['Unit=feet']);
   sheet.appendRow(const [
     'a_spacing_ft',
     'pins_in_ft',
@@ -39,52 +40,56 @@ void main() {
   final service = ImportService();
 
   group('ImportService', () {
-    test('parses CSV and validates mapping', () async {
-      final bytes = await _loadBytes('test/data/import_samples/resicheck_sample.csv');
+    test('parses Wenner CSV and detects meters', () async {
+      final bytes = await _loadBytes('test/data/import_samples/Wenner1D.csv');
       final session = await service.load(
-        ImportSource(name: 'resicheck_sample.csv', bytes: bytes),
+        ImportSource(name: 'Wenner1D.csv', bytes: bytes),
       );
+      expect(session.preview.unitDetection.unit, ImportDistanceUnit.meters);
       final mapping = service.autoMap(session.preview);
+      expect(mapping.distanceUnit, ImportDistanceUnit.meters);
       final validation = service.validate(session, mapping);
-      expect(validation.importedRows, 3);
-      expect(validation.spacings.first.spacingFeet, closeTo(5, 1e-6));
+      expect(validation.importedRows, 5);
+      expect(validation.spacings.first.spacingFeet, closeTo(16.404, 1e-3));
     });
 
-    test('parses tab-delimited TXT with metre units', () async {
-      final bytes = await _loadBytes('test/data/import_samples/resicheck_sample.txt');
+    test('parses Schlumberger CSV and keeps feet units', () async {
+      final bytes = await _loadBytes('test/data/import_samples/Schlum1D.csv');
       final session = await service.load(
-        ImportSource(name: 'resicheck_sample.txt', bytes: bytes),
+        ImportSource(name: 'Schlum1D.csv', bytes: bytes),
       );
-      final auto = service.autoMap(session.preview);
-      final mapping = ImportMapping(
-        assignments: auto.assignments,
-        distanceUnit: ImportDistanceUnit.meters,
-      );
+      expect(session.preview.unitDetection.unit, ImportDistanceUnit.feet);
+      final mapping = service.autoMap(session.preview);
+      expect(mapping.distanceUnit, ImportDistanceUnit.feet);
       final validation = service.validate(session, mapping);
-      expect(validation.importedRows, 3);
-      expect(validation.spacings.first.spacingFeet, closeTo(4.92126, 1e-5));
+      expect(validation.importedRows, 5);
+      expect(validation.spacings.first.spacingFeet, closeTo(10, 1e-6));
     });
 
-    test('parses Surfer DAT XYZ files', () async {
-      final bytes = await _loadBytes('test/data/import_samples/surfer_xyz_example.dat');
+    test('parses Surfer DAT with metadata rows', () async {
+      final bytes = await _loadBytes('test/data/import_samples/Wenner1D.dat');
       final session = await service.load(
-        ImportSource(name: 'surfer_xyz_example.dat', bytes: bytes),
+        ImportSource(name: 'Wenner1D.dat', bytes: bytes),
       );
+      expect(session.preview.columnCount, 3);
+      expect(session.preview.unitDetection.unit, ImportDistanceUnit.meters);
       final mapping = ImportMapping(assignments: {
         0: ImportColumnTarget.aSpacingFeet,
         2: ImportColumnTarget.resistanceNsOhm,
-      }, distanceUnit: ImportDistanceUnit.feet);
+      }, distanceUnit: ImportDistanceUnit.meters);
       final validation = service.validate(session, mapping);
-      expect(validation.importedRows, 3);
-      expect(validation.spacings.length, 3);
+      expect(validation.importedRows, 5);
+      expect(validation.spacings.length, 5);
     });
 
-    test('parses Excel workbooks', () async {
+    test('parses Excel workbooks with unit directives', () async {
       final bytes = _buildSampleWorkbook();
       final session = await service.load(
-        ImportSource(name: 'resicheck_sample.xlsx', bytes: bytes),
+        ImportSource(name: 'import_sample.xlsx', bytes: bytes),
       );
       final mapping = service.autoMap(session.preview);
+      expect(session.preview.unitDetection.unit, ImportDistanceUnit.feet);
+      expect(mapping.distanceUnit, ImportDistanceUnit.feet);
       final validation = service.validate(session, mapping);
       expect(validation.importedRows, 3);
       expect(validation.spacings.last.spacingFeet, closeTo(20, 1e-6));

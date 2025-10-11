@@ -209,7 +209,8 @@ class ImportService {
     }
     return ImportMapping(
       assignments: assignments,
-      distanceUnit: _inferUnit(preview.columns) ?? ImportDistanceUnit.feet,
+      distanceUnit:
+          preview.unitDetection.unit ?? ImportDistanceUnit.meters,
     );
   }
 
@@ -222,21 +223,6 @@ class ImportService {
       return _datAdapter;
     }
     return _csvAdapter;
-  }
-
-  ImportDistanceUnit? _inferUnit(List<ImportColumnDescriptor> columns) {
-    for (final column in columns) {
-      final header = column.header.toLowerCase();
-      if (header.contains('(m') || header.contains('meters') || header.contains('[m]') ||
-          header.endsWith(' m') || header.contains('_m')) {
-        return ImportDistanceUnit.meters;
-      }
-      if (header.contains('(ft') || header.contains('feet') || header.contains('[ft]') ||
-          header.endsWith(' ft') || header.contains('_ft')) {
-        return ImportDistanceUnit.feet;
-      }
-    }
-    return null;
   }
 
   ImportPreview _buildPreview(String fileName, ImportTable table) {
@@ -263,6 +249,7 @@ class ImportService {
     }
 
     final previewRows = table.rows.take(20).map((row) => row.take(table.headers.length).toList()).toList();
+    final detection = _detectUnits(fileName, table, columns);
     return ImportPreview(
       typeLabel: typeLabel,
       columnCount: table.headers.length,
@@ -270,6 +257,7 @@ class ImportService {
       previewRows: previewRows,
       columns: columns,
       issues: table.issues,
+      unitDetection: detection,
     );
   }
 
@@ -373,8 +361,7 @@ class ImportService {
     if (text.isEmpty) {
       return null;
     }
-    final normalized = text.replaceAll(RegExp(r'[^0-9eE+\-.]'), '');
-    return double.tryParse(normalized);
+    return double.tryParse(_normalizeNumeric(text));
   }
 
   bool _isMostlyNumeric(List<String> samples) {
@@ -387,7 +374,11 @@ class ImportService {
         numeric++;
       }
     }
-    return numeric >= math.max(1, samples.length ~/ 2);
+      return numeric >= math.max(1, samples.length ~/ 2);
+  }
+
+  String _normalizeNumeric(String text) {
+    return text.replaceAll(RegExp(r'[^0-9eE+\-.]'), '');
   }
 
   bool _checkPinsConsistency(
@@ -433,4 +424,177 @@ class ImportService {
           .copyWith(label: existing.orientationB.label),
     );
   }
+
+  ImportUnitDetection _detectUnits(
+    String fileName,
+    ImportTable table,
+    List<ImportColumnDescriptor> columns,
+  ) {
+    final signals = <_UnitSignal>[];
+    final evidence = <String>{};
+
+    void addSignal(ImportDistanceUnit unit, double confidence, String reason) {
+      signals.add(_UnitSignal(unit: unit, confidence: confidence, reason: reason));
+      evidence.add(reason);
+    }
+
+    final directive = table.unitDirective?.trim();
+    if (directive != null && directive.isNotEmpty) {
+      final unit = _unitFromText(directive);
+      if (unit != null) {
+        addSignal(unit, 1.0, 'Unit directive "$directive"');
+      }
+    }
+
+    for (final column in columns) {
+      final headerTokens = column.header
+          .toLowerCase()
+          .split(RegExp(r'[^a-z0-9]+'))
+        ..removeWhere((token) => token.isEmpty);
+      for (final token in headerTokens) {
+        final unit = _unitFromToken(token);
+        if (unit != null) {
+          addSignal(unit, 0.85,
+              'Header "${column.header}" suggests ${unit == ImportDistanceUnit.meters ? 'meters' : 'feet'}');
+          break;
+        }
+      }
+    }
+
+    for (final column in columns.where((c) => !c.isNumeric)) {
+      for (final sample in column.samples) {
+        final unit = _unitFromText(sample);
+        if (unit != null) {
+          addSignal(unit, 0.75,
+              'Sample "${sample.trim()}" hints at ${unit == ImportDistanceUnit.meters ? 'meters' : 'feet'}');
+          break;
+        }
+      }
+    }
+
+    final nameUnit = _unitFromFilename(fileName);
+    if (nameUnit != null) {
+      addSignal(nameUnit, 0.7,
+          'Filename suffix indicates ${nameUnit == ImportDistanceUnit.meters ? 'meters' : 'feet'}');
+    }
+
+    ImportColumnDescriptor? spacingColumn =
+        columns.byTarget(ImportColumnTarget.aSpacingFeet);
+    if (spacingColumn == null) {
+      for (final column in columns) {
+        if (column.isNumeric) {
+          spacingColumn = column;
+          break;
+        }
+      }
+    }
+    spacingColumn ??= columns.isEmpty ? null : columns.first;
+    if (spacingColumn != null) {
+      final values = <double>[];
+      for (final row in table.rows.take(80)) {
+        if (spacingColumn.index < row.length) {
+          final value = double.tryParse(_normalizeNumeric(row[spacingColumn.index]));
+          if (value != null && value.isFinite) {
+            values.add(value.abs());
+          }
+        }
+      }
+      if (values.isNotEmpty) {
+        values.sort();
+        final median = values[values.length ~/ 2];
+        final max = values.last;
+        if (median >= 0.1 && median <= 150 && max <= 200) {
+          addSignal(ImportDistanceUnit.meters, 0.55,
+              'Spacing median ${median.toStringAsFixed(1)} within meter range');
+        }
+        final multiplesOfFive = values
+            .where((value) {
+              if (value < 5) {
+                return false;
+              }
+              final quotient = value / 5;
+              return (quotient - quotient.round()).abs() < 0.08;
+            })
+            .length;
+        if (values.length >= 3 && multiplesOfFive >= (values.length * 0.6) && max >= 20) {
+          addSignal(ImportDistanceUnit.feet, 0.5,
+              'Spacing increments align with 5 ft multiples');
+        }
+      }
+    }
+
+    if (signals.isEmpty) {
+      return const ImportUnitDetection(ambiguous: true);
+    }
+
+    signals.sort((a, b) => b.confidence.compareTo(a.confidence));
+    final top = signals.first;
+    _UnitSignal? competitor;
+    for (final signal in signals.skip(1)) {
+      if (signal.unit != top.unit) {
+        competitor = signal;
+        break;
+      }
+    }
+    final ambiguous = top.confidence < 0.65 ||
+        (competitor != null && (top.confidence - competitor.confidence).abs() <= 0.15);
+    return ImportUnitDetection(
+      unit: top.unit,
+      reason: top.reason,
+      evidence: evidence.toList(growable: false),
+      confidence: top.confidence,
+      ambiguous: ambiguous,
+    );
+  }
+
+  ImportDistanceUnit? _unitFromFilename(String fileName) {
+    final normalized = fileName.toLowerCase();
+    final stem = normalized.replaceFirst(RegExp(r'\.[^.]+$'), '');
+    if (RegExp(r'(?:_|-)(m|meter|meters)$').hasMatch(stem)) {
+      return ImportDistanceUnit.meters;
+    }
+    if (RegExp(r'(?:_|-)(ft|feet|foot)$').hasMatch(stem)) {
+      return ImportDistanceUnit.feet;
+    }
+    return null;
+  }
+
+  ImportDistanceUnit? _unitFromToken(String token) {
+    if (token.isEmpty) {
+      return null;
+    }
+    if (token == 'm' || token == 'meters' || token == 'meter' || token == 'metres') {
+      return ImportDistanceUnit.meters;
+    }
+    if (token == 'ft' || token == 'feet' || token == 'foot') {
+      return ImportDistanceUnit.feet;
+    }
+    return null;
+  }
+
+  ImportDistanceUnit? _unitFromText(String text) {
+    final normalized = text.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    if (normalized.contains('meter') || normalized == 'm') {
+      return ImportDistanceUnit.meters;
+    }
+    if (normalized.contains('foot') || normalized.contains('feet') || normalized.contains('ft')) {
+      return ImportDistanceUnit.feet;
+    }
+    return null;
+  }
+}
+
+class _UnitSignal {
+  _UnitSignal({
+    required this.unit,
+    required this.confidence,
+    required this.reason,
+  });
+
+  final ImportDistanceUnit unit;
+  final double confidence;
+  final String reason;
 }

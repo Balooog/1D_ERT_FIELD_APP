@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/project.dart';
 import '../../models/site.dart';
@@ -39,6 +42,7 @@ class ImportSheet extends StatefulWidget {
 
 class _ImportSheetState extends State<ImportSheet> {
   final ImportService _service = ImportService();
+  static const _unitPreferenceKey = 'import.lastUnits';
   ImportSession? _session;
   ImportMapping? _mapping;
   ImportValidationResult? _validation;
@@ -50,6 +54,8 @@ class _ImportSheetState extends State<ImportSheet> {
   late final TextEditingController _displayNameController;
   String? _selectedMergeSiteId;
   bool _overwrite = false;
+  SharedPreferences? _prefs;
+  ImportDistanceUnit? _lastPreferredUnit;
 
   @override
   void initState() {
@@ -60,6 +66,7 @@ class _ImportSheetState extends State<ImportSheet> {
     _siteIdController = TextEditingController(text: defaultSiteId);
     _displayNameController = TextEditingController(text: defaultSiteId);
     _selectedMergeSiteId = widget.initialSiteId ?? widget.project.sites.firstOrNull?.siteId;
+    unawaited(_restoreUnitPreference());
   }
 
   @override
@@ -172,6 +179,7 @@ class _ImportSheetState extends State<ImportSheet> {
     ImportMapping mapping,
     ImportValidationResult? validation,
   ) {
+    final conversionBanner = _buildConversionBanner(mapping);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -188,13 +196,7 @@ class _ImportSheetState extends State<ImportSheet> {
                       value: mapping.distanceUnit,
                       onChanged: (value) {
                         if (value == null) return;
-                        setState(() {
-                          _mapping = ImportMapping(
-                            assignments: Map.of(mapping.assignments),
-                            distanceUnit: value,
-                          );
-                          _validation = null;
-                        });
+                        unawaited(_setMappingUnit(value));
                       },
                       items: [
                         for (final unit in ImportDistanceUnit.values)
@@ -234,6 +236,12 @@ class _ImportSheetState extends State<ImportSheet> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 12),
+                _buildUnitDetectionInfo(preview, mapping),
+                if (conversionBanner != null) ...[
+                  const SizedBox(height: 8),
+                  conversionBanner,
+                ],
                 const SizedBox(height: 16),
                 Expanded(
                   child: ListView.builder(
@@ -476,6 +484,161 @@ class _ImportSheetState extends State<ImportSheet> {
     );
   }
 
+  Future<void> _restoreUnitPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_unitPreferenceKey);
+    if (!mounted) {
+      _prefs = prefs;
+      _lastPreferredUnit = _decodeUnit(stored);
+      return;
+    }
+    setState(() {
+      _prefs = prefs;
+      _lastPreferredUnit = _decodeUnit(stored);
+    });
+  }
+
+  Future<void> _persistUnitPreference(ImportDistanceUnit unit) async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    await prefs.setString(_unitPreferenceKey, unit.name);
+    _prefs = prefs;
+  }
+
+  ImportDistanceUnit? _decodeUnit(String? raw) {
+    if (raw == null) {
+      return null;
+    }
+    for (final unit in ImportDistanceUnit.values) {
+      if (unit.name == raw) {
+        return unit;
+      }
+    }
+    return null;
+  }
+
+  ImportDistanceUnit _resolveInitialUnit(
+    ImportUnitDetection detection,
+    ImportDistanceUnit fallback,
+  ) {
+    if (detection.hasGuess && !detection.ambiguous) {
+      return detection.unit!;
+    }
+    final preferred = _lastPreferredUnit;
+    if (preferred != null) {
+      return preferred;
+    }
+    if (detection.hasGuess && detection.unit != null) {
+      return detection.unit!;
+    }
+    return fallback;
+  }
+
+  Future<void> _setMappingUnit(ImportDistanceUnit unit) async {
+    final mapping = _mapping;
+    if (mapping == null) {
+      return;
+    }
+    setState(() {
+      _mapping = ImportMapping(
+        assignments: Map.of(mapping.assignments),
+        distanceUnit: unit,
+      );
+      _validation = null;
+      _lastPreferredUnit = unit;
+    });
+    await _persistUnitPreference(unit);
+  }
+
+  Widget _buildUnitDetectionInfo(ImportPreview preview, ImportMapping mapping) {
+    final detection = preview.unitDetection;
+    final theme = Theme.of(context);
+    final headline = detection.hasGuess
+        ? detection.ambiguous
+            ? 'Guessed ${detection.unit!.label}. Confirm using the Units menu.'
+            : 'Detected ${detection.unit!.label}.'
+        : 'Units not detected. Defaulted to ${mapping.distanceUnit.label}.';
+    final bulletNotes = <String>[];
+    if (detection.reason != null && detection.reason!.isNotEmpty) {
+      bulletNotes.add(detection.reason!);
+    }
+    for (final note in detection.evidence) {
+      if (!bulletNotes.contains(note)) {
+        bulletNotes.add(note);
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                detection.ambiguous ? Icons.help_outline : Icons.straighten,
+                size: 18,
+                color: detection.ambiguous
+                    ? theme.colorScheme.tertiary
+                    : theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  headline,
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+            ],
+          ),
+          if (bulletNotes.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            for (final note in bulletNotes)
+              Padding(
+                padding: const EdgeInsets.only(left: 26, bottom: 2),
+                child: Text(
+                  '• $note',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildConversionBanner(ImportMapping mapping) {
+    if (mapping.distanceUnit != ImportDistanceUnit.meters) {
+      return null;
+    }
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.swap_horiz, color: theme.colorScheme.onSecondaryContainer),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'ResiCheck stores a-spacing in feet. Meter values will be converted automatically.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSecondaryContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _pickFile() async {
     setState(() {
       _loading = true;
@@ -511,9 +674,14 @@ class _ImportSheetState extends State<ImportSheet> {
       if (!mounted) {
         return;
       }
+      final auto = _service.autoMap(session.preview);
+      final resolvedUnit = _resolveInitialUnit(session.preview.unitDetection, auto.distanceUnit);
       setState(() {
         _session = session;
-        _mapping = _service.autoMap(session.preview);
+        _mapping = ImportMapping(
+          assignments: Map.of(auto.assignments),
+          distanceUnit: resolvedUnit,
+        );
         _validation = null;
         _loading = false;
       });

@@ -20,16 +20,42 @@ class CsvImportAdapter implements ImportAdapter {
       decoded = decoded.substring(1);
     }
 
-    final lines = decoded.split(RegExp(r'\r?\n'));
-    final delimiter = _detectDelimiter(lines);
+    final lines = decoded.split('\n');
+    final filteredLines = <String>[];
+    String? unitDirective;
+    for (final raw in lines) {
+      if (raw.isEmpty) {
+        continue;
+      }
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) {
+        continue;
+      }
+      if (trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith(';')) {
+        continue;
+      }
+      final lower = trimmed.toLowerCase();
+      if (lower.startsWith('unit=')) {
+        final equalsIndex = trimmed.indexOf('=');
+        unitDirective = equalsIndex >= 0 ? trimmed.substring(equalsIndex + 1).trim() : null;
+        continue;
+      }
+      filteredLines.add(raw.replaceAll('\r', ''));
+    }
+
+    if (filteredLines.isEmpty) {
+      return ImportTable(headers: const [], rows: const [], unitDirective: unitDirective);
+    }
+
+    final delimiter = _detectDelimiter(filteredLines);
     final converter = CsvToListConverter(
       fieldDelimiter: delimiter,
       eol: '\n',
       shouldParseNumbers: false,
     );
-    final rawRows = converter.convert(decoded);
+    final rawRows = converter.convert(filteredLines.join('\n'));
     if (rawRows.isEmpty) {
-      return ImportTable(headers: const [], rows: const []);
+      return ImportTable(headers: const [], rows: const [], unitDirective: unitDirective);
     }
 
     final normalized = rawRows
@@ -45,7 +71,7 @@ class CsvImportAdapter implements ImportAdapter {
       return row.any((cell) => cell.isNotEmpty);
     }).toList(growable: false);
 
-    return ImportTable(headers: header, rows: rows);
+    return ImportTable(headers: header, rows: rows, unitDirective: unitDirective);
   }
 
   String _detectDelimiter(List<String> lines) {

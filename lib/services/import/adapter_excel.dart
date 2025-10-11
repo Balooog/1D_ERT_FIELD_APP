@@ -24,6 +24,7 @@ class ExcelImportAdapter implements ImportAdapter {
     final issues = <ImportRowIssue>[];
     List<String>? header;
     final rows = <List<String>>[];
+    String? unitDirective;
 
     for (var i = 0; i < sheet.maxRows; i++) {
       final row = sheet.row(i);
@@ -32,6 +33,12 @@ class ExcelImportAdapter implements ImportAdapter {
           .toList();
       final hasData = values.any((value) => value.isNotEmpty);
       if (!hasData) {
+        continue;
+      }
+      final firstLower = values.first.toLowerCase();
+      if (firstLower.startsWith('unit=')) {
+        final equalsIndex = values.first.indexOf('=');
+        unitDirective = equalsIndex >= 0 ? values.first.substring(equalsIndex + 1).trim() : null;
         continue;
       }
       if (header == null) {
@@ -51,6 +58,6 @@ class ExcelImportAdapter implements ImportAdapter {
     }
 
     header ??= const [];
-    return ImportTable(headers: header, rows: rows, issues: issues);
+    return ImportTable(headers: header, rows: rows, issues: issues, unitDirective: unitDirective);
   }
 }
