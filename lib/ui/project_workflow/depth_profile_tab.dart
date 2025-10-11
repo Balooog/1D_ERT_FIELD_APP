@@ -20,20 +20,6 @@ class DepthProfileTab extends StatefulWidget {
 }
 
 class _DepthProfileTabState extends State<DepthProfileTab> {
-  late final ScrollController _scrollController;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController = ScrollController();
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final steps = _depthSteps();
@@ -56,26 +42,38 @@ class _DepthProfileTabState extends State<DepthProfileTab> {
     final message =
         'Depth cue: $trend toward ${formatCompactValue(depthValue)} $depthUnitLabel (~${formatMetersTooltip(deepest.depthMeters)} m, ≈${formatCompactValue(deepest.rho)} Ω·m).';
 
-    return Card(
-      margin: const EdgeInsets.all(12),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              message,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${steps.length} spacing${steps.length == 1 ? '' : 's'} informing cue',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            _buildDepthTable(context, steps),
-          ],
+    return SizedBox(
+      height: 160,
+      child: Card(
+        margin: const EdgeInsets.all(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${steps.length} spacing${steps.length == 1 ? '' : 's'} informing cue',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(
+                  child: _buildDepthTable(
+                    context,
+                    steps,
+                    unitLabel: depthUnitLabel,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -103,70 +101,95 @@ class _DepthProfileTabState extends State<DepthProfileTab> {
     return steps;
   }
 
-  Widget _buildDepthTable(BuildContext context, List<_DepthStep> steps) {
-    final unitLabel = widget.distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
+  Widget _buildDepthTable(
+    BuildContext context,
+    List<_DepthStep> steps, {
+    required String unitLabel,
+  }) {
+    const maxVisibleRows = 4;
     final theme = Theme.of(context);
-    final dataTable = DataTable(
-      headingRowHeight: 32,
-      dataRowMinHeight: 32,
-      dataRowMaxHeight: 36,
-      headingTextStyle: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
-      dataTextStyle: theme.textTheme.bodySmall?.copyWith(
-        fontFeatures: const [FontFeature.tabularFigures()],
-      ),
-      columnSpacing: 24,
-      horizontalMargin: 12,
-      columns: [
-        DataColumn(
-          label: SizedBox(
-            height: 32,
-            child: Center(child: Text('Depth ($unitLabel)')),
-          ),
-        ),
-        const DataColumn(
-          label: SizedBox(
-            height: 32,
-            child: Center(child: Text('ρa (Ω·m)')),
-          ),
-        ),
-      ],
-      rows: [
-        for (final step in steps)
-          DataRow(
-            cells: [
-              DataCell(
-                Center(
-                  child: Text(
-                    formatCompactValue(
-                        widget.distanceUnit.fromMeters(step.depthMeters)),
+    final visibleSteps = steps.take(maxVisibleRows).toList();
+    final hiddenCount = steps.length - visibleSteps.length;
+    final headerStyle =
+        theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600);
+    final valueStyle = theme.textTheme.bodySmall?.copyWith(
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildDepthHeaderRow(unitLabel, headerStyle),
+        const Divider(height: 12),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final step in visibleSteps)
+              _buildDepthDataRow(
+                depthLabel: formatCompactValue(
+                    widget.distanceUnit.fromMeters(step.depthMeters)),
+                rhoLabel: formatCompactValue(step.rho),
+                style: valueStyle,
+              ),
+            if (hiddenCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '+$hiddenCount more spacing${hiddenCount == 1 ? '' : 's'}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.outline,
                   ),
                 ),
               ),
-              DataCell(
-                Center(
-                  child: Text(formatCompactValue(step.rho)),
-                ),
-              ),
-            ],
-          ),
+          ],
+        ),
       ],
     );
+  }
 
-    final rowHeight = 36.0;
-    final totalHeight = 32.0 + steps.length * rowHeight;
-    if (totalHeight <= 160) {
-      return dataTable;
-    }
+  Widget _buildDepthHeaderRow(String unitLabel, TextStyle? style) {
     return SizedBox(
-      height: 160,
-      child: Scrollbar(
-        controller: _scrollController,
-        thumbVisibility: true,
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          primary: false,
-          child: dataTable,
-        ),
+      height: 32,
+      child: Row(
+        children: [
+          Expanded(
+            child: Center(
+              child: Text('Depth ($unitLabel)', style: style),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Center(
+              child: Text('ρa (Ω·m)', style: style),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDepthDataRow({
+    required String depthLabel,
+    required String rhoLabel,
+    TextStyle? style,
+  }) {
+    return SizedBox(
+      height: 32,
+      child: Row(
+        children: [
+          Expanded(
+            child: Center(
+              child: Text(depthLabel, style: style),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Center(
+              child: Text(rhoLabel, style: style),
+            ),
+          ),
+        ],
       ),
     );
   }
