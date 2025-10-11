@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import '../models/calc.dart';
+import '../models/calc.dart' as calc;
 import '../models/inversion_model.dart';
 import '../models/site.dart';
 import '../models/spacing_point.dart';
-import '../utils/units.dart';
+import '../utils/units.dart' as units;
 
 class OneDInversionResult {
   OneDInversionResult({
@@ -55,7 +55,8 @@ class TwoLayerInversionResult {
   final double? thicknessM;
   final DateTime solvedAt;
 
-  double? get thicknessFeet => thicknessM == null ? null : metersToFeet(thicknessM!);
+  double? get thicknessFeet =>
+      thicknessM == null ? null : units.metersToFeet(thicknessM!).toDouble();
 
   double get maxDepthMeters {
     final candidates = <double>[];
@@ -234,7 +235,8 @@ OneDInversionResult _runLayeredInversion({
   required double maxThick,
   required double regLambda,
 }) {
-  final layerCount = math.max(1, math.min(maxLayers, aggregated.length));
+  final int layerCount =
+      math.max(1, math.min(maxLayers, aggregated.length)).toInt();
   final baseDepths = _estimateLayerBoundaries(
     aggregated,
     layerCount: layerCount,
@@ -269,7 +271,7 @@ OneDInversionResult _runLayeredInversion({
         final top = splitIndex == 0 ? 0.0 : baseAttempt.depths[splitIndex - 1];
         final bottom = baseAttempt.depths[splitIndex];
         final depthSamples = aggregated
-            .map((m) => feetToMeters(m.spacingFt * 0.5))
+            .map((m) => units.feetToMeters(m.spacingFt * 0.5).toDouble())
             .where((depth) => depth > top && depth < bottom)
             .toList()
           ..sort();
@@ -465,8 +467,8 @@ OneDInversionResult _fallbackResult(List<_AggregatedMeasurement> aggregated) {
   final resistivities = <double>[];
   final fit = <double>[];
   for (final measurement in aggregated) {
-    final depth = feetToMeters(measurement.spacingFt * 0.5);
-    depths.add(depth);
+    final depth = units.feetToMeters(measurement.spacingFt * 0.5);
+    depths.add(depth.toDouble());
     resistivities.add(measurement.rho);
     fit.add(measurement.rho);
   }
@@ -605,7 +607,8 @@ _InversionAttempt _segmentalApproximation({
 
   if (!bestScore.isFinite) {
     final depths = aggregated
-        .map((m) => feetToMeters(m.spacingFt * 0.5))
+        .map((m) => units.feetToMeters(m.spacingFt * 0.5))
+        .map((value) => value.toDouble())
         .toList();
     final resistivities = aggregated.map((m) {
       var logValue = math.log(m.rho.clamp(minRho, maxRho));
@@ -646,12 +649,12 @@ _InversionAttempt _segmentalApproximation({
     final rho = math.exp(boundedLog).clamp(minRho, maxRho).toDouble();
     resistivities.add(rho);
     final depthIndex = math.max(0, finish - 1);
-    final depth = feetToMeters(aggregated[depthIndex].spacingFt * 0.5);
-    depths.add(depth);
+    final depth = units.feetToMeters(aggregated[depthIndex].spacingFt * 0.5);
+    depths.add(depth.toDouble());
   }
 
   final guard = math.max(minThick, 0.25);
-  final maxDepthAvailable = feetToMeters(aggregated.last.spacingFt * 0.5);
+  final maxDepthAvailable = units.feetToMeters(aggregated.last.spacingFt * 0.5).toDouble();
   var previousDepth = 0.0;
   for (var i = 0; i < depths.length; i++) {
     var depth = depths[i];
@@ -739,7 +742,7 @@ List<_AggregatedMeasurement> _aggregateMeasurements({
     result.add(
       _AggregatedMeasurement(
         spacingFt: entry.spacingFt,
-        spacingMeters: feetToMeters(entry.spacingFt),
+        spacingMeters: units.feetToMeters(entry.spacingFt).toDouble(),
         rho: clamped,
       ),
     );
@@ -759,7 +762,7 @@ List<double> _estimateLayerBoundaries(
   }
   final guard = math.max(minThick, 0.25);
   final depthSamples = aggregated
-      .map((m) => feetToMeters(m.spacingFt * 0.5))
+      .map((m) => units.feetToMeters(m.spacingFt * 0.5).toDouble())
       .toList()
     ..sort();
   final maxDepthAvailable =
@@ -829,7 +832,7 @@ List<double> _estimateLayerResistivities(
     final bottom = depths[i];
     final logsInLayer = <double>[];
     for (final measurement in aggregated) {
-      final depth = feetToMeters(measurement.spacingFt * 0.5);
+      final depth = units.feetToMeters(measurement.spacingFt * 0.5).toDouble();
       final isLastLayer = i == depths.length - 1;
       final withinLayer =
           isLastLayer ? depth >= top : (depth >= top && depth < bottom);
@@ -1085,11 +1088,11 @@ _SiteInversionInput _aggregateSiteForInversion(SiteRecord site) {
     }
     double? rhoA;
     if (hasA) {
-      rhoA = rhoAWenner(spacing.spacingFeet, aSample!.resistanceOhm!);
+      rhoA = calc.rhoAWenner(spacing.spacingFeet, aSample!.resistanceOhm!);
     }
     double? rhoB;
     if (hasB) {
-      rhoB = rhoAWenner(spacing.spacingFeet, bSample!.resistanceOhm!);
+      rhoB = calc.rhoAWenner(spacing.spacingFeet, bSample!.resistanceOhm!);
     }
     final values = <double>[if (rhoA != null) rhoA, if (rhoB != null) rhoB];
     if (values.isEmpty) {
@@ -1100,7 +1103,7 @@ _SiteInversionInput _aggregateSiteForInversion(SiteRecord site) {
     rhoNs.add(rhoA ?? average);
     rhoWe.add(rhoB ?? average);
     observed.add(average);
-    depths.add(feetToMeters(spacing.spacingFeet * 0.5));
+    depths.add(units.feetToMeters(spacing.spacingFeet * 0.5).toDouble());
   }
   return _SiteInversionInput(
     spacingFeet: spacingFeet,

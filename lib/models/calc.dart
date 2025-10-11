@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import '../utils/units.dart';
+
 class QcConfig {
   const QcConfig({
     this.outlierCapOhm = 100000,
@@ -13,10 +15,6 @@ class QcConfig {
   final double anisotropyRatioThreshold;
   final double jumpThresholdLog10;
 }
-
-double feetToMeters(double feet) => feet * 0.3048;
-
-double metersToFeet(double meters) => meters / 0.3048;
 
 double rhoAWenner(double spacingFeet, double resistanceOhm) {
   final spacingMeters = feetToMeters(spacingFeet);

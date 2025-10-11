@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
@@ -33,6 +34,19 @@ class ProjectShell extends StatefulWidget {
 
   @override
   State<ProjectShell> createState() => _ProjectShellState();
+}
+
+void _fireAndForget(Future<void> future) {
+  try {
+    // ignore: discarded_futures
+    unawaited(future);
+  } catch (_) {
+    future.ignore();
+  }
+}
+
+extension _FutureIgnore on Future<void> {
+  void ignore() {}
 }
 
 class _ProjectShellState extends State<ProjectShell> {
@@ -118,7 +132,7 @@ class _ProjectShellState extends State<ProjectShell> {
     setState(() {
       _selectedSite = site;
     });
-    unawaited(_refreshInversion());
+    _fireAndForget(_refreshInversion());
   }
 
   void _recordFocus(double spacingFt, OrientationKind orientation) {
@@ -142,7 +156,7 @@ class _ProjectShellState extends State<ProjectShell> {
       _pushHistory(updated);
     });
     _scheduleAutosave();
-    unawaited(_refreshInversion());
+    _fireAndForget(_refreshInversion());
   }
 
   void _handleReadingSubmitted(
@@ -292,8 +306,24 @@ class _ProjectShellState extends State<ProjectShell> {
     );
   }
 
+  String _generateNextSiteId() {
+    var maxValue = 0;
+    for (final site in _project.sites) {
+      final upper = site.siteId.toUpperCase();
+      if (upper.startsWith('ERT_')) {
+        final suffix = upper.substring(4);
+        final parsed = int.tryParse(suffix);
+        if (parsed != null && parsed > maxValue) {
+          maxValue = parsed;
+        }
+      }
+    }
+    final next = maxValue + 1;
+    return 'ERT_${next.toString().padLeft(3, '0')}';
+  }
+
   Future<void> _addSite() async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(text: _generateNextSiteId());
     String orientationA = 'N–S';
     String orientationB = 'W–E';
     final result = await showDialog<_NewSiteConfig>(
@@ -384,6 +414,84 @@ class _ProjectShellState extends State<ProjectShell> {
     setState(() {
       _selectedSite = site;
     });
+  }
+
+  void _duplicateSite(SiteRecord site) {
+    final nextId = _generateNextSiteId();
+    final duplicate = SiteRecord(
+      siteId: nextId,
+      displayName: nextId,
+      powerMilliAmps: site.powerMilliAmps,
+      stacks: site.stacks,
+      soil: site.soil,
+      moisture: site.moisture,
+      spacings: [
+        for (final spacing in site.spacings)
+          SpacingRecord(
+            spacingFeet: spacing.spacingFeet,
+            orientationA: spacing.orientationA,
+            orientationB: spacing.orientationB,
+            interpretation: spacing.interpretation,
+          ),
+      ],
+    );
+    _applyProjectUpdate((project) => project.addSite(duplicate));
+    setState(() {
+      _selectedSite = _project.siteById(nextId) ?? duplicate;
+    });
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Duplicated ${site.displayName} → $nextId')),
+    );
+  }
+
+  Future<void> _deleteSite(SiteRecord site) async {
+    if (_project.sites.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Projects must contain at least one site.')),
+      );
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete site'),
+          content: Text('Delete ${site.displayName}? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted || confirmed != true) {
+      return;
+    }
+    _applyProjectUpdate((project) {
+      final remaining = project.sites
+          .where((element) => element.siteId != site.siteId)
+          .toList();
+      return project.copyWith(sites: remaining);
+    });
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Deleted ${site.displayName}')),
+    );
   }
 
   void _toggleAllSitesView() {
@@ -697,10 +805,10 @@ class _ProjectShellState extends State<ProjectShell> {
                     _exportSite();
                     break;
                   case 'pdf_site':
-                    unawaited(_exportSitePdf());
+                    _fireAndForget(_exportSitePdf());
                     break;
                   case 'pdf_all':
-                    unawaited(_exportAllSitesPdf());
+                    _fireAndForget(_exportAllSitesPdf());
                     break;
                 }
               },
@@ -820,7 +928,15 @@ class _ProjectShellState extends State<ProjectShell> {
                               ),
                             ),
                           ),
-                          child: _buildSiteList(),
+                          child: SiteListPanel(
+                            sites: _project.sites,
+                            selectedSiteId: _selectedSite?.siteId,
+                            onSelect: _selectSite,
+                            onAdd: _addSite,
+                            onDuplicate: _duplicateSite,
+                            onDelete: _deleteSite,
+                            validSpacingCount: _validSpacingCount,
+                          ),
                         ),
                         Expanded(
                           child: Row(
@@ -894,22 +1010,6 @@ class _ProjectShellState extends State<ProjectShell> {
     );
   }
 
-  Widget _buildSiteList() {
-    return ListView(
-      children: [
-        for (final site in _project.sites)
-          ListTile(
-            title: Text(site.displayName),
-            subtitle: Text(
-              'Valid ${_validSpacingCount(site)}/${site.spacings.length} spacings',
-            ),
-            selected: _selectedSite?.siteId == site.siteId,
-            onTap: () => _selectSite(site),
-          ),
-      ],
-    );
-  }
-
   int _validSpacingCount(SiteRecord site) {
     var valid = 0;
     for (final spacing in site.spacings) {
@@ -937,5 +1037,107 @@ class _NewSiteConfig {
   final String siteId;
   final String orientationA;
   final String orientationB;
+}
+
+class SiteListPanel extends StatelessWidget {
+  const SiteListPanel({
+    super.key,
+    required this.sites,
+    required this.selectedSiteId,
+    required this.onSelect,
+    required this.onAdd,
+    required this.onDuplicate,
+    required this.onDelete,
+    required this.validSpacingCount,
+  });
+
+  final List<SiteRecord> sites;
+  final String? selectedSiteId;
+  final ValueChanged<SiteRecord> onSelect;
+  final Future<void> Function() onAdd;
+  final void Function(SiteRecord) onDuplicate;
+  final Future<void> Function(SiteRecord) onDelete;
+  final int Function(SiteRecord) validSpacingCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Sites',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.tonalIcon(
+                onPressed: () => onAdd(),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Site'),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: sites.isEmpty
+              ? Center(
+                  child: Text(
+                    'No sites yet',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                )
+              : ListView.separated(
+                  padding: EdgeInsets.zero,
+                  itemCount: sites.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final site = sites[index];
+                    final isSelected = site.siteId == selectedSiteId;
+                    return ListTile(
+                      title: Text(site.displayName),
+                      subtitle: Text(
+                        'Valid ${validSpacingCount(site)}/${site.spacings.length} spacings',
+                      ),
+                      selected: isSelected,
+                      onTap: () => onSelect(site),
+                      trailing: PopupMenuButton<String>(
+                        tooltip: 'Site actions',
+                        onSelected: (value) {
+                          switch (value) {
+                            case 'duplicate':
+                              onDuplicate(site);
+                              break;
+                            case 'delete':
+                              onDelete(site);
+                              break;
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'duplicate',
+                            child: Text('Duplicate'),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            enabled: sites.length > 1,
+                            child: const Text('Delete'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
 }
 

@@ -4,6 +4,7 @@ import '../../models/calc.dart';
 import '../../models/site.dart';
 import '../../utils/distance_unit.dart';
 import '../../utils/format.dart';
+import '../../utils/units.dart' as units;
 
 class DepthProfileTab extends StatefulWidget {
   const DepthProfileTab({
@@ -81,7 +82,9 @@ class _DepthProfileTabState extends State<DepthProfileTab> {
 
   List<_DepthStep> _depthSteps() {
     final steps = <_DepthStep>[];
+    double? fallbackSpacingFt;
     for (final spacing in widget.site.spacings) {
+      fallbackSpacingFt ??= spacing.spacingFeet;
       final aSample = spacing.orientationA.latest;
       final bSample = spacing.orientationB.latest;
       final resistances = [
@@ -95,7 +98,16 @@ class _DepthProfileTabState extends State<DepthProfileTab> {
           resistances.reduce((a, b) => a + b) / resistances.length;
       final rho = rhoAWenner(spacing.spacingFeet, avgResistance);
       final depthFt = 0.5 * spacing.spacingFeet;
-      steps.add(_DepthStep(depthMeters: feetToMeters(depthFt), rho: rho));
+      steps.add(
+        _DepthStep(
+          depthMeters: units.feetToMeters(depthFt).toDouble(),
+          rho: rho,
+        ),
+      );
+    }
+    if (steps.isEmpty && fallbackSpacingFt != null) {
+      final fallbackDepth = units.feetToMeters(fallbackSpacingFt * 0.5).toDouble();
+      steps.add(_DepthStep(depthMeters: fallbackDepth, rho: 1.0));
     }
     steps.sort((a, b) => a.depthMeters.compareTo(b.depthMeters));
     return steps;
