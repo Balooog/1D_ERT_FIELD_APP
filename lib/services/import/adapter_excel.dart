@@ -17,9 +17,6 @@ class ExcelImportAdapter implements ImportAdapter {
       sheet = excel.tables[source.explicitSheet];
     }
     sheet ??= excel.tables.values.first;
-    if (sheet == null) {
-      return ImportTable(headers: const [], rows: const []);
-    }
 
     final issues = <ImportRowIssue>[];
     List<String>? header;

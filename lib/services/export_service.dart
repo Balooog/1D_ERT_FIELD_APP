@@ -56,7 +56,7 @@ class ExportService {
       rows.add(_rowForSpacing(site, spacing, spacing.orientationB));
     }
 
-    final converter = const ListToCsvConverter();
+    const converter = ListToCsvConverter();
     final csv = converter.convert(rows);
     final file = await storageService.ensureExportFile(
       project,
