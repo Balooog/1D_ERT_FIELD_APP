@@ -46,6 +46,10 @@ void main() {
         ImportSource(name: 'Wenner1D.csv', bytes: bytes),
       );
       expect(session.preview.unitDetection.unit, ImportDistanceUnit.meters);
+      expect(
+        session.preview.unitDetection.reason?.toLowerCase(),
+        contains('header'),
+      );
       final mapping = service.autoMap(session.preview);
       expect(mapping.assignments.length, 5);
       expect(mapping.distanceUnit, ImportDistanceUnit.meters);
@@ -60,6 +64,10 @@ void main() {
         ImportSource(name: 'Schlum1D.csv', bytes: bytes),
       );
       expect(session.preview.unitDetection.unit, ImportDistanceUnit.feet);
+      expect(
+        session.preview.unitDetection.reason?.toLowerCase(),
+        anyOf(contains('filename'), contains('directive')),
+      );
       final mapping = service.autoMap(session.preview);
       expect(mapping.distanceUnit, ImportDistanceUnit.feet);
       final validation = service.validate(session, mapping);

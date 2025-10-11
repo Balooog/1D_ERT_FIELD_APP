@@ -35,13 +35,16 @@ class CsvImportAdapter implements ImportAdapter {
         continue;
       }
       final lower = trimmed.toLowerCase();
+      final isComment =
+          trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith(';');
       if (!headerFound) {
         if (lower.startsWith('unit=')) {
           final equalsIndex = trimmed.indexOf('=');
-          unitDirective = equalsIndex >= 0 ? trimmed.substring(equalsIndex + 1).trim() : null;
+          unitDirective =
+              equalsIndex >= 0 ? trimmed.substring(equalsIndex + 1).trim() : null;
           continue;
         }
-        if (trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith(';')) {
+        if (isComment) {
           continue;
         }
         if (sanitized.codeUnitAt(0) == 0xFEFF) {
@@ -51,7 +54,12 @@ class CsvImportAdapter implements ImportAdapter {
         headerFound = true;
         continue;
       }
-      if (trimmed.startsWith('#') || trimmed.startsWith('//') || trimmed.startsWith(';')) {
+      if (isComment || lower.startsWith('unit=')) {
+        if (lower.startsWith('unit=') && unitDirective == null) {
+          final equalsIndex = trimmed.indexOf('=');
+          unitDirective =
+              equalsIndex >= 0 ? trimmed.substring(equalsIndex + 1).trim() : null;
+        }
         continue;
       }
       filteredLines.add(sanitized);
@@ -78,14 +86,82 @@ class CsvImportAdapter implements ImportAdapter {
               .map((value) => value?.toString().trim() ?? '')
               .toList(growable: false),
         )
+        .where((row) => row.any((cell) => cell.isNotEmpty))
         .toList(growable: false);
 
-    final header = normalized.first;
-    final rows = normalized.skip(1).where((row) {
-      return row.any((cell) => cell.isNotEmpty);
-    }).toList(growable: false);
+    if (normalized.isEmpty) {
+      return ImportTable(headers: const [], rows: const [], unitDirective: unitDirective);
+    }
 
-    return ImportTable(headers: header, rows: rows, unitDirective: unitDirective);
+    final headerResult = _normalizeHeaderRow(normalized.first);
+    if (headerResult.isLikelyDataRow) {
+      final inferredHeaders = List<String>.generate(
+        normalized.first.length,
+        (index) => 'column_${index + 1}',
+      );
+      final rows = normalized
+          .map((row) => row.take(inferredHeaders.length).toList(growable: false))
+          .toList(growable: false);
+      return ImportTable(headers: inferredHeaders, rows: rows, unitDirective: unitDirective);
+    }
+
+    final dataRows = <List<String>>[];
+    for (final row in normalized.skip(1)) {
+      if (headerResult.activeIndices.isEmpty) {
+        continue;
+      }
+      final projected = <String>[];
+      for (final index in headerResult.activeIndices) {
+        projected.add(index < row.length ? row[index] : '');
+      }
+      if (projected.any((cell) => cell.isNotEmpty)) {
+        dataRows.add(projected);
+      }
+    }
+
+    return ImportTable(
+      headers: headerResult.headers,
+      rows: dataRows,
+      unitDirective: unitDirective,
+    );
+  }
+
+  _HeaderNormalizationResult _normalizeHeaderRow(List<String> headerRow) {
+    final activeIndices = <int>[];
+    final normalizedHeaders = <String>[];
+    var numericCount = 0;
+    for (var i = 0; i < headerRow.length; i++) {
+      final raw = headerRow[i].trim();
+      final normalized = _normalizeHeaderToken(raw);
+      if (normalized.isEmpty && raw.isEmpty) {
+        continue;
+      }
+      activeIndices.add(i);
+      final candidate = normalized.isEmpty ? 'column_${activeIndices.length}' : normalized;
+      normalizedHeaders.add(_dedupeHeader(candidate, normalizedHeaders));
+      if (_looksNumeric(raw)) {
+        numericCount++;
+      }
+    }
+
+    final isLikelyDataRow =
+        activeIndices.isEmpty || numericCount >= activeIndices.length;
+    return _HeaderNormalizationResult(
+      headers: normalizedHeaders,
+      activeIndices: activeIndices,
+      isLikelyDataRow: isLikelyDataRow,
+    );
+  }
+
+  String _dedupeHeader(String candidate, List<String> existing) {
+    if (!existing.contains(candidate)) {
+      return candidate;
+    }
+    var suffix = 2;
+    while (existing.contains('${candidate}_$suffix')) {
+      suffix++;
+    }
+    return '${candidate}_$suffix';
   }
 
   String _detectDelimiter(List<String> lines) {
@@ -131,6 +207,41 @@ class _DelimiterScore {
 
   final double mean;
   final double variance;
+}
+
+class _HeaderNormalizationResult {
+  _HeaderNormalizationResult({
+    required this.headers,
+    required this.activeIndices,
+    required this.isLikelyDataRow,
+  });
+
+  final List<String> headers;
+  final List<int> activeIndices;
+  final bool isLikelyDataRow;
+}
+
+String _normalizeHeaderToken(String value) {
+  if (value.isEmpty) {
+    return '';
+  }
+  final snake = value
+      .trim()
+      .replaceAll(RegExp(r'[\s\-]+'), '_')
+      .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '')
+      .replaceAll(RegExp(r'_+'), '_');
+  return snake.toLowerCase();
+}
+
+bool _looksNumeric(String value) {
+  if (value.isEmpty) {
+    return false;
+  }
+  final normalized = value.replaceAll(RegExp(r'[^0-9eE+\-.]'), '');
+  if (normalized.isEmpty) {
+    return false;
+  }
+  return double.tryParse(normalized) != null;
 }
 
 double _mean(List<int> values) {
