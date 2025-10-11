@@ -13,11 +13,17 @@ class TelemetryPanel extends StatelessWidget {
       padding: const EdgeInsets.all(12.0),
       child: Row(
         children: [
-          Expanded(child: _TelemetryCard(title: 'Current (A)', samples: state.current)),
+          Expanded(
+              child:
+                  _TelemetryCard(title: 'Current (A)', samples: state.current)),
           const SizedBox(width: 8),
-          Expanded(child: _TelemetryCard(title: 'Potential (V)', samples: state.voltage)),
+          Expanded(
+              child: _TelemetryCard(
+                  title: 'Potential (V)', samples: state.voltage)),
           const SizedBox(width: 8),
-          Expanded(child: _TelemetryCard(title: 'SP Drift (mV)', samples: state.spDrift)),
+          Expanded(
+              child: _TelemetryCard(
+                  title: 'SP Drift (mV)', samples: state.spDrift)),
         ],
       ),
     );
@@ -32,7 +38,8 @@ class _TelemetryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final latest = samples.isEmpty ? '—' : samples.last.value.toStringAsFixed(2);
+    final latest =
+        samples.isEmpty ? '—' : samples.last.value.toStringAsFixed(2);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12.0),
@@ -45,7 +52,8 @@ class _TelemetryCard extends StatelessWidget {
             SizedBox(
               height: 32,
               child: CustomPaint(
-                painter: _SparklinePainter(samples.map((e) => e.value).toList()),
+                painter:
+                    _SparklinePainter(samples.map((e) => e.value).toList()),
                 size: Size.infinite,
               ),
             ),
@@ -67,7 +75,8 @@ class _SparklinePainter extends CustomPainter {
       final paint = Paint()
         ..color = Colors.grey
         ..strokeWidth = 1.0;
-      canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), paint);
+      canvas.drawLine(Offset(0, size.height / 2),
+          Offset(size.width, size.height / 2), paint);
       return;
     }
     final minVal = values.reduce((a, b) => a < b ? a : b);

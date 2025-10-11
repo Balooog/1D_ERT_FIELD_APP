@@ -71,8 +71,9 @@ class SoundingChart extends StatelessWidget {
       }
       final level = classifyPoint(
         residual: residual ?? 0,
-        coefficientOfVariation:
-            p.sigmaRhoOhmM == null || p.rhoAppOhmM == 0 ? null : (p.sigmaRhoOhmM! / p.rhoAppOhmM),
+        coefficientOfVariation: p.sigmaRhoOhmM == null || p.rhoAppOhmM == 0
+            ? null
+            : (p.sigmaRhoOhmM! / p.rhoAppOhmM),
         point: p,
       );
       colors.add(_qaColor(level));
@@ -184,8 +185,10 @@ class SoundingChart extends StatelessWidget {
                 },
               ),
             ),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           ),
           lineBarsData: lineBars,
           gridData: FlGridData(
@@ -193,21 +196,26 @@ class SoundingChart extends StatelessWidget {
             drawVerticalLine: true,
             drawHorizontalLine: true,
             verticalInterval: bottomTicks.length > 1
-                ? (bottomTicks.last - bottomTicks.first) / (bottomTicks.length - 1)
+                ? (bottomTicks.last - bottomTicks.first) /
+                    (bottomTicks.length - 1)
                 : null,
             horizontalInterval: leftTicks.length > 1
                 ? (leftTicks.last - leftTicks.first) / (leftTicks.length - 1)
                 : null,
-            getDrawingVerticalLine: (_) => FlLine(color: gridColor, strokeWidth: 0.5),
-            getDrawingHorizontalLine: (_) => FlLine(color: gridColor, strokeWidth: 0.5),
+            getDrawingVerticalLine: (_) =>
+                FlLine(color: gridColor, strokeWidth: 0.5),
+            getDrawingHorizontalLine: (_) =>
+                FlLine(color: gridColor, strokeWidth: 0.5),
           ),
           lineTouchData: LineTouchData(
             handleBuiltInTouches: true,
             touchTooltipData: LineTouchTooltipData(
               getTooltipItems: (touchedSpots) {
                 const textStyle = TextStyle(color: Colors.white, fontSize: 11);
-                final unitSuffix = distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
-                return List<LineTooltipItem>.generate(touchedSpots.length, (index) {
+                final unitSuffix =
+                    distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
+                return List<LineTooltipItem>.generate(touchedSpots.length,
+                    (index) {
                   final spot = touchedSpots[index];
                   final spacingMetersValue = math.pow(10, spot.x).toDouble();
                   final rhoValueLinear = math.pow(10, spot.y).toDouble();
@@ -222,8 +230,10 @@ class SoundingChart extends StatelessWidget {
                     );
                   }
 
-                  final spacingLabel = distanceUnit.formatSpacing(spacingMetersValue);
-                  final labelPrefix = spot.barIndex < pointsBarIndex ? 'Model' : 'Band';
+                  final spacingLabel =
+                      distanceUnit.formatSpacing(spacingMetersValue);
+                  final labelPrefix =
+                      spot.barIndex < pointsBarIndex ? 'Model' : 'Band';
                   return LineTooltipItem(
                     '$labelPrefix • a: $spacingLabel $unitSuffix\nρₐ: ${rhoValueLinear.toStringAsFixed(2)} Ω·m',
                     textStyle,

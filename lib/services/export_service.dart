@@ -215,7 +215,8 @@ class ExportService {
           '${_formatSpacing(entry.distanceUnit, result.thicknessM!.toDouble())} ${_unitLabel(entry.distanceUnit)}',
           PdfColors.blueGrey600,
         ),
-      _summaryChip('RMS', '${(result.rms * 100).toStringAsFixed(1)} %', PdfColors.indigo),
+      _summaryChip('RMS', '${(result.rms * 100).toStringAsFixed(1)} %',
+          PdfColors.indigo),
     ];
     return pw.Wrap(
       spacing: 12,
@@ -352,7 +353,8 @@ class ExportService {
     return value.toStringAsFixed(2);
   }
 
-  String _unitLabel(DistanceUnit unit) => unit == DistanceUnit.feet ? 'ft' : 'm';
+  String _unitLabel(DistanceUnit unit) =>
+      unit == DistanceUnit.feet ? 'ft' : 'm';
 
   PdfColor _mixColors(PdfColor a, PdfColor b, double t) {
     final clamped = t.clamp(0, 1);
@@ -363,7 +365,8 @@ class ExportService {
     );
   }
 
-  Future<void> _writeExportLog(ProjectRecord project, List<String> lines) async {
+  Future<void> _writeExportLog(
+      ProjectRecord project, List<String> lines) async {
     final directory = Directory('logs');
     if (!await directory.exists()) {
       await directory.create(recursive: true);

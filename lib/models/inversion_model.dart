@@ -50,14 +50,17 @@ class InversionModel {
       };
 
   factory InversionModel.fromJson(Map<String, dynamic> json) => InversionModel(
-        layers:
-            (json['layers'] as List).map((e) => Layer.fromJson(e as Map<String, dynamic>)).toList(),
+        layers: (json['layers'] as List)
+            .map((e) => Layer.fromJson(e as Map<String, dynamic>))
+            .toList(),
         rmsPct: (json['rmsPct'] as num).toDouble(),
         chiSq: (json['chiSq'] as num).toDouble(),
-        predictedRho:
-            (json['predictedRho'] as List).map((e) => (e as num).toDouble()).toList(),
-        oneSigmaBand:
-            (json['oneSigmaBand'] as List).map((e) => (e as num).toDouble()).toList(),
+        predictedRho: (json['predictedRho'] as List)
+            .map((e) => (e as num).toDouble())
+            .toList(),
+        oneSigmaBand: (json['oneSigmaBand'] as List)
+            .map((e) => (e as num).toDouble())
+            .toList(),
       );
 
   static const empty = InversionModel(

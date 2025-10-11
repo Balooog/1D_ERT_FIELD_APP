@@ -30,7 +30,8 @@ void main() {
 }
 
 SiteRecord _buildSite() {
-  DirectionReadingHistory history(OrientationKind orientation, double resistance) {
+  DirectionReadingHistory history(
+      OrientationKind orientation, double resistance) {
     return DirectionReadingHistory(
       orientation: orientation,
       label: orientation == OrientationKind.a ? 'N–S' : 'W–E',

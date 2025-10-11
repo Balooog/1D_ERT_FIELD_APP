@@ -11,7 +11,8 @@ void main() {
     final spacingsFeet = spacingsMeters.map(metersToFeet).toList();
     final resistivities = <double>[30, 120, 400];
     final thicknesses = <double?>[2.5, 6.0, null];
-    final synthetic = _forwardSynthetic(spacingsMeters, resistivities, thicknesses);
+    final synthetic =
+        _forwardSynthetic(spacingsMeters, resistivities, thicknesses);
 
     final result = await invert1DWenner(
       aFt: spacingsFeet,
@@ -30,7 +31,8 @@ void main() {
     for (var i = 0; i < 2; i++) {
       final expectedThick = thicknesses[i]!;
       final actualThick = recoveredThicknesses[i]!;
-      final thicknessError = (actualThick - expectedThick).abs() / expectedThick;
+      final thicknessError =
+          (actualThick - expectedThick).abs() / expectedThick;
       // Layer thickness recovery fluctuates by architecture. Empirically the
       // Windows release can stray by ~45%, so we keep the guardrail below 50%
       // while still detecting pathological regressions.
@@ -70,7 +72,8 @@ List<double> _forwardSynthetic(
       final top = cumulativeDepth;
       final bottom = cumulativeDepth + thickness;
       final weight = math.exp(
-        -(depth - (top + bottom) / 2).abs() / math.max((bottom - top) / 2, 1e-3),
+        -(depth - (top + bottom) / 2).abs() /
+            math.max((bottom - top) / 2, 1e-3),
       );
       numerator += resistivities[i] * weight;
       weightSum += weight;

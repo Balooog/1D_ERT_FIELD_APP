@@ -1,0 +1,229 @@
+Analyzing resicheck...
+
+   info - lib/models/project_models.dart:111:9 - Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this.dirA') to initialize the field. - prefer_initializing_formals
+   info - lib/models/project_models.dart:112:9 - Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this.dirB') to initialize the field. - prefer_initializing_formals
+   info - lib/models/site.dart:53:9 - Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this.orientationA') to initialize the field. - prefer_initializing_formals
+   info - lib/models/site.dart:54:9 - Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this.orientationB') to initialize the field. - prefer_initializing_formals
+   info - lib/services/export_service.dart:187:18 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - lib/services/import/adapter_csv.dart:23:5 - Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const'. - prefer_const_declarations
+   info - lib/services/inversion.dart:1295:5 - Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const'. - prefer_const_declarations
+   info - lib/services/persistence.dart:43:5 - Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const'. - prefer_const_declarations
+   info - lib/services/storage_service.dart:102:24 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - lib/state/providers.dart:149:5 - Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const'. - prefer_const_declarations
+   info - lib/ui/import/import_sheet.dart:445:11 - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib/ui/import/import_sheet.dart:446:11 - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib/ui/import/import_sheet.dart:469:11 - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib/ui/import/import_sheet.dart:470:11 - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib/ui/import/import_sheet.dart:479:17 - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib/ui/import/widgets/column_map_row.dart:59:15 - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib/ui/project_workflow/depth_cue_summary.dart:2:8 - The import of 'dart:ui' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart'. Try removing the import directive. - unnecessary_import
+   info - lib/ui/project_workflow/home_page.dart:55:7 - Don't use 'BuildContext's across async gaps. Try rewriting the code to not use the 'BuildContext', or guard the use with a 'mounted' check. - use_build_context_synchronously
+   info - lib/ui/project_workflow/inversion_summary_panel.dart:1:8 - The import of 'dart:ui' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart'. Try removing the import directive. - unnecessary_import
+   info - lib/ui/project_workflow/plots_panel.dart:158:29 - Unnecessary use of string interpolation. Try replacing the string literal with the variable name. - unnecessary_string_interpolations
+   info - lib/ui/project_workflow/plots_panel.dart:171:19 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - lib/ui/project_workflow/plots_panel.dart:220:26 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - lib/ui/project_workflow/plots_panel.dart:483:9 - Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const'. - prefer_const_declarations
+   info - lib/ui/project_workflow/plots_panel.dart:859:5 - Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const'. - prefer_const_declarations
+   info - lib/ui/project_workflow/project_shell.dart:56:16 - The private field _distanceUnit could be 'final'. Try making the field 'final'. - prefer_final_fields
+   info - lib/ui/project_workflow/right_detail_panel.dart:103:19 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - lib/ui/project_workflow/table_panel.dart:247:5 - Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const'. - prefer_const_declarations
+   info - lib/ui/project_workflow/table_panel.dart:1076:11 - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib/ui/project_workflow/table_panel.dart:1117:11 - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+   info - lib/ui/screens/home_screen.dart:1127:29 - Use interpolation to compose strings and values. Try using string interpolation to build the composite string. - prefer_interpolation_to_compose_strings
+   info - test/csv_io_test.dart:60:5 - Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const'. - prefer_const_declarations
+   info - test/plots_panel_sort_test.dart:50:7 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - test/plots_panel_sort_test.dart:51:7 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - test/plots_panel_sort_test.dart:52:7 - Use 'const' with the constructor to improve performance. Try adding the 'const' keyword to the constructor invocation. - prefer_const_constructors
+   info - test/qc_rules_test.dart:12:3 - Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const'. - prefer_const_declarations
+   info - test/state/project_controller_test.dart:46:11 - The local variable '_sampleProject' starts with an underscore. Try renaming the variable to not start with an underscore. - no_leading_underscores_for_local_identifiers
+
+36 issues found.
+00:00 +0: loading /home/axb/code/resicheck/test/inversion_test.dart                                                                                                                                    00:01 +0: loading /home/axb/code/resicheck/test/inversion_test.dart                                                                                                                                    00:02 +0: loading /home/axb/code/resicheck/test/inversion_test.dart                                                                                                                                    00:02 +0: /home/axb/code/resicheck/test/inversion_test.dart: invert1DWenner recovers synthetic three-layer model                                                                                       00:02 +0 -1: /home/axb/code/resicheck/test/inversion_test.dart: invert1DWenner recovers synthetic three-layer model [E]                                                                                
+  Expected: a value less than <0.4>
+    Actual: <1.8280478786391456>
+     Which: is not a value less than <0.4>
+  resistivity layer 1
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test/inversion_test.dart 50:7                       main.<fn>
+  
+
+To run this test again: /home/axb/flutter/bin/cache/dart-sdk/bin/dart test /home/axb/code/resicheck/test/inversion_test.dart -p vm --plain-name 'invert1DWenner recovers synthetic three-layer model'
+00:02 +0 -1: loading /home/axb/code/resicheck/test/csv_io_test.dart                                                                                                                                    00:02 +0 -1: /home/axb/code/resicheck/test/csv_io_test.dart: CSV roundtrip preserves feet, rho, sigma, and direction                                                                                   00:02 +1 -1: /home/axb/code/resicheck/test/csv_io_test.dart: CSV roundtrip preserves feet, rho, sigma, and direction                                                                                   00:02 +1 -1: /home/axb/code/resicheck/test/csv_io_test.dart: Legacy CSV import derives missing rho and feet from spacing_m and V/I                                                                     00:02 +2 -1: /home/axb/code/resicheck/test/csv_io_test.dart: Legacy CSV import derives missing rho and feet from spacing_m and V/I                                                                     00:02 +2 -1: /home/axb/code/resicheck/test/csv_io_test.dart: Direction enum round-trips through CSV                                                                                                    00:02 +3 -1: /home/axb/code/resicheck/test/csv_io_test.dart: Direction enum round-trips through CSV                                                                                                    00:02 +3 -1: loading /home/axb/code/resicheck/test/qc/qc_controller_test.dart                                                                                                                          00:02 +3 -1: /home/axb/code/resicheck/test/qc/qc_controller_test.dart: QC counts all points green for perfect fit                                                                                      00:02 +4 -1: /home/axb/code/resicheck/test/qc/qc_controller_test.dart: QC counts all points green for perfect fit                                                                                      00:02 +4 -1: /home/axb/code/resicheck/test/qc/qc_controller_test.dart: Excluded points are ignored in stats                                                                                            00:02 +5 -1: /home/axb/code/resicheck/test/qc/qc_controller_test.dart: Excluded points are ignored in stats                                                                                            00:02 +5 -1: /home/axb/code/resicheck/test/qc/qc_controller_test.dart: Large deviation classified as red                                                                                               00:02 +6 -1: /home/axb/code/resicheck/test/qc/qc_controller_test.dart: Large deviation classified as red                                                                                               00:03 +6 -1: /home/axb/code/resicheck/test/qc/qc_controller_test.dart: Large deviation classified as red                                                                                               00:03 +6 -1: loading /home/axb/code/resicheck/test/depth_cue_test.dart                                                                                                                                 00:03 +6 -1: /home/axb/code/resicheck/test/depth_cue_test.dart: depth table uses 0.5·a and averages valid resistivity                                                                                  00:03 +7 -1: /home/axb/code/resicheck/test/depth_cue_test.dart: depth table uses 0.5·a and averages valid resistivity                                                                                  00:03 +8 -1: /home/axb/code/resicheck/test/depth_cue_test.dart: depth table uses 0.5·a and averages valid resistivity                                                                                  00:03 +9 -1: /home/axb/code/resicheck/test/depth_cue_test.dart: depth table uses 0.5·a and averages valid resistivity                                                                                  00:04 +9 -1: /home/axb/code/resicheck/test/depth_cue_test.dart: depth table uses 0.5·a and averages valid resistivity                                                                                  00:04 +9 -1: /home/axb/code/resicheck/test/depth_cue_test.dart: depth table uses 0.5·a and averages valid resistivity                                                                                  
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: non-empty
+  Actual: []
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/axb/code/resicheck/test/depth_cue_test.dart:23:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1059:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/axb/code/resicheck/test/depth_cue_test.dart line 23
+The test description was:
+  depth table uses 0.5·a and averages valid resistivity
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:04 +9 -2: /home/axb/code/resicheck/test/depth_cue_test.dart: depth table uses 0.5·a and averages valid resistivity [E]                                                                              
+  Test failed. See exception logs above.
+  The test description was: depth table uses 0.5·a and averages valid resistivity
+  
+
+To run this test again: /home/axb/flutter/bin/cache/dart-sdk/bin/dart test /home/axb/code/resicheck/test/depth_cue_test.dart -p vm --plain-name 'depth table uses 0.5·a and averages valid resistivity'
+00:04 +9 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                                00:04 +10 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +11 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +12 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +13 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +14 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +15 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +16 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +17 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +18 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +19 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +20 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +21 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:04 +21 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               
+Failed to seed sample project: MissingPluginException(No implementation found for method getApplicationDocumentsDirectory on channel plugins.flutter.io/path_provider)
+#0      MethodChannel._invokeMethod (package:flutter/src/services/platform_channel.dart:365:7)
+<asynchronous suspension>
+#1      getApplicationDocumentsDirectory (package:path_provider/path_provider.dart:121:24)
+<asynchronous suspension>
+#2      ProjectStorageService._ensureRoot (package:resicheck/services/storage_service.dart:35:18)
+<asynchronous suspension>
+#3      ProjectStorageService.ensureSampleProject (package:resicheck/services/storage_service.dart:62:20)
+<asynchronous suspension>
+#4      _ProjectWorkflowHomePageState._loadProjects (package:resicheck/ui/project_workflow/home_page.dart:37:5)
+<asynchronous suspension>
+#5      _FutureBuilderState._subscribe.<anonymous closure> (package:flutter/src/widgets/async.dart:641:7)
+<asynchronous suspension>
+
+00:05 +22 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:05 +23 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:05 +24 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:05 +25 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:05 +26 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:05 +27 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:05 +28 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:05 +29 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:06 +29 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:06 +30 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               00:06 +30 -2: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action                                                                                               
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following assertion was thrown running a test:
+pumpAndSettle timed out
+
+When the exception was thrown, this was the stack:
+#0      WidgetTester.pumpAndSettle.<anonymous closure> (package:flutter_test/src/widget_tester.dart:717:11)
+<asynchronous suspension>
+#1      TestAsyncUtils.guard.<anonymous closure> (package:flutter_test/src/test_async_utils.dart:130:27)
+<asynchronous suspension>
+#2      main.<anonymous closure> (file:///home/axb/code/resicheck/test/widget_test.dart:13:5)
+<asynchronous suspension>
+#3      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#4      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1059:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+The test description was:
+  ResiCheck boots and shows Add Point action
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:06 +30 -3: /home/axb/code/resicheck/test/widget_test.dart: ResiCheck boots and shows Add Point action [E]                                                                                           
+  Test failed. See exception logs above.
+  The test description was: ResiCheck boots and shows Add Point action
+  
+
+To run this test again: /home/axb/flutter/bin/cache/dart-sdk/bin/dart test /home/axb/code/resicheck/test/widget_test.dart -p vm --plain-name 'ResiCheck boots and shows Add Point action'
+00:06 +30 -3: /home/axb/code/resicheck/test/plots_panel_sort_test.dart: ghost and template series render in ascending spacing order                                                                    00:06 +30 -4: /home/axb/code/resicheck/test/import_service_test.dart: ImportService parses Wenner CSV and detects meters [E]                                                                           
+  Expected: contains ImportColumnTarget:<ImportColumnTarget.units>
+    Actual: _CompactValuesIterable<ImportColumnTarget>:[
+              ImportColumnTarget:ImportColumnTarget.pinsInsideFeet,
+              ImportColumnTarget:ImportColumnTarget.pinsOutsideFeet,
+              ImportColumnTarget:ImportColumnTarget.resistanceNsOhm,
+              ImportColumnTarget:ImportColumnTarget.resistanceWeOhm,
+              ImportColumnTarget:ImportColumnTarget.sdNsPercent,
+              ImportColumnTarget:ImportColumnTarget.sdWePercent
+            ]
+     Which: does not contain ImportColumnTarget:<ImportColumnTarget.units>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test/import_service_test.dart 55:7                  main.<fn>.<fn>
+  
+
+To run this test again: /home/axb/flutter/bin/cache/dart-sdk/bin/dart test /home/axb/code/resicheck/test/import_service_test.dart -p vm --plain-name 'ImportService parses Wenner CSV and detects meters'
+00:06 +31 -4: /home/axb/code/resicheck/test/plots_panel_sort_test.dart: ghost and template series render in ascending spacing order                                                                    00:06 +32 -4: /home/axb/code/resicheck/test/plots_panel_sort_test.dart: ghost and template series render in ascending spacing order                                                                    00:07 +32 -4: /home/axb/code/resicheck/test/plots_panel_sort_test.dart: ghost and template series render in ascending spacing order                                                                    00:07 +33 -4: /home/axb/code/resicheck/test/plots_panel_sort_test.dart: ghost and template series render in ascending spacing order                                                                    00:07 +34 -4: /home/axb/code/resicheck/test/plots_panel_sort_test.dart: ghost and template series render in ascending spacing order                                                                    00:07 +35 -4: /home/axb/code/resicheck/test/plots_panel_sort_test.dart: ghost and template series render in ascending spacing order                                                                    00:07 +36 -4: /home/axb/code/resicheck/test/plots_panel_sort_test.dart: ghost and template series render in ascending spacing order                                                                    00:07 +37 -4: /home/axb/code/resicheck/test/plots_panel_sort_test.dart: ghost and template series render in ascending spacing order                                                                    00:07 +37 -4: loading /home/axb/code/resicheck/test/spacing_point_test.dart                                                                                                                            00:07 +37 -4: /home/axb/code/resicheck/test/spacing_point_test.dart: feet to meters conversion                                                                                                         00:07 +38 -4: /home/axb/code/resicheck/test/spacing_point_test.dart: feet to meters conversion                                                                                                         00:07 +38 -4: /home/axb/code/resicheck/test/spacing_point_test.dart: Derived resistance matches Wenner geometry from rho input                                                                         00:07 +39 -4: /home/axb/code/resicheck/test/spacing_point_test.dart: Derived resistance matches Wenner geometry from rho input                                                                         00:07 +39 -4: /home/axb/code/resicheck/test/spacing_point_test.dart: Sigma rho propagates from resistance sigma                                                                                        00:07 +40 -4: /home/axb/code/resicheck/test/spacing_point_test.dart: Sigma rho propagates from resistance sigma                                                                                        00:07 +40 -4: /home/axb/code/resicheck/test/spacing_point_test.dart: Rho QA diff percent reflects V/I derived resistivity                                                                              00:07 +41 -4: /home/axb/code/resicheck/test/spacing_point_test.dart: Rho QA diff percent reflects V/I derived resistivity                                                                              00:07 +41 -4: loading /home/axb/code/resicheck/test/points_table_test.dart                                                                                                                             00:07 +41 -4: /home/axb/code/resicheck/test/points_table_test.dart: TablePanel focus traversal tab order follows N–S long→short then W–E short→long                                                    00:08 +41 -4: /home/axb/code/resicheck/test/points_table_test.dart: TablePanel focus traversal tab order follows N–S long→short then W–E short→long                                                    00:08 +42 -4: /home/axb/code/resicheck/test/points_table_layout_test.dart: TablePanel builds in narrow width without overflow                                                                          00:08 +43 -4: /home/axb/code/resicheck/test/points_table_layout_test.dart: TablePanel builds in narrow width without overflow                                                                          00:08 +43 -4: /home/axb/code/resicheck/test/points_table_layout_test.dart: TablePanel builds in narrow width without overflow                                                                          
+══╡ EXCEPTION CAUGHT BY RENDERING LIBRARY ╞═════════════════════════════════════════════════════════
+The following assertion was thrown during layout:
+A RenderFlex overflowed by 8.0 pixels on the bottom.
+
+The relevant error-causing widget was:
+  Column Column:file:///home/axb/code/resicheck/lib/ui/project_workflow/table_panel.dart:704:14
+
+The overflowing RenderFlex has an orientation of Axis.vertical.
+The edge of the RenderFlex that is overflowing has been marked in the rendering with a yellow and
+black striped pattern. This is usually caused by the contents being too big for the RenderFlex.
+Consider applying a flex factor (e.g. using an Expanded widget) to force the children of the
+RenderFlex to fit within the available space instead of being sized to their natural size.
+This is considered an error condition because it indicates that there is content that cannot be
+seen. If the content is legitimately bigger than the available space, consider clipping it with a
+ClipRect widget before putting it in the flex, or using a scrollable container rather than a Flex,
+like a ListView.
+The specific RenderFlex in question is: RenderFlex#0c64f relayoutBoundary=up44 OVERFLOWING:
+  creator: Column ← Center ← SizedBox ← ConstrainedBox ← DropdownButtonHideUnderline ←
+    DefaultTextStyle ← Align ← Padding ← ConstrainedBox ← Container ← Semantics ← _TableCell ← ⋯
+  parentData: offset=Offset(0.0, 0.0) (can use size)
+  constraints: BoxConstraints(0.0<=w<=120.0, 0.0<=h<=68.0)
+  size: Size(120.0, 68.0)
+  direction: vertical
+  mainAxisAlignment: start
+  mainAxisSize: min
+  crossAxisAlignment: center
+  verticalDirection: down
+  spacing: 0.0
+◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY RENDERING LIBRARY ╞═════════════════════════════════════════════════════════
+The following assertion was thrown during layout:
+A RenderFlex overflowed by 8.0 pixels on the bottom.
+
+The relevant error-causing widget was:
+  Column Column:file:///home/axb/code/resicheck/lib/ui/project_workflow/table_panel.dart:704:14
+
+The overflowing RenderFlex has an orientation of Axis.vertical.
+The edge of the RenderFlex that is overflowing has been marked in the rendering with a yellow and
+black striped pattern. This is usually caused by the contents being too big for the RenderFlex.
+Consider applying a flex factor (e.g. using an Expanded widget) to force the children of the
+RenderFlex to fit within the available space instead of being sized to their natural size.
+This is considered an error condition because it indicates that there is content that cannot be
+seen. If the content is legitimately bigger than the available space, consider clipping it with a
+ClipRect widget before putting it in the flex, or using a scrollable container rather than a Flex,
+like a ListView.
+The specific RenderFlex in question is: RenderFlex#25578 relayoutBoundary=up44 OVERFLOWING:
+  creator: Column ← Center ← SizedBox ← ConstrainedBox ← DropdownButtonHideUnderline ←
+    DefaultTextStyle ← Align ← Padding ← ConstrainedBox ← Container ← Semantics ← _TableCell ← ⋯
+  parentData: offset=Offset(0.0, 0.0) (can use size)
+  constraints: BoxConstraints(0.0<=w<=120.0, 0.0<=h<=68.0)
+  size: Size(120.0, 68.0)
+  direction: vertical
+  mainAxisAlignment: start
+  mainAxisSize: min
+  crossAxisAlignment: center
+  verticalDirection: down
+  spacing: 0.0
+◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤◢◤
+════════════════════════════════════════════════════════════════════════════════════════════════════
+══╡ EXCEPTION CAUGHT BY FLUTTER TEST FRAMEWORK ╞════════════════════════════════════════════════════
+The following TestFailure was thrown running a test:
+Expected: null
+  Actual: 'Multiple exceptions (2) were detected during the running of the current test, and at
+least one was unexpected.'
+
+When the exception was thrown, this was the stack:
+#4      main.<anonymous closure> (file:///home/axb/code/resicheck/test/points_table_layout_test.dart:20:5)
+<asynchronous suspension>
+#5      testWidgets.<anonymous closure>.<anonymous closure> (package:flutter_test/src/widget_tester.dart:192:15)
+<asynchronous suspension>
+#6      TestWidgetsFlutterBinding._runTestBody (package:flutter_test/src/binding.dart:1059:5)
+<asynchronous suspension>
+<asynchronous suspension>
+(elided one frame from package:stack_trace)
+
+This was caught by the test expectation on the following line:
+  file:///home/axb/code/resicheck/test/points_table_layout_test.dart line 20
+The test description was:
+  TablePanel builds in narrow width without overflow
+════════════════════════════════════════════════════════════════════════════════════════════════════
+00:09 +43 -5: /home/axb/code/resicheck/test/points_table_layout_test.dart: TablePanel builds in narrow width without overflow [E]                                                                      
+  Test failed. See exception logs above.
+  The test description was: TablePanel builds in narrow width without overflow
+  
+
+To run this test again: /home/axb/flutter/bin/cache/dart-sdk/bin/dart test /home/axb/code/resicheck/test/points_table_layout_test.dart -p vm --plain-name 'TablePanel builds in narrow width without overflow'
+00:09 +43 -5: Some tests failed.                                                                                                                                                                       

@@ -27,7 +27,7 @@ void main() {
     );
 
     final lineChart = tester.widget<LineChart>(find.byType(LineChart));
-    final data = lineChart.data as LineChartData;
+    final LineChartData data = lineChart.data;
     expect(data.lineBarsData.length, greaterThanOrEqualTo(3));
 
     final northSeries = data.lineBarsData[0];
@@ -40,19 +40,19 @@ void main() {
     expect(averageSeries.dashArray, equals(const [6, 6]));
     expect(averageSeries.dotData.show, isTrue);
 
-    final circlePainter = northSeries.dotData.getDotPainter!(
+    final circlePainter = northSeries.dotData.getDotPainter(
       northSeries.spots.first,
       0,
       northSeries,
       0,
     );
-    final squarePainter = eastSeries.dotData.getDotPainter!(
+    final squarePainter = eastSeries.dotData.getDotPainter(
       eastSeries.spots.first,
       0,
       eastSeries,
       0,
     );
-    final trianglePainter = averageSeries.dotData.getDotPainter!(
+    final trianglePainter = averageSeries.dotData.getDotPainter(
       averageSeries.spots.first,
       0,
       averageSeries,
@@ -60,7 +60,8 @@ void main() {
     );
     expect(circlePainter, isA<FlDotCirclePainter>());
     expect(squarePainter, isA<FlDotSquarePainter>());
-    expect(trianglePainter.runtimeType.toString(), equals('_TriangleDotPainter'));
+    expect(
+        trianglePainter.runtimeType.toString(), equals('_TriangleDotPainter'));
 
     expect(find.text('N–S'), findsOneWidget);
     expect(find.text('W–E'), findsOneWidget);

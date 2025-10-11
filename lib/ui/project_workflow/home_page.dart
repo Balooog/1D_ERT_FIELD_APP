@@ -13,7 +13,8 @@ class ProjectWorkflowHomePage extends StatefulWidget {
   const ProjectWorkflowHomePage({super.key});
 
   @override
-  State<ProjectWorkflowHomePage> createState() => _ProjectWorkflowHomePageState();
+  State<ProjectWorkflowHomePage> createState() =>
+      _ProjectWorkflowHomePageState();
 }
 
 class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
@@ -110,8 +111,8 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
   Widget build(BuildContext context) {
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.keyI, control: true):
-            () => unawaited(_startImport()),
+        const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
+            unawaited(_startImport()),
       },
       child: Focus(
         autofocus: true,
@@ -207,7 +208,8 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
     if (!mounted) return;
     if (record == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open project ${summary.projectName}')),
+        SnackBar(
+            content: Text('Failed to open project ${summary.projectName}')),
       );
       return;
     }

@@ -115,8 +115,8 @@ class PlotsPanel extends StatelessWidget {
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
             tooltipBgColor: theme.colorScheme.surface.withValues(
-                  alpha: (0.9 * 255).round().toDouble(),
-                ),
+              alpha: (0.9 * 255).round().toDouble(),
+            ),
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
                 final spacing = math.pow(10, spot.x);
@@ -163,10 +163,13 @@ class PlotsPanel extends StatelessWidget {
               child: Text('ρa (Ω·m)'),
             ),
           ),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        gridData: FlGridData(show: true, drawVerticalLine: true, drawHorizontalLine: true),
+        gridData: FlGridData(
+            show: true, drawVerticalLine: true, drawHorizontalLine: true),
         borderData: FlBorderData(show: true),
         lineBarsData: [
           if (data.aSeries.isNotEmpty)
@@ -370,7 +373,11 @@ SeriesData buildSeriesForSite(SiteRecord site, {required bool showOutliers}) {
 }
 
 class _AxisRanges {
-  _AxisRanges({required this.minX, required this.maxX, required this.minY, required this.maxY});
+  _AxisRanges(
+      {required this.minX,
+      required this.maxX,
+      required this.minY,
+      required this.maxY});
 
   final double minX;
   final double maxX;
@@ -402,7 +409,8 @@ class _LegendEntry extends StatelessWidget {
           width: 18,
           height: 10,
           child: CustomPaint(
-            painter: _LegendLinePainter(color: color, dashed: dashed, marker: marker),
+            painter: _LegendLinePainter(
+                color: color, dashed: dashed, marker: marker),
           ),
         ),
         const SizedBox(width: 6),
@@ -708,8 +716,10 @@ class InversionPlotPanel extends StatelessWidget {
             border: Border.all(color: theme.colorScheme.outlineVariant),
           ),
           titlesData: FlTitlesData(
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            topTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles:
+                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               axisNameWidget: const Padding(
                 padding: EdgeInsets.only(top: 8.0),
@@ -776,11 +786,13 @@ class InversionPlotPanel extends StatelessWidget {
                   top: 12,
                   right: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.surface.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: theme.colorScheme.outlineVariant),
+                      border:
+                          Border.all(color: theme.colorScheme.outlineVariant),
                     ),
                     child: Text(
                       'RMS ${(summary.rms * 100).toStringAsFixed(1)}%',
@@ -820,7 +832,8 @@ class InversionPlotPanel extends StatelessWidget {
                   ),
                 _SummaryChip(
                   label: 'Solved',
-                  value: '${summary.solvedAt.hour.toString().padLeft(2, '0')}:${summary.solvedAt.minute.toString().padLeft(2, '0')}',
+                  value:
+                      '${summary.solvedAt.hour.toString().padLeft(2, '0')}:${summary.solvedAt.minute.toString().padLeft(2, '0')}',
                   color: theme.colorScheme.secondary,
                 ),
               ],
@@ -835,7 +848,8 @@ class InversionPlotPanel extends StatelessWidget {
     if (ticks.isEmpty) {
       return value;
     }
-    return ticks.reduce((a, b) => (a - value).abs() < (b - value).abs() ? a : b);
+    return ticks
+        .reduce((a, b) => (a - value).abs() < (b - value).abs() ? a : b);
   }
 
   static List<double> _buildDepthTicks(double maxDepth) {
@@ -853,12 +867,15 @@ class InversionPlotPanel extends StatelessWidget {
     return [for (var i = start; i <= end; i++) i];
   }
 
-  static List<FlSpot> _buildProfile(TwoLayerInversionResult summary, double depthMeters) {
+  static List<FlSpot> _buildProfile(
+      TwoLayerInversionResult summary, double depthMeters) {
     final spots = <FlSpot>[];
     final topLog = _log10(summary.rho1);
     spots.add(FlSpot(topLog, 0));
     final firstBoundary = summary.thicknessM ??
-        (summary.layerDepths.isNotEmpty ? summary.layerDepths.first : summary.maxDepthMeters / 2);
+        (summary.layerDepths.isNotEmpty
+            ? summary.layerDepths.first
+            : summary.maxDepthMeters / 2);
     final cappedBoundary = math.min(firstBoundary, depthMeters);
     spots.add(FlSpot(topLog, -cappedBoundary));
     final secondLog = _log10(summary.rho2);
@@ -879,11 +896,13 @@ class InversionPlotPanel extends StatelessWidget {
     return '${rho.toStringAsFixed(2)} Ω·m';
   }
 
-  static String _unitLabel(DistanceUnit unit) => unit == DistanceUnit.feet ? 'ft' : 'm';
+  static String _unitLabel(DistanceUnit unit) =>
+      unit == DistanceUnit.feet ? 'ft' : 'm';
 }
 
 class _SummaryChip extends StatelessWidget {
-  const _SummaryChip({required this.label, required this.value, required this.color});
+  const _SummaryChip(
+      {required this.label, required this.value, required this.color});
 
   final String label;
   final String value;
@@ -903,7 +922,10 @@ class _SummaryChip extends StatelessWidget {
         text: TextSpan(
           style: theme.textTheme.labelMedium,
           children: [
-            TextSpan(text: '$label ', style: theme.textTheme.labelMedium?.copyWith(color: color, fontWeight: FontWeight.w600)),
+            TextSpan(
+                text: '$label ',
+                style: theme.textTheme.labelMedium
+                    ?.copyWith(color: color, fontWeight: FontWeight.w600)),
             TextSpan(text: value, style: theme.textTheme.labelMedium),
           ],
         ),

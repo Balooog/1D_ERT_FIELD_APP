@@ -38,7 +38,8 @@ class _DepthProfileTabState extends State<DepthProfileTab> {
 
     final deepest = steps.last;
     final depthValue = widget.distanceUnit.fromMeters(deepest.depthMeters);
-    final depthUnitLabel = widget.distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
+    final depthUnitLabel =
+        widget.distanceUnit == DistanceUnit.feet ? 'ft' : 'm';
     final trend = _trendDescription(steps);
     final message =
         'Depth cue: $trend toward ${formatCompactValue(depthValue)} $depthUnitLabel (~${formatMetersTooltip(deepest.depthMeters)} m, ≈${formatCompactValue(deepest.rho)} Ω·m).';
@@ -106,7 +107,8 @@ class _DepthProfileTabState extends State<DepthProfileTab> {
       );
     }
     if (steps.isEmpty && fallbackSpacingFt != null) {
-      final fallbackDepth = units.feetToMeters(fallbackSpacingFt * 0.5).toDouble();
+      final fallbackDepth =
+          units.feetToMeters(fallbackSpacingFt * 0.5).toDouble();
       steps.add(_DepthStep(depthMeters: fallbackDepth, rho: 1.0));
     }
     steps.sort((a, b) => a.depthMeters.compareTo(b.depthMeters));
@@ -216,7 +218,6 @@ class _DepthProfileTabState extends State<DepthProfileTab> {
     }
     return delta > 0 ? 'Resistivity increasing' : 'Resistivity decreasing';
   }
-
 }
 
 class _DepthStep {

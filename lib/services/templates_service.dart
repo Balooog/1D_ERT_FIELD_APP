@@ -74,7 +74,8 @@ class TemplatesService {
     final raw = await rootBundle.loadString(assetPath);
     final decoded = jsonDecode(raw) as List<dynamic>;
     _cache = decoded
-        .map((dynamic item) => GhostTemplate.fromJson(item as Map<String, dynamic>))
+        .map((dynamic item) =>
+            GhostTemplate.fromJson(item as Map<String, dynamic>))
         .toList();
     return _cache!;
   }

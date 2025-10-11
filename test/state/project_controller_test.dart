@@ -46,8 +46,7 @@ void main() {
   Project _sampleProject() {
     final spacings = [1.0, 2.0, 5.0];
     List<SpacingPoint> buildPoints() => [
-          for (final spacing in spacings)
-            SpacingPoint(spacingMeters: spacing),
+          for (final spacing in spacings) SpacingPoint(spacingMeters: spacing),
         ];
     return Project(
       projectName: 'WayneCo',
@@ -110,7 +109,8 @@ void main() {
 
     await controller.saveProject();
 
-    expect(container.read(projectControllerProvider).hasUnsavedChanges, isFalse);
+    expect(
+        container.read(projectControllerProvider).hasUnsavedChanges, isFalse);
     expect(persistence._store.containsKey('WayneCo'), isTrue);
   });
 

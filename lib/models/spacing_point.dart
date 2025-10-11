@@ -111,7 +111,10 @@ class _ResolvedInputs {
     final double normalizedFeet = aFeet;
 
     double? resolvedResistance = resistanceOhm;
-    if (resolvedResistance == null && voltageV != null && currentA != null && currentA != 0) {
+    if (resolvedResistance == null &&
+        voltageV != null &&
+        currentA != null &&
+        currentA != 0) {
       resolvedResistance = voltageV / currentA;
     }
 
@@ -195,15 +198,23 @@ class SpacingPoint {
     }
 
     double? resolvedResistance = resistanceOhm;
-    if (resolvedResistance == null && combinedVoltage != null && combinedCurrent != null && combinedCurrent != 0) {
+    if (resolvedResistance == null &&
+        combinedVoltage != null &&
+        combinedCurrent != null &&
+        combinedCurrent != 0) {
       resolvedResistance = combinedVoltage / combinedCurrent;
     }
 
     double? resolvedRho = rhoAppOhmM;
-    double? spacingForRho = resolvedMeters ?? (resolvedFeet != null ? feetToMeters(resolvedFeet) : null);
-    double? geometryFactor =
-        spacingForRho != null && spacingForRho > 0 ? _geometryFactorFor(arrayType, spacingForRho) : null;
-    if (resolvedRho == null && resolvedResistance != null && geometryFactor != null && geometryFactor > 0) {
+    double? spacingForRho = resolvedMeters ??
+        (resolvedFeet != null ? feetToMeters(resolvedFeet) : null);
+    double? geometryFactor = spacingForRho != null && spacingForRho > 0
+        ? _geometryFactorFor(arrayType, spacingForRho)
+        : null;
+    if (resolvedRho == null &&
+        resolvedResistance != null &&
+        geometryFactor != null &&
+        geometryFactor > 0) {
       resolvedRho = resolvedResistance * geometryFactor;
       resolvedMeters ??= spacingForRho;
       if (resolvedFeet == null && spacingForRho != null) {
@@ -232,11 +243,17 @@ class SpacingPoint {
       resolvedMeters = feetToMeters(resolvedFeet);
     }
 
-    spacingForRho = resolvedMeters ?? (resolvedFeet != null ? feetToMeters(resolvedFeet) : null);
-    geometryFactor =
-        spacingForRho != null && spacingForRho > 0 ? _geometryFactorFor(arrayType, spacingForRho) : geometryFactor;
+    spacingForRho = resolvedMeters ??
+        (resolvedFeet != null ? feetToMeters(resolvedFeet) : null);
+    geometryFactor = spacingForRho != null && spacingForRho > 0
+        ? _geometryFactorFor(arrayType, spacingForRho)
+        : geometryFactor;
 
-    if (resolvedFeet == null && resolvedMeters == null && resolvedRho != null && resolvedResistance != null && resolvedResistance != 0) {
+    if (resolvedFeet == null &&
+        resolvedMeters == null &&
+        resolvedRho != null &&
+        resolvedResistance != null &&
+        resolvedResistance != 0) {
       final derivedMeters = resolvedRho / (2 * math.pi * resolvedResistance);
       resolvedMeters = derivedMeters;
       resolvedFeet = metersToFeet(derivedMeters);
@@ -247,20 +264,27 @@ class SpacingPoint {
     final resolvedFeetValue = resolvedFeet;
     final resolvedMetersValue = resolvedMeters;
     if (resolvedFeetValue == null || resolvedMetersValue == null) {
-      throw ArgumentError('A-spacing could not be resolved from the provided inputs.');
+      throw ArgumentError(
+          'A-spacing could not be resolved from the provided inputs.');
     }
 
-    final geometryValue = geometryFactor ?? _geometryFactorFor(arrayType, resolvedMetersValue);
+    final geometryValue =
+        geometryFactor ?? _geometryFactorFor(arrayType, resolvedMetersValue);
 
     final resolvedRhoValue = resolvedRho ??
-        (resolvedResistance != null && geometryValue > 0 ? resolvedResistance * geometryValue : null);
+        (resolvedResistance != null && geometryValue > 0
+            ? resolvedResistance * geometryValue
+            : null);
 
     if (resolvedRhoValue == null) {
-      throw ArgumentError('Apparent resistivity could not be resolved from the provided inputs.');
+      throw ArgumentError(
+          'Apparent resistivity could not be resolved from the provided inputs.');
     }
 
     double? resolvedSigmaRho = sigmaRhoOhmM;
-    if (resolvedSigmaRho == null && resistanceStdOhm != null && geometryValue > 0) {
+    if (resolvedSigmaRho == null &&
+        resistanceStdOhm != null &&
+        geometryValue > 0) {
       resolvedSigmaRho = geometryValue * resistanceStdOhm;
     }
 
@@ -360,11 +384,13 @@ class SpacingPoint {
   double? get sigmaRhoOhmM => _sigmaRhoOhmM;
   double? get sigmaRhoApp => sigmaRhoOhmM;
   double get geometryFactor => _geometryFactorFor(arrayType, spacingMeters);
-  double get resistanceOhm => geometryFactor == 0 ? 0 : rhoAppOhmM / geometryFactor;
+  double get resistanceOhm =>
+      geometryFactor == 0 ? 0 : rhoAppOhmM / geometryFactor;
   double? get resistanceStdOhm {
     final sigma = sigmaRhoOhmM;
     return sigma != null && geometryFactor != 0 ? sigma / geometryFactor : null;
   }
+
   double? get voltageV => _voltageV;
   double? get currentA => _currentA;
   double get vp {
@@ -425,8 +451,9 @@ class SpacingPoint {
 
   bool get hasResistanceQaWarning => hasRhoQaWarning;
 
-  double? get contactRMax =>
-      contactR.values.isEmpty ? null : contactR.values.reduce((a, b) => a > b ? a : b);
+  double? get contactRMax => contactR.values.isEmpty
+      ? null
+      : contactR.values.reduce((a, b) => a > b ? a : b);
 
   SpacingPoint copyWith({
     ArrayType? arrayType,
@@ -446,7 +473,8 @@ class SpacingPoint {
     String? notes,
   }) {
     final updatedFeet = aFeet ?? this.aFeet;
-    final updatedSpacing = spacingMeters ?? (aFeet != null ? feetToMeters(aFeet) : this.spacingMeters);
+    final updatedSpacing = spacingMeters ??
+        (aFeet != null ? feetToMeters(aFeet) : this.spacingMeters);
     return SpacingPoint._(
       id: id,
       arrayType: arrayType ?? this.arrayType,
@@ -499,9 +527,12 @@ class SpacingPoint {
         orElse: () => ArrayType.custom,
       ),
       aFeet: (json['aFeet'] as num?)?.toDouble(),
-      spacingMetric: (json['spacingMetric'] as num?)?.toDouble() ?? (json['aMeters'] as num?)?.toDouble(),
-      rhoAppOhmM: (json['rhoAppOhmM'] as num?)?.toDouble() ?? (json['rhoApp'] as num?)?.toDouble(),
-      sigmaRhoOhmM: (json['sigmaRhoOhmM'] as num?)?.toDouble() ?? (json['sigmaRhoApp'] as num?)?.toDouble(),
+      spacingMetric: (json['spacingMetric'] as num?)?.toDouble() ??
+          (json['aMeters'] as num?)?.toDouble(),
+      rhoAppOhmM: (json['rhoAppOhmM'] as num?)?.toDouble() ??
+          (json['rhoApp'] as num?)?.toDouble(),
+      sigmaRhoOhmM: (json['sigmaRhoOhmM'] as num?)?.toDouble() ??
+          (json['sigmaRhoApp'] as num?)?.toDouble(),
       resistanceOhm: (json['resistanceOhm'] as num?)?.toDouble(),
       resistanceStdOhm: (json['resistanceStdOhm'] as num?)?.toDouble(),
       direction: parseSoundingDirection(json['direction'] as String?),
@@ -512,7 +543,9 @@ class SpacingPoint {
       ),
       spDriftMv: (json['spDriftMv'] as num?)?.toDouble(),
       stacks: json['stacks'] as int? ?? 1,
-      repeats: (json['repeats'] as List?)?.map((e) => (e as num).toDouble()).toList(),
+      repeats: (json['repeats'] as List?)
+          ?.map((e) => (e as num).toDouble())
+          .toList(),
       timestamp: DateTime.parse(json['timestamp'] as String),
       excluded: json['excluded'] as bool? ?? false,
       notes: json['notes'] as String?,

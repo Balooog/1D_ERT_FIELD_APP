@@ -53,7 +53,8 @@ void main() {
 
   test('Red classification due to CV', () {
     final point = _makePoint(100.0, sigma: 20.0);
-    final level = classifyPoint(residual: 0.02, coefficientOfVariation: 0.2, point: point);
+    final level = classifyPoint(
+        residual: 0.02, coefficientOfVariation: 0.2, point: point);
     expect(level, QaLevel.red);
   });
 

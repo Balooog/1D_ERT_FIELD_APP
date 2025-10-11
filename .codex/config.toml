@@ -1,0 +1,13 @@
+[approvals]
+require = true
+
+[commands]
+allow = [
+  "bash scripts/ci/test_wsl.sh",
+  "dart format .",
+  "dart analyze",
+  "flutter --no-version-check test -x widget_dialog"
+]
+
+[sandbox]
+allow_network = false

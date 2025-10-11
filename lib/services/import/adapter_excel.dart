@@ -26,7 +26,8 @@ class ExcelImportAdapter implements ImportAdapter {
     for (var i = 0; i < sheet.maxRows; i++) {
       final row = sheet.row(i);
       final values = row
-          .map((cell) => cell?.value == null ? '' : cell!.value.toString().trim())
+          .map((cell) =>
+              cell?.value == null ? '' : cell!.value.toString().trim())
           .toList();
       final hasData = values.any((value) => value.isNotEmpty);
       if (!hasData) {
@@ -35,7 +36,9 @@ class ExcelImportAdapter implements ImportAdapter {
       final firstLower = values.first.toLowerCase();
       if (firstLower.startsWith('unit=')) {
         final equalsIndex = values.first.indexOf('=');
-        unitDirective = equalsIndex >= 0 ? values.first.substring(equalsIndex + 1).trim() : null;
+        unitDirective = equalsIndex >= 0
+            ? values.first.substring(equalsIndex + 1).trim()
+            : null;
         continue;
       }
       if (header == null) {
@@ -48,13 +51,18 @@ class ExcelImportAdapter implements ImportAdapter {
       if (values.length < header.length) {
         values.addAll(List.filled(header.length - values.length, ''));
       } else if (values.length > header.length) {
-        issues.add(ImportRowIssue(index: i + 1, message: 'Row has more columns than header.')); 
+        issues.add(ImportRowIssue(
+            index: i + 1, message: 'Row has more columns than header.'));
         values.removeRange(header.length, values.length);
       }
       rows.add(values);
     }
 
     header ??= const [];
-    return ImportTable(headers: header, rows: rows, issues: issues, unitDirective: unitDirective);
+    return ImportTable(
+        headers: header,
+        rows: rows,
+        issues: issues,
+        unitDirective: unitDirective);
   }
 }

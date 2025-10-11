@@ -28,7 +28,8 @@ class CsvColumns {
 class CsvIoService {
   Future<List<SpacingPoint>> readFile(File file) async {
     final raw = await file.readAsString();
-    final rows = const CsvToListConverter(eol: '\n').convert(raw, shouldParseNumbers: false);
+    final rows = const CsvToListConverter(eol: '\n')
+        .convert(raw, shouldParseNumbers: false);
     if (rows.isEmpty) return [];
 
     final header = rows.first.map((e) => e.toString()).toList();
@@ -43,11 +44,15 @@ class CsvIoService {
       if (row.isEmpty) continue;
 
       double? aFeet = _readDouble(row, indexMap, [CsvColumns.aSpacingFt]);
-      double? aMeters = _readDouble(row, indexMap, [CsvColumns.aSpacingM, CsvColumns.spacingLegacy]);
+      double? aMeters = _readDouble(
+          row, indexMap, [CsvColumns.aSpacingM, CsvColumns.spacingLegacy]);
       double? resistance = _readDouble(row, indexMap, [CsvColumns.resistance]);
-      double? resistanceStd = _readDouble(row, indexMap, [CsvColumns.resistanceStd]);
-      double? rho = _readDouble(row, indexMap, [CsvColumns.rho, CsvColumns.rhoLegacy]);
-      double? sigmaRho = _readDouble(row, indexMap, [CsvColumns.sigmaRho, CsvColumns.sigmaRhoLegacy]);
+      double? resistanceStd =
+          _readDouble(row, indexMap, [CsvColumns.resistanceStd]);
+      double? rho =
+          _readDouble(row, indexMap, [CsvColumns.rho, CsvColumns.rhoLegacy]);
+      double? sigmaRho = _readDouble(
+          row, indexMap, [CsvColumns.sigmaRho, CsvColumns.sigmaRhoLegacy]);
       final voltage = _readDouble(row, indexMap, [CsvColumns.voltage]);
       final current = _readDouble(row, indexMap, [CsvColumns.current]);
       final directionText = _readString(row, indexMap, [CsvColumns.direction]);
@@ -68,7 +73,11 @@ class CsvIoService {
         }
       }
 
-      if (rho == null && voltage != null && current != null && current != 0 && aMeters != null) {
+      if (rho == null &&
+          voltage != null &&
+          current != null &&
+          current != 0 &&
+          aMeters != null) {
         final derivedResistance = voltage / current;
         final k = _geometryFactorForArray(array, aMeters);
         if (k > 0) {
@@ -155,7 +164,8 @@ class CsvIoService {
     return file;
   }
 
-  double? _readDouble(List<dynamic> row, Map<String, int> indexMap, List<String> keys) {
+  double? _readDouble(
+      List<dynamic> row, Map<String, int> indexMap, List<String> keys) {
     for (final key in keys) {
       final index = indexMap[_normalizeHeader(key)];
       final value = _parseDouble(row, index);
@@ -164,7 +174,8 @@ class CsvIoService {
     return null;
   }
 
-  String? _readString(List<dynamic> row, Map<String, int> indexMap, List<String> keys) {
+  String? _readString(
+      List<dynamic> row, Map<String, int> indexMap, List<String> keys) {
     for (final key in keys) {
       final index = indexMap[_normalizeHeader(key)];
       final value = _parseString(row, index);
@@ -173,7 +184,8 @@ class CsvIoService {
     return null;
   }
 
-  ArrayType? _readArray(List<dynamic> row, Map<String, int> indexMap, List<String> keys) {
+  ArrayType? _readArray(
+      List<dynamic> row, Map<String, int> indexMap, List<String> keys) {
     final text = _readString(row, indexMap, keys);
     if (text == null) return null;
     return ArrayType.values.firstWhere(
@@ -198,7 +210,8 @@ class CsvIoService {
   }
 }
 
-String _normalizeHeader(String header) => header.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+String _normalizeHeader(String header) =>
+    header.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
 
 double _geometryFactorForArray(ArrayType arrayType, double spacingMeters) {
   if (spacingMeters <= 0) {

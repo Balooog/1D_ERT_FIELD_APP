@@ -18,7 +18,8 @@ const _sampleProjectFolderName = 'Sample_Project';
 const _sampleProjectAsset = 'assets/samples/sample_project.json';
 
 class ProjectStorageService {
-  ProjectStorageService({Directory? overrideRoot}) : _overrideRoot = overrideRoot;
+  ProjectStorageService({Directory? overrideRoot})
+      : _overrideRoot = overrideRoot;
 
   final Directory? _overrideRoot;
   final _uuid = const Uuid();
@@ -97,7 +98,8 @@ class ProjectStorageService {
     }
     final updated = project.copyWith(updatedAt: DateTime.now());
     final file = File(p.join(directory.path, _projectFileName));
-    await file.writeAsString(JsonEncoder.withIndent('  ').convert(updated.toJson()));
+    await file
+        .writeAsString(JsonEncoder.withIndent('  ').convert(updated.toJson()));
     return updated;
   }
 
@@ -150,7 +152,8 @@ class ProjectStorageService {
   ) async {
     final root = await _ensureRoot();
     final dir = Directory(
-      p.join(root.path, _safeFolderName(project.projectName), _exportsFolderName),
+      p.join(
+          root.path, _safeFolderName(project.projectName), _exportsFolderName),
     );
     if (!await dir.exists()) {
       await dir.create(recursive: true);
@@ -163,8 +166,8 @@ class ProjectStorageService {
   Future<Directory> ensureSiteDirectory(
       ProjectRecord project, String siteId) async {
     final root = await _ensureRoot();
-    final dir = Directory(p.join(root.path, _safeFolderName(project.projectName),
-        _sitesFolderName, siteId));
+    final dir = Directory(p.join(root.path,
+        _safeFolderName(project.projectName), _sitesFolderName, siteId));
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
@@ -186,7 +189,9 @@ class ProjectStorageService {
   String _safeFolderName(String name) {
     final trimmed = name.trim();
     final sanitized = trimmed.replaceAll(RegExp(r'[^A-Za-z0-9-_]'), '_');
-    return sanitized.isEmpty ? 'Project_${DateTime.now().millisecondsSinceEpoch}' : sanitized;
+    return sanitized.isEmpty
+        ? 'Project_${DateTime.now().millisecondsSinceEpoch}'
+        : sanitized;
   }
 }
 

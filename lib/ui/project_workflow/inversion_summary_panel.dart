@@ -2,8 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import '../../models/calc.dart';
 import '../../models/site.dart';
+import '../../services/inversion.dart';
 import '../../utils/distance_unit.dart';
 import 'depth_cue_summary.dart';
 import 'plots_panel.dart';
@@ -63,11 +63,6 @@ class InversionSummaryPanel extends StatelessWidget {
                   isLoading: isLoading,
                   distanceUnit: distanceUnit,
                   siteLabel: null,
-                  useCard: false,
-                  padding: EdgeInsets.zero,
-                  showHeader: false,
-                  showSummaryChips: false,
-                  showRmsBadge: false,
                 ),
               ),
             ),

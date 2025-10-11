@@ -10,7 +10,9 @@ import 'package:resicheck/services/csv_io.dart';
 void main() {
   test('CSV roundtrip preserves feet, rho, sigma, and direction', () async {
     final service = CsvIoService();
-    final temp = await File('${Directory.systemTemp.path}/resicheck_roundtrip.csv').create(recursive: true);
+    final temp =
+        await File('${Directory.systemTemp.path}/resicheck_roundtrip.csv')
+            .create(recursive: true);
     final point = SpacingPoint(
       id: '1',
       arrayType: ArrayType.wenner,
@@ -41,12 +43,14 @@ void main() {
     expect(loaded.direction, point.direction);
   });
 
-  test('Legacy CSV import derives missing rho and feet from spacing_m and V/I', () async {
+  test('Legacy CSV import derives missing rho and feet from spacing_m and V/I',
+      () async {
     final csv = [
       'spacing_m,voltage_v,current_a,array_type,timestamp_iso',
       '5,1.2,0.4,wenner,2024-01-01T00:00:00Z',
     ].join('\n');
-    final file = await File('${Directory.systemTemp.path}/resicheck_legacy.csv').create(recursive: true);
+    final file = await File('${Directory.systemTemp.path}/resicheck_legacy.csv')
+        .create(recursive: true);
     await file.writeAsString(csv);
     final points = await CsvIoService().readFile(file);
     expect(points, hasLength(1));
@@ -60,7 +64,9 @@ void main() {
 
   test('Direction enum round-trips through CSV', () async {
     final service = CsvIoService();
-    final temp = await File('${Directory.systemTemp.path}/resicheck_direction.csv').create(recursive: true);
+    final temp =
+        await File('${Directory.systemTemp.path}/resicheck_direction.csv')
+            .create(recursive: true);
     final points = [
       SpacingPoint(
         id: 'ns',
@@ -89,6 +95,7 @@ void main() {
     ];
     await service.writeFile(temp, points);
     final readBack = await service.readFile(temp);
-    expect(readBack.map((p) => p.direction).toList(), points.map((p) => p.direction).toList());
+    expect(readBack.map((p) => p.direction).toList(),
+        points.map((p) => p.direction).toList());
   });
 }

@@ -59,7 +59,9 @@ class MockStreamService {
       if (rng.nextDouble() < 0.05) {
         contactR['p1'] = 6000 + rng.nextDouble() * 2000;
       }
-      final spDrift = rng.nextDouble() < 0.1 ? (rng.nextDouble() * 12 - 6) : (rng.nextDouble() * 2 - 1);
+      final spDrift = rng.nextDouble() < 0.1
+          ? (rng.nextDouble() * 12 - 6)
+          : (rng.nextDouble() * 2 - 1);
       final sigma = rhoApp * (0.02 + rng.nextDouble() * 0.03);
       final repeats = List.generate(
         3,

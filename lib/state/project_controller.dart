@@ -24,10 +24,9 @@ class ProjectState {
   final bool hasUnsavedChanges;
   final bool autosaveEnabled;
 
-  Site? get activeSite =>
-      project != null && activeSiteId != null
-          ? project!.siteById(activeSiteId!)
-          : null;
+  Site? get activeSite => project != null && activeSiteId != null
+      ? project!.siteById(activeSiteId!)
+      : null;
 
   ProjectState copyWith({
     Object? project = _stateUnset,
@@ -38,9 +37,8 @@ class ProjectState {
     bool? autosaveEnabled,
   }) {
     return ProjectState(
-      project: identical(project, _stateUnset)
-          ? this.project
-          : project as Project?,
+      project:
+          identical(project, _stateUnset) ? this.project : project as Project?,
       activeSiteId: identical(activeSiteId, _stateUnset)
           ? this.activeSiteId
           : activeSiteId as String?,
@@ -53,8 +51,7 @@ class ProjectState {
 }
 
 class ProjectController extends StateNotifier<ProjectState> {
-  ProjectController(this._persistence)
-      : super(const ProjectState());
+  ProjectController(this._persistence) : super(const ProjectState());
 
   final PersistenceService _persistence;
   Timer? _autosaveTimer;
@@ -93,9 +90,8 @@ class ProjectController extends StateNotifier<ProjectState> {
   Future<void> saveProject({String? asName, String? fileId}) async {
     final project = state.project;
     if (project == null) return;
-    final projectToSave = asName != null
-        ? project.copyWith(projectName: asName)
-        : project;
+    final projectToSave =
+        asName != null ? project.copyWith(projectName: asName) : project;
     state = state.copyWith(isSaving: true);
     try {
       await _persistence.saveProject(projectToSave, fileId: fileId);
@@ -123,16 +119,18 @@ class ProjectController extends StateNotifier<ProjectState> {
   }
 
   void updateReading(Direction direction, int spacingIndex, double? rho) {
-    _modifyActiveSite(direction, spacingIndex, (point) => point.copyWith(rho: rho));
+    _modifyActiveSite(
+        direction, spacingIndex, (point) => point.copyWith(rho: rho));
   }
 
   void markBad(Direction direction, int spacingIndex, {bool excluded = true}) {
-    _modifyActiveSite(direction, spacingIndex,
-        (point) => point.copyWith(excluded: excluded));
+    _modifyActiveSite(
+        direction, spacingIndex, (point) => point.copyWith(excluded: excluded));
   }
 
   void setNote(Direction direction, int spacingIndex, String note) {
-    _modifyActiveSite(direction, spacingIndex, (point) => point.copyWith(note: note));
+    _modifyActiveSite(
+        direction, spacingIndex, (point) => point.copyWith(note: note));
   }
 
   void _modifyActiveSite(
@@ -160,18 +158,21 @@ class ProjectController extends StateNotifier<ProjectState> {
     final updatedPoints = List<SpacingPoint>.from(readings.points);
     updatedPoints[spacingIndex] = updater(updatedPoints[spacingIndex]);
 
-    final updatedReadings = readings.copyWith(points: List.unmodifiable(updatedPoints));
+    final updatedReadings =
+        readings.copyWith(points: List.unmodifiable(updatedPoints));
     final updatedSite = site.updateReadings(direction, updatedReadings);
 
     final updatedSites = List<Site>.from(project.sites);
     updatedSites[siteIndex] = updatedSite;
 
-    final updatedProject = project.copyWith(sites: List.unmodifiable(updatedSites));
+    final updatedProject =
+        project.copyWith(sites: List.unmodifiable(updatedSites));
     _setProject(updatedProject, markSaved: false);
   }
 
   void _setProject(Project project, {required bool markSaved}) {
-    final firstSiteId = project.sites.isNotEmpty ? project.sites.first.siteId : null;
+    final firstSiteId =
+        project.sites.isNotEmpty ? project.sites.first.siteId : null;
     final currentActive = state.activeSiteId;
     final resolvedActive =
         currentActive != null && project.siteById(currentActive) != null

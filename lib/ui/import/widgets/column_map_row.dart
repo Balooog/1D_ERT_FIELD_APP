@@ -32,7 +32,8 @@ class ColumnMapRow extends StatelessWidget {
               message: descriptor.header,
               child: Text(
                 descriptor.header,
-                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                style: theme.textTheme.bodyMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
