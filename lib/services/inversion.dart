@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import '../models/calc.dart' as calc;
 import '../models/inversion_model.dart';
+import '../models/site.dart';
 import '../models/spacing_point.dart';
-import '../utils/units.dart';
+import '../utils/units.dart' as units;
 
 class OneDInversionResult {
   OneDInversionResult({
@@ -19,6 +21,85 @@ class OneDInversionResult {
   final double misfit;
 
   bool get isFallback => misfit.isInfinite;
+}
+
+class TwoLayerInversionResult {
+  TwoLayerInversionResult({
+    required List<double> spacingFeet,
+    required List<double> measurementDepthsM,
+    required List<double> observedRho,
+    required List<double> predictedRho,
+    required List<double> layerDepths,
+    required this.rho1,
+    required this.rho2,
+    this.halfSpaceRho,
+    required this.rms,
+    this.thicknessM,
+    DateTime? solvedAt,
+  })  : spacingFeet = List.unmodifiable(spacingFeet),
+        measurementDepthsM = List.unmodifiable(measurementDepthsM),
+        observedRho = List.unmodifiable(observedRho),
+        predictedRho = List.unmodifiable(predictedRho),
+        layerDepths = List.unmodifiable(layerDepths),
+        solvedAt = solvedAt ?? DateTime.now();
+
+  final List<double> spacingFeet;
+  final List<double> measurementDepthsM;
+  final List<double> observedRho;
+  final List<double> predictedRho;
+  final List<double> layerDepths;
+  final double rho1;
+  final double rho2;
+  final double? halfSpaceRho;
+  final double rms;
+  final double? thicknessM;
+  final DateTime solvedAt;
+
+  double? get thicknessFeet =>
+      thicknessM == null ? null : units.metersToFeet(thicknessM!).toDouble();
+
+  double get maxDepthMeters {
+    final candidates = <double>[];
+    if (measurementDepthsM.isNotEmpty) {
+      candidates.add(measurementDepthsM.reduce(math.max));
+    }
+    if (thicknessM != null) {
+      candidates.add(thicknessM!);
+    }
+    if (layerDepths.isNotEmpty) {
+      candidates.add(layerDepths.last);
+    }
+    if (candidates.isEmpty) {
+      return 0;
+    }
+    return candidates.reduce(math.max);
+  }
+
+  Iterable<double> get _allRhoSamples sync* {
+    if (rho1.isFinite && rho1 > 0) {
+      yield rho1;
+    }
+    if (rho2.isFinite && rho2 > 0) {
+      yield rho2;
+    }
+    if (halfSpaceRho != null && halfSpaceRho!.isFinite && halfSpaceRho! > 0) {
+      yield halfSpaceRho!;
+    }
+    for (final value in observedRho) {
+      if (value.isFinite && value > 0) {
+        yield value;
+      }
+    }
+    for (final value in predictedRho) {
+      if (value.isFinite && value > 0) {
+        yield value;
+      }
+    }
+  }
+
+  double get minRho => _allRhoSamples.isEmpty ? 1 : _allRhoSamples.reduce(math.min);
+
+  double get maxRho => _allRhoSamples.isEmpty ? 1 : _allRhoSamples.reduce(math.max);
 }
 
 class _InversionAttempt {
@@ -105,6 +186,46 @@ Future<OneDInversionResult> invert1DWenner({
   }
 }
 
+Future<TwoLayerInversionResult?> invertTwoLayerSite(SiteRecord site) async {
+  final input = _aggregateSiteForInversion(site);
+  if (input.spacingFeet.length < 2) {
+    return null;
+  }
+  final result = await invert1DWenner(
+    aFt: input.spacingFeet,
+    rhoAppNS: input.rhoNs,
+    rhoAppWE: input.rhoWe,
+    maxLayers: 2,
+  );
+  if (result.isFallback || result.resistivities.length < 2) {
+    return null;
+  }
+  final thicknessM = result.depthsM.isEmpty ? null : result.depthsM.first;
+  final fit = result.fitCurve.length == input.spacingFeet.length
+      ? result.fitCurve
+      : List<double>.generate(
+          input.spacingFeet.length,
+          (index) =>
+              result.fitCurve[index < result.fitCurve.length ? index : result.fitCurve.length - 1],
+        );
+  final summary = TwoLayerInversionResult(
+    spacingFeet: input.spacingFeet,
+    measurementDepthsM: input.depthsM,
+    observedRho: input.observed,
+    predictedRho: fit,
+    layerDepths: result.depthsM,
+    rho1: result.resistivities.first,
+    rho2: result.resistivities[1],
+    halfSpaceRho: result.resistivities.length > 2 ? result.resistivities.last : null,
+    rms: result.misfit,
+    thicknessM: thicknessM,
+  );
+  // QA instrumentation per workflow plan.
+  // ignore: avoid_print
+  print('RMS = ${summary.rms.toStringAsFixed(3)}');
+  return summary;
+}
+
 OneDInversionResult _runLayeredInversion({
   required List<_AggregatedMeasurement> aggregated,
   required int maxLayers,
@@ -114,7 +235,8 @@ OneDInversionResult _runLayeredInversion({
   required double maxThick,
   required double regLambda,
 }) {
-  final layerCount = math.max(1, math.min(maxLayers, aggregated.length));
+  final int layerCount =
+      math.max(1, math.min(maxLayers, aggregated.length)).toInt();
   final baseDepths = _estimateLayerBoundaries(
     aggregated,
     layerCount: layerCount,
@@ -149,7 +271,7 @@ OneDInversionResult _runLayeredInversion({
         final top = splitIndex == 0 ? 0.0 : baseAttempt.depths[splitIndex - 1];
         final bottom = baseAttempt.depths[splitIndex];
         final depthSamples = aggregated
-            .map((m) => feetToMeters(m.spacingFt * 0.5))
+            .map((m) => units.feetToMeters(m.spacingFt * 0.5).toDouble())
             .where((depth) => depth > top && depth < bottom)
             .toList()
           ..sort();
@@ -345,8 +467,8 @@ OneDInversionResult _fallbackResult(List<_AggregatedMeasurement> aggregated) {
   final resistivities = <double>[];
   final fit = <double>[];
   for (final measurement in aggregated) {
-    final depth = feetToMeters(measurement.spacingFt * 0.5);
-    depths.add(depth);
+    final depth = units.feetToMeters(measurement.spacingFt * 0.5);
+    depths.add(depth.toDouble());
     resistivities.add(measurement.rho);
     fit.add(measurement.rho);
   }
@@ -485,7 +607,8 @@ _InversionAttempt _segmentalApproximation({
 
   if (!bestScore.isFinite) {
     final depths = aggregated
-        .map((m) => feetToMeters(m.spacingFt * 0.5))
+        .map((m) => units.feetToMeters(m.spacingFt * 0.5))
+        .map((value) => value.toDouble())
         .toList();
     final resistivities = aggregated.map((m) {
       var logValue = math.log(m.rho.clamp(minRho, maxRho));
@@ -526,12 +649,12 @@ _InversionAttempt _segmentalApproximation({
     final rho = math.exp(boundedLog).clamp(minRho, maxRho).toDouble();
     resistivities.add(rho);
     final depthIndex = math.max(0, finish - 1);
-    final depth = feetToMeters(aggregated[depthIndex].spacingFt * 0.5);
-    depths.add(depth);
+    final depth = units.feetToMeters(aggregated[depthIndex].spacingFt * 0.5);
+    depths.add(depth.toDouble());
   }
 
   final guard = math.max(minThick, 0.25);
-  final maxDepthAvailable = feetToMeters(aggregated.last.spacingFt * 0.5);
+  final maxDepthAvailable = units.feetToMeters(aggregated.last.spacingFt * 0.5).toDouble();
   var previousDepth = 0.0;
   for (var i = 0; i < depths.length; i++) {
     var depth = depths[i];
@@ -619,7 +742,7 @@ List<_AggregatedMeasurement> _aggregateMeasurements({
     result.add(
       _AggregatedMeasurement(
         spacingFt: entry.spacingFt,
-        spacingMeters: feetToMeters(entry.spacingFt),
+        spacingMeters: units.feetToMeters(entry.spacingFt).toDouble(),
         rho: clamped,
       ),
     );
@@ -639,7 +762,7 @@ List<double> _estimateLayerBoundaries(
   }
   final guard = math.max(minThick, 0.25);
   final depthSamples = aggregated
-      .map((m) => feetToMeters(m.spacingFt * 0.5))
+      .map((m) => units.feetToMeters(m.spacingFt * 0.5).toDouble())
       .toList()
     ..sort();
   final maxDepthAvailable =
@@ -709,7 +832,7 @@ List<double> _estimateLayerResistivities(
     final bottom = depths[i];
     final logsInLayer = <double>[];
     for (final measurement in aggregated) {
-      final depth = feetToMeters(measurement.spacingFt * 0.5);
+      final depth = units.feetToMeters(measurement.spacingFt * 0.5).toDouble();
       final isLastLayer = i == depths.length - 1;
       final withinLayer =
           isLastLayer ? depth >= top : (depth >= top && depth < bottom);
@@ -929,6 +1052,68 @@ class _AggregatedMeasurement {
   final double rho;
 }
 
+class _SiteInversionInput {
+  const _SiteInversionInput({
+    required this.spacingFeet,
+    required this.rhoNs,
+    required this.rhoWe,
+    required this.observed,
+    required this.depthsM,
+  });
+
+  final List<double> spacingFeet;
+  final List<double> rhoNs;
+  final List<double> rhoWe;
+  final List<double> observed;
+  final List<double> depthsM;
+}
+
+_SiteInversionInput _aggregateSiteForInversion(SiteRecord site) {
+  final spacingFeet = <double>[];
+  final rhoNs = <double>[];
+  final rhoWe = <double>[];
+  final observed = <double>[];
+  final depths = <double>[];
+  final spacings = [...site.spacings]
+    ..sort((a, b) => a.spacingFeet.compareTo(b.spacingFeet));
+  for (final spacing in spacings) {
+    final aSample = spacing.orientationA.latest;
+    final bSample = spacing.orientationB.latest;
+    final hasA =
+        aSample != null && !aSample.isBad && (aSample.resistanceOhm ?? 0) > 0;
+    final hasB =
+        bSample != null && !bSample.isBad && (bSample.resistanceOhm ?? 0) > 0;
+    if (!hasA && !hasB) {
+      continue;
+    }
+    double? rhoA;
+    if (hasA) {
+      rhoA = calc.rhoAWenner(spacing.spacingFeet, aSample!.resistanceOhm!);
+    }
+    double? rhoB;
+    if (hasB) {
+      rhoB = calc.rhoAWenner(spacing.spacingFeet, bSample!.resistanceOhm!);
+    }
+    final values = <double>[if (rhoA != null) rhoA, if (rhoB != null) rhoB];
+    if (values.isEmpty) {
+      continue;
+    }
+    final average = values.reduce((a, b) => a + b) / values.length;
+    spacingFeet.add(spacing.spacingFeet);
+    rhoNs.add(rhoA ?? average);
+    rhoWe.add(rhoB ?? average);
+    observed.add(average);
+    depths.add(units.feetToMeters(spacing.spacingFeet * 0.5).toDouble());
+  }
+  return _SiteInversionInput(
+    spacingFeet: spacingFeet,
+    rhoNs: rhoNs,
+    rhoWe: rhoWe,
+    observed: observed,
+    depthsM: depths,
+  );
+}
+
 class LiteInversionService {
   LiteInversionService({this.maxIterations = 10, this.layerCount = 3});
 
@@ -950,7 +1135,8 @@ class LiteInversionService {
     double lastRms = double.infinity;
     List<double> predicted = List.filled(spacings.length, 0);
 
-    for (var iter = 0; iter < maxIterations; iter++) {
+    final totalIterations = maxIterations + 4;
+    for (var iter = 0; iter < totalIterations; iter++) {
       predicted = _forward(spacings, thicknesses, logRhos);
       final residuals = List<double>.generate(
         predicted.length,
@@ -958,7 +1144,12 @@ class LiteInversionService {
       );
 
       final rms = _rms(residuals);
-      if ((lastRms - rms).abs() < 0.5) {
+      if (!rms.isFinite) {
+        break;
+      }
+      final improvement = (lastRms - rms).abs();
+      if ((improvement < 0.08 && iter >= 2) || rms < 0.32) {
+        lastRms = rms;
         break;
       }
       lastRms = rms;
@@ -969,7 +1160,11 @@ class LiteInversionService {
       for (var i = 0; i < logRhos.length; i++) {
         logRhos[i] += update[i];
       }
-      lambda = math.max(0.05, lambda * 0.7);
+      if (improvement < 0.15 && rms > 0.4) {
+        lambda = math.max(0.05, lambda * 0.5);
+      } else {
+        lambda = math.max(0.05, lambda * 0.7);
+      }
     }
 
     predicted = _forward(spacings, thicknesses, logRhos);

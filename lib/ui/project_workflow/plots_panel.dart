@@ -7,6 +7,8 @@ import '../../models/calc.dart';
 import '../../models/project.dart';
 import '../../models/site.dart';
 import '../../services/templates_service.dart';
+import '../../services/inversion.dart';
+import '../../utils/distance_unit.dart';
 
 class GhostSeriesPoint {
   const GhostSeriesPoint({required this.spacingFt, required this.rho});
@@ -18,6 +20,7 @@ class GhostSeriesPoint {
 const _okabeBlue = Color(0xFF0072B2);
 const _okabeVermillion = Color(0xFFD55E00);
 const _averageGray = Color(0xFF595959);
+const _okabeOrange = Color(0xFFE69F00);
 
 class PlotsPanel extends StatelessWidget {
   const PlotsPanel({
@@ -547,4 +550,364 @@ class _TriangleDotPainter extends FlDotPainter {
 
   @override
   List<Object?> get props => <Object?>[color, size];
+}
+
+class InversionPlotPanel extends StatelessWidget {
+  const InversionPlotPanel({
+    super.key,
+    required this.result,
+    required this.isLoading,
+    required this.distanceUnit,
+    this.siteLabel,
+  });
+
+  final TwoLayerInversionResult? result;
+  final bool isLoading;
+  final DistanceUnit distanceUnit;
+  final String? siteLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      return Card(
+        margin: const EdgeInsets.all(12),
+        child: SizedBox(
+          height: 240,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 12),
+                Text(
+                  'Solving two-layer inversion…',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    final summary = result;
+    if (summary == null) {
+      return Card(
+        margin: const EdgeInsets.all(12),
+        child: SizedBox(
+          height: 180,
+          child: Center(
+            child: Text(
+              'Record at least two valid spacings to compute inversion.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final theme = Theme.of(context);
+    final minRho = math.max(summary.minRho * 0.8, 0.5);
+    final maxRho = summary.maxRho * 1.2;
+    final minLog = _log10(minRho);
+    final maxLog = _log10(maxRho);
+    final depthMeters = math.max(summary.maxDepthMeters * 1.1, 0.5);
+    final depthTicks = _buildDepthTicks(depthMeters);
+    final resistivityTicks = _buildResistivityTicks(minLog, maxLog);
+
+    final measurementSpots = <FlSpot>[];
+    final predictedSpots = <FlSpot>[];
+    for (var i = 0; i < summary.observedRho.length; i++) {
+      final observed = summary.observedRho[i].toDouble();
+      if (!observed.isFinite || observed <= 0) {
+        continue;
+      }
+      final depth = i < summary.measurementDepthsM.length
+          ? summary.measurementDepthsM[i].toDouble()
+          : (summary.measurementDepthsM.isEmpty
+              ? 0.0
+              : summary.measurementDepthsM.last.toDouble());
+      measurementSpots.add(FlSpot(_log10(observed), -depth));
+      final predicted = i < summary.predictedRho.length
+          ? summary.predictedRho[i].toDouble()
+          : summary.predictedRho.isEmpty
+              ? observed
+              : summary.predictedRho.last.toDouble();
+      if (predicted.isFinite && predicted > 0) {
+        predictedSpots.add(FlSpot(_log10(predicted), -depth));
+      }
+    }
+
+    final profileSpots = _buildProfile(summary, depthMeters);
+
+    final lineBars = <LineChartBarData>[
+      LineChartBarData(
+        spots: profileSpots,
+        isCurved: false,
+        barWidth: 3,
+        color: _okabeOrange,
+        isStepLineChart: true,
+        dotData: const FlDotData(show: false),
+      ),
+      if (predictedSpots.isNotEmpty)
+        LineChartBarData(
+          spots: predictedSpots,
+          isCurved: false,
+          barWidth: 2,
+          color: _okabeBlue,
+          dashArray: const [6, 4],
+          dotData: const FlDotData(show: false),
+        ),
+      if (measurementSpots.isNotEmpty)
+        LineChartBarData(
+          spots: measurementSpots,
+          isCurved: false,
+          barWidth: 0,
+          dotData: FlDotData(
+            show: true,
+            getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
+              color: _averageGray,
+              radius: 4,
+              strokeWidth: 1.5,
+              strokeColor: theme.colorScheme.surface,
+            ),
+          ),
+        ),
+    ];
+
+    final chart = SizedBox(
+      height: 220,
+      child: LineChart(
+        LineChartData(
+          minX: minLog - 0.1,
+          maxX: maxLog + 0.1,
+          minY: -depthMeters,
+          maxY: 0,
+          clipData: const FlClipData.all(),
+          lineBarsData: lineBars,
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: true,
+            drawHorizontalLine: true,
+            horizontalInterval: depthTicks.isEmpty
+                ? null
+                : depthTicks.length == 1
+                    ? depthTicks.first
+                    : depthTicks[1] - depthTicks[0],
+            verticalInterval: 1,
+            getDrawingHorizontalLine: (value) => FlLine(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              strokeWidth: 0.8,
+            ),
+            getDrawingVerticalLine: (value) => FlLine(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              strokeWidth: 0.8,
+            ),
+          ),
+          borderData: FlBorderData(
+            show: true,
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+          ),
+          titlesData: FlTitlesData(
+            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            bottomTitles: AxisTitles(
+              axisNameWidget: const Padding(
+                padding: EdgeInsets.only(top: 8.0),
+                child: Text('Resistivity (Ω·m)'),
+              ),
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: 1,
+                reservedSize: 48,
+                getTitlesWidget: (value, meta) {
+                  if (!resistivityTicks.contains(value.round())) {
+                    return const SizedBox.shrink();
+                  }
+                  final label = math.pow(10, value).toStringAsFixed(0);
+                  return Text(label, style: theme.textTheme.labelSmall);
+                },
+              ),
+            ),
+            leftTitles: AxisTitles(
+              axisNameWidget: Padding(
+                padding: const EdgeInsets.only(bottom: 4.0),
+                child: Text('Depth (${_unitLabel(distanceUnit)})'),
+              ),
+              sideTitles: SideTitles(
+                showTitles: true,
+                reservedSize: 56,
+                getTitlesWidget: (value, meta) {
+                  final depth = -value;
+                  if (depth < 0) {
+                    return const SizedBox.shrink();
+                  }
+                  final closest = _closestTick(depthTicks, depth);
+                  if ((depth - closest).abs() > depthMeters * 0.04) {
+                    return const SizedBox.shrink();
+                  }
+                  final text = distanceUnit.formatSpacing(depth);
+                  return Text(text, style: theme.textTheme.labelSmall);
+                },
+              ),
+            ),
+          ),
+        ),
+        duration: const Duration(milliseconds: 300),
+      ),
+    );
+
+    final header = siteLabel == null
+        ? const Text('Two-layer inversion summary')
+        : Text('Two-layer inversion — $siteLabel');
+
+    return Card(
+      margin: const EdgeInsets.all(12),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            header,
+            const SizedBox(height: 12),
+            Stack(
+              children: [
+                chart,
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: theme.colorScheme.outlineVariant),
+                    ),
+                    child: Text(
+                      'RMS ${(summary.rms * 100).toStringAsFixed(1)}%',
+                      style: theme.textTheme.labelMedium,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                _SummaryChip(
+                  label: 'ρ₁',
+                  value: _formatRho(summary.rho1),
+                  color: _okabeBlue,
+                ),
+                _SummaryChip(
+                  label: 'ρ₂',
+                  value: _formatRho(summary.rho2),
+                  color: _okabeOrange,
+                ),
+                if (summary.halfSpaceRho != null)
+                  _SummaryChip(
+                    label: 'ρ₃',
+                    value: _formatRho(summary.halfSpaceRho!),
+                    color: _okabeVermillion,
+                  ),
+                if (summary.thicknessM != null)
+                  _SummaryChip(
+                    label: 'h',
+                    value:
+                        '${distanceUnit.formatSpacing(summary.thicknessM!)} ${_unitLabel(distanceUnit)}',
+                    color: theme.colorScheme.primary,
+                  ),
+                _SummaryChip(
+                  label: 'Solved',
+                  value: '${summary.solvedAt.hour.toString().padLeft(2, '0')}:${summary.solvedAt.minute.toString().padLeft(2, '0')}',
+                  color: theme.colorScheme.secondary,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static double _closestTick(List<double> ticks, double value) {
+    if (ticks.isEmpty) {
+      return value;
+    }
+    return ticks.reduce((a, b) => (a - value).abs() < (b - value).abs() ? a : b);
+  }
+
+  static List<double> _buildDepthTicks(double maxDepth) {
+    if (maxDepth <= 0) {
+      return const [];
+    }
+    final tickCount = 4;
+    final step = maxDepth / tickCount;
+    return List<double>.generate(tickCount + 1, (index) => index * step);
+  }
+
+  static List<int> _buildResistivityTicks(double minLog, double maxLog) {
+    final start = minLog.floor();
+    final end = maxLog.ceil();
+    return [for (var i = start; i <= end; i++) i];
+  }
+
+  static List<FlSpot> _buildProfile(TwoLayerInversionResult summary, double depthMeters) {
+    final spots = <FlSpot>[];
+    final topLog = _log10(summary.rho1);
+    spots.add(FlSpot(topLog, 0));
+    final firstBoundary = summary.thicknessM ??
+        (summary.layerDepths.isNotEmpty ? summary.layerDepths.first : summary.maxDepthMeters / 2);
+    final cappedBoundary = math.min(firstBoundary, depthMeters);
+    spots.add(FlSpot(topLog, -cappedBoundary));
+    final secondLog = _log10(summary.rho2);
+    spots.add(FlSpot(secondLog, -cappedBoundary));
+    spots.add(FlSpot(secondLog, -depthMeters));
+    return spots;
+  }
+
+  static double _log10(double value) => math.log(value) / math.ln10;
+
+  static String _formatRho(double rho) {
+    if (rho >= 1000) {
+      return '${rho.toStringAsFixed(0)} Ω·m';
+    }
+    if (rho >= 100) {
+      return '${rho.toStringAsFixed(1)} Ω·m';
+    }
+    return '${rho.toStringAsFixed(2)} Ω·m';
+  }
+
+  static String _unitLabel(DistanceUnit unit) => unit == DistanceUnit.feet ? 'ft' : 'm';
+}
+
+class _SummaryChip extends StatelessWidget {
+  const _SummaryChip({required this.label, required this.value, required this.color});
+
+  final String label;
+  final String value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: RichText(
+        text: TextSpan(
+          style: theme.textTheme.labelMedium,
+          children: [
+            TextSpan(text: '$label ', style: theme.textTheme.labelMedium?.copyWith(color: color, fontWeight: FontWeight.w600)),
+            TextSpan(text: value, style: theme.textTheme.labelMedium),
+          ],
+        ),
+      ),
+    );
+  }
 }
