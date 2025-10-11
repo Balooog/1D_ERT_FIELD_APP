@@ -690,11 +690,13 @@ class _ProjectShellState extends State<ProjectShell> {
                       ],
                     ),
                   ),
-                  SizedBox(
-                    height: 220,
-                    child: DepthProfileTab(
-                      site: site,
-                      distanceUnit: _distanceUnit,
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: DepthProfileTab(
+                        site: site,
+                        distanceUnit: _distanceUnit,
+                      ),
                     ),
                   ),
                 ],
