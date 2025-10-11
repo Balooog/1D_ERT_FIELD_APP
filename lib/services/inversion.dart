@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import '../models/calc.dart' as calc;
+import '../models/calc.dart';
 import '../models/inversion_model.dart';
 import '../models/site.dart';
 import '../models/spacing_point.dart';
@@ -55,8 +55,7 @@ class TwoLayerInversionResult {
   final double? thicknessM;
   final DateTime solvedAt;
 
-  double? get thicknessFeet =>
-      thicknessM == null ? null : units.metersToFeet(thicknessM!).toDouble();
+  double? get thicknessFeet => thicknessM == null ? null : metersToFeet(thicknessM!);
 
   double get maxDepthMeters {
     final candidates = <double>[];
@@ -1088,11 +1087,11 @@ _SiteInversionInput _aggregateSiteForInversion(SiteRecord site) {
     }
     double? rhoA;
     if (hasA) {
-      rhoA = calc.rhoAWenner(spacing.spacingFeet, aSample!.resistanceOhm!);
+      rhoA = rhoAWenner(spacing.spacingFeet, aSample!.resistanceOhm!);
     }
     double? rhoB;
     if (hasB) {
-      rhoB = calc.rhoAWenner(spacing.spacingFeet, bSample!.resistanceOhm!);
+      rhoB = rhoAWenner(spacing.spacingFeet, bSample!.resistanceOhm!);
     }
     final values = <double>[if (rhoA != null) rhoA, if (rhoB != null) rhoB];
     if (values.isEmpty) {
@@ -1103,7 +1102,7 @@ _SiteInversionInput _aggregateSiteForInversion(SiteRecord site) {
     rhoNs.add(rhoA ?? average);
     rhoWe.add(rhoB ?? average);
     observed.add(average);
-    depths.add(units.feetToMeters(spacing.spacingFeet * 0.5).toDouble());
+    depths.add(feetToMeters(spacing.spacingFeet * 0.5));
   }
   return _SiteInversionInput(
     spacingFeet: spacingFeet,

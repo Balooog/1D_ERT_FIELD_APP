@@ -132,7 +132,7 @@ class _ProjectShellState extends State<ProjectShell> {
     setState(() {
       _selectedSite = site;
     });
-    _fireAndForget(_refreshInversion());
+    unawaited(_refreshInversion());
   }
 
   void _recordFocus(double spacingFt, OrientationKind orientation) {
@@ -156,7 +156,7 @@ class _ProjectShellState extends State<ProjectShell> {
       _pushHistory(updated);
     });
     _scheduleAutosave();
-    _fireAndForget(_refreshInversion());
+    unawaited(_refreshInversion());
   }
 
   void _handleReadingSubmitted(
@@ -805,10 +805,10 @@ class _ProjectShellState extends State<ProjectShell> {
                     _exportSite();
                     break;
                   case 'pdf_site':
-                    _fireAndForget(_exportSitePdf());
+                    unawaited(_exportSitePdf());
                     break;
                   case 'pdf_all':
-                    _fireAndForget(_exportAllSitesPdf());
+                    unawaited(_exportAllSitesPdf());
                     break;
                 }
               },

@@ -9,6 +9,10 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+
 import 'package:csv/csv.dart';
 
 import '../models/calc.dart' as calc;
@@ -17,7 +21,7 @@ import '../models/project.dart';
 import '../models/site.dart';
 import '../services/inversion.dart';
 import '../utils/distance_unit.dart';
-import '../utils/units.dart' as units;
+import '../utils/units.dart';
 import 'storage_service.dart';
 
 class InversionReportEntry {
@@ -31,8 +35,6 @@ class InversionReportEntry {
   final TwoLayerInversionResult result;
   final DistanceUnit distanceUnit;
 }
-
-const bool kExportChartsEnabled = false;
 
 class ExportService {
   ExportService(this.storageService);
@@ -162,10 +164,6 @@ class ExportService {
             _buildPdfSummary(entry),
             pw.SizedBox(height: 16),
             _buildPdfSummaryFooter(entry),
-            if (!kExportChartsEnabled) ...[
-              pw.SizedBox(height: 12),
-              _buildChartDisabledNotice(),
-            ],
             pw.SizedBox(height: 12),
             _buildPdfTable(entry),
           ],
@@ -258,23 +256,6 @@ class ExportService {
     );
   }
 
-  pw.Widget _buildChartDisabledNotice() {
-    return pw.Container(
-      width: double.infinity,
-      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: pw.BoxDecoration(
-        color: _mixColors(PdfColors.white, PdfColors.blueGrey100, 0.25),
-        borderRadius: pw.BorderRadius.circular(8),
-        border: pw.Border.all(color: PdfColors.blueGrey200, width: 0.4),
-      ),
-      child: pw.Text(
-        'Inversion charts are temporarily disabled for stability. '
-        'Enable kExportChartsEnabled once the painter is restored.',
-        style: const pw.TextStyle(fontSize: 9.5, color: PdfColors.blueGrey800),
-      ),
-    );
-  }
-
   pw.Widget _summaryChip(String label, String value, PdfColor color) {
     final background = _mixColors(PdfColors.white, color, 0.12);
     final border = _mixColors(color, PdfColors.black, 0.2);
@@ -316,17 +297,12 @@ class ExportService {
     final rows = <List<String>>[];
     final result = entry.result;
     for (var i = 0; i < result.spacingFeet.length; i++) {
-      final spacingMeters = units.feetToMeters(result.spacingFeet[i]).toDouble();
+      final spacingMeters = feetToMeters(result.spacingFeet[i]);
       final depthMeters = i < result.measurementDepthsM.length
-          ? result.measurementDepthsM[i].toDouble()
-          : (result.measurementDepthsM.isEmpty
-              ? 0.0
-              : result.measurementDepthsM.last.toDouble());
-      final observed =
-          i < result.observedRho.length ? result.observedRho[i].toDouble() : 0.0;
-      final predicted = i < result.predictedRho.length
-          ? result.predictedRho[i].toDouble()
-          : observed;
+          ? result.measurementDepthsM[i]
+          : (result.measurementDepthsM.isEmpty ? 0 : result.measurementDepthsM.last);
+      final observed = i < result.observedRho.length ? result.observedRho[i] : 0;
+      final predicted = i < result.predictedRho.length ? result.predictedRho[i] : observed;
       rows.add([
         _formatSpacing(entry.distanceUnit, spacingMeters),
         _formatSpacing(entry.distanceUnit, depthMeters),
@@ -334,7 +310,7 @@ class ExportService {
         _formatRhoValue(predicted),
       ]);
     }
-    return pw.TableHelper.fromTextArray(
+    return pw.Table.fromTextArray(
       headers: headers,
       data: rows,
       border: pw.TableBorder.all(color: PdfColors.grey500, width: 0.4),
