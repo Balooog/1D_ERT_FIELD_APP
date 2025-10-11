@@ -433,49 +433,70 @@ class ImportService {
     final signals = <_UnitSignal>[];
     final evidence = <String>{};
 
-    void addSignal(ImportDistanceUnit unit, double confidence, String reason) {
-      signals.add(_UnitSignal(unit: unit, confidence: confidence, reason: reason));
+    void addSignal(
+      ImportDistanceUnit unit,
+      double confidence,
+      String reason, {
+      int priority = 3,
+    }) {
+      signals.add(
+        _UnitSignal(
+          unit: unit,
+          confidence: confidence,
+          reason: reason,
+          priority: priority,
+        ),
+      );
       evidence.add(reason);
+    }
+
+    for (final column in columns) {
+      final suffixUnit = _unitFromHeaderSuffix(column.header);
+      if (suffixUnit != null) {
+        addSignal(
+          suffixUnit,
+          0.95,
+          'Header "${column.header}" ends with ${suffixUnit == ImportDistanceUnit.meters ? '_m' : '_ft'}',
+          priority: 0,
+        );
+      }
     }
 
     final directive = table.unitDirective?.trim();
     if (directive != null && directive.isNotEmpty) {
       final unit = _unitFromText(directive);
       if (unit != null) {
-        addSignal(unit, 1.0, 'Unit directive "$directive"');
+        addSignal(
+          unit,
+          0.9,
+          'Unit directive "$directive"',
+          priority: 1,
+        );
       }
     }
 
-    for (final column in columns) {
-      final headerTokens = column.header
-          .toLowerCase()
-          .split(RegExp(r'[^a-z0-9]+'))
-        ..removeWhere((token) => token.isEmpty);
-      for (final token in headerTokens) {
-        final unit = _unitFromToken(token);
-        if (unit != null) {
-          addSignal(unit, 0.85,
-              'Header "${column.header}" suggests ${unit == ImportDistanceUnit.meters ? 'meters' : 'feet'}');
-          break;
-        }
-      }
+    final nameUnit = _unitFromFilename(fileName);
+    if (nameUnit != null) {
+      addSignal(
+        nameUnit,
+        0.75,
+        'Filename suffix indicates ${nameUnit == ImportDistanceUnit.meters ? 'meters' : 'feet'}',
+        priority: 2,
+      );
     }
 
     for (final column in columns.where((c) => !c.isNumeric)) {
       for (final sample in column.samples) {
         final unit = _unitFromText(sample);
         if (unit != null) {
-          addSignal(unit, 0.75,
-              'Sample "${sample.trim()}" hints at ${unit == ImportDistanceUnit.meters ? 'meters' : 'feet'}');
+          addSignal(
+            unit,
+            0.65,
+            'Sample "${sample.trim()}" hints at ${unit == ImportDistanceUnit.meters ? 'meters' : 'feet'}',
+          );
           break;
         }
       }
-    }
-
-    final nameUnit = _unitFromFilename(fileName);
-    if (nameUnit != null) {
-      addSignal(nameUnit, 0.7,
-          'Filename suffix indicates ${nameUnit == ImportDistanceUnit.meters ? 'meters' : 'feet'}');
     }
 
     ImportColumnDescriptor? spacingColumn =
@@ -504,8 +525,11 @@ class ImportService {
         final median = values[values.length ~/ 2];
         final max = values.last;
         if (median >= 0.1 && median <= 150 && max <= 200) {
-          addSignal(ImportDistanceUnit.meters, 0.55,
-              'Spacing median ${median.toStringAsFixed(1)} within meter range');
+          addSignal(
+            ImportDistanceUnit.meters,
+            0.55,
+            'Spacing median ${median.toStringAsFixed(1)} within meter range',
+          );
         }
         final multiplesOfFive = values
             .where((value) {
@@ -517,8 +541,11 @@ class ImportService {
             })
             .length;
         if (values.length >= 3 && multiplesOfFive >= (values.length * 0.6) && max >= 20) {
-          addSignal(ImportDistanceUnit.feet, 0.5,
-              'Spacing increments align with 5 ft multiples');
+          addSignal(
+            ImportDistanceUnit.feet,
+            0.5,
+            'Spacing increments align with 5 ft multiples',
+          );
         }
       }
     }
@@ -527,16 +554,26 @@ class ImportService {
       return const ImportUnitDetection(ambiguous: true);
     }
 
-    signals.sort((a, b) => b.confidence.compareTo(a.confidence));
+    signals.sort((a, b) {
+      final priorityCompare = a.priority.compareTo(b.priority);
+      if (priorityCompare != 0) {
+        return priorityCompare;
+      }
+      return b.confidence.compareTo(a.confidence);
+    });
+
     final top = signals.first;
     _UnitSignal? competitor;
     for (final signal in signals.skip(1)) {
+      if (signal.priority != top.priority) {
+        break;
+      }
       if (signal.unit != top.unit) {
         competitor = signal;
         break;
       }
     }
-    final ambiguous = top.confidence < 0.65 ||
+    final ambiguous = top.confidence < 0.6 ||
         (competitor != null && (top.confidence - competitor.confidence).abs() <= 0.15);
     return ImportUnitDetection(
       unit: top.unit,
@@ -559,14 +596,14 @@ class ImportService {
     return null;
   }
 
-  ImportDistanceUnit? _unitFromToken(String token) {
-    if (token.isEmpty) {
-      return null;
-    }
-    if (token == 'm' || token == 'meters' || token == 'meter' || token == 'metres') {
+  ImportDistanceUnit? _unitFromHeaderSuffix(String header) {
+    final normalized = header.toLowerCase();
+    if (normalized.endsWith('_m') || normalized.endsWith('_meter') ||
+        normalized.endsWith('_meters')) {
       return ImportDistanceUnit.meters;
     }
-    if (token == 'ft' || token == 'feet' || token == 'foot') {
+    if (normalized.endsWith('_ft') || normalized.endsWith('_foot') ||
+        normalized.endsWith('_feet')) {
       return ImportDistanceUnit.feet;
     }
     return null;
@@ -592,9 +629,11 @@ class _UnitSignal {
     required this.unit,
     required this.confidence,
     required this.reason,
+    required this.priority,
   });
 
   final ImportDistanceUnit unit;
   final double confidence;
   final String reason;
+  final int priority;
 }
