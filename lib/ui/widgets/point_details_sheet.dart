@@ -27,7 +27,8 @@ class PointDetailsSheet extends ConsumerWidget {
             Text('σρ: ${point.sigmaRhoOhmM!.toStringAsFixed(2)} Ω·m'),
           Text('R (derived): ${point.resistanceOhm.toStringAsFixed(2)} Ω'),
           if (point.resistanceStdOhm != null)
-            Text('σR (derived): ${point.resistanceStdOhm!.toStringAsFixed(2)} Ω'),
+            Text(
+                'σR (derived): ${point.resistanceStdOhm!.toStringAsFixed(2)} Ω'),
           Text('Direction: ${point.direction.label}'),
           if (point.voltageV != null)
             Text('Voltage: ${point.voltageV!.toStringAsFixed(3)} V'),
@@ -41,7 +42,9 @@ class PointDetailsSheet extends ConsumerWidget {
             Row(
               children: [
                 Icon(
-                  point.hasRhoQaWarning ? Icons.warning_amber_rounded : Icons.info_outline,
+                  point.hasRhoQaWarning
+                      ? Icons.warning_amber_rounded
+                      : Icons.info_outline,
                   color: point.hasRhoQaWarning
                       ? Colors.orange
                       : Theme.of(context).colorScheme.primary,
@@ -61,8 +64,8 @@ class PointDetailsSheet extends ConsumerWidget {
               Switch(
                 value: excluded,
                 onChanged: (value) {
-                  ref.read(spacingPointsProvider.notifier).updatePoint(point.id, (current) =>
-                      current.copyWith(excluded: value));
+                  ref.read(spacingPointsProvider.notifier).updatePoint(
+                      point.id, (current) => current.copyWith(excluded: value));
                   Navigator.pop(context);
                 },
               ),

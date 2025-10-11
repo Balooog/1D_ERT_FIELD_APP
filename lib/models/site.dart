@@ -94,8 +94,7 @@ class SpacingRecord {
 
   double get tapeOutsideFeet => spacingFeet * 1.5;
 
-  double get tapeInsideMeters =>
-      units.feetToMeters(tapeInsideFeet.toDouble());
+  double get tapeInsideMeters => units.feetToMeters(tapeInsideFeet.toDouble());
 
   double get tapeOutsideMeters =>
       units.feetToMeters(tapeOutsideFeet.toDouble());
@@ -197,8 +196,8 @@ class SpacingRecord {
     if (sdValues.isEmpty) {
       return null;
     }
-    final worst = sdValues.reduce((value, element) =>
-        value >= element ? value : element);
+    final worst =
+        sdValues.reduce((value, element) => value >= element ? value : element);
     if (worst <= 5) {
       return interpretationGood;
     }
@@ -246,8 +245,7 @@ class SiteRecord {
       moisture: MoistureLevel.values
           .byName(json['moisture'] as String? ?? MoistureLevel.normal.name),
       spacings: (json['spacings'] as List<dynamic>? ?? const [])
-          .map((dynamic e) =>
-              SpacingRecord.fromJson(e as Map<String, dynamic>))
+          .map((dynamic e) => SpacingRecord.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }

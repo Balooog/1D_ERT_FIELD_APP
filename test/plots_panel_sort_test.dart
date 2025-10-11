@@ -10,7 +10,8 @@ import 'package:resicheck/services/templates_service.dart';
 import 'package:resicheck/ui/project_workflow/plots_panel.dart';
 
 void main() {
-  testWidgets('ghost and template series render in ascending spacing order', (tester) async {
+  testWidgets('ghost and template series render in ascending spacing order',
+      (tester) async {
     final spacing = SpacingRecord(
       spacingFeet: 10,
       orientationA: DirectionReadingHistory(
@@ -81,11 +82,15 @@ void main() {
 
     final ghostBar = bars.firstWhere(
       (bar) =>
-          bar.dashArray != null && bar.dashArray!.length == 2 && bar.dashArray!.first == 6,
+          bar.dashArray != null &&
+          bar.dashArray!.length == 2 &&
+          bar.dashArray!.first == 6,
     );
     final templateBar = bars.firstWhere(
       (bar) =>
-          bar.dashArray != null && bar.dashArray!.length == 2 && bar.dashArray!.first == 4,
+          bar.dashArray != null &&
+          bar.dashArray!.length == 2 &&
+          bar.dashArray!.first == 4,
     );
 
     final ghostXs = ghostBar.spots.map((spot) => spot.x).toList();

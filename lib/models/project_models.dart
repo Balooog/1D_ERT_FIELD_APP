@@ -55,8 +55,7 @@ class SpacingPoint {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(spacingMeters, rho, excluded, note);
+  int get hashCode => Object.hash(spacingMeters, rho, excluded, note);
 }
 
 @JsonSerializable(explicitToJson: true)
@@ -74,8 +73,7 @@ class DirectionReadings {
   final Direction dir;
   final List<SpacingPoint> points;
 
-  int get nIncluded =>
-      points.where((p) => p.rho != null && !p.excluded).length;
+  int get nIncluded => points.where((p) => p.rho != null && !p.excluded).length;
 
   Iterable<SpacingPoint> get included =>
       points.where((p) => p.rho != null && !p.excluded);
@@ -140,10 +138,12 @@ class Site {
       final resolved = meta as Map<String, dynamic>?;
       return resolved == null ? null : Map.unmodifiable(resolved);
     }
+
     return Site(
       siteId: siteId ?? this.siteId,
-      displayName:
-          identical(displayName, _unset) ? this.displayName : displayName as String?,
+      displayName: identical(displayName, _unset)
+          ? this.displayName
+          : displayName as String?,
       dirA: dirA ?? this.dirA,
       dirB: dirB ?? this.dirB,
       meta: resolveMeta(),
@@ -238,7 +238,8 @@ class Project {
     return other is Project &&
         projectName == other.projectName &&
         arrayType == other.arrayType &&
-        const ListEquality<double>().equals(spacingsMeters, other.spacingsMeters) &&
+        const ListEquality<double>()
+            .equals(spacingsMeters, other.spacingsMeters) &&
         const ListEquality<Site>().equals(sites, other.sites);
   }
 
@@ -282,8 +283,9 @@ class QcStats {
     int? red,
   }) {
     return QcStats(
-      rmsPercent:
-          identical(rmsPercent, _unset) ? this.rmsPercent : rmsPercent as double?,
+      rmsPercent: identical(rmsPercent, _unset)
+          ? this.rmsPercent
+          : rmsPercent as double?,
       chi2: identical(chi2, _unset) ? this.chi2 : chi2 as double?,
       green: green ?? this.green,
       yellow: yellow ?? this.yellow,

@@ -286,6 +286,7 @@ extension ImportColumnTargetLabel on ImportColumnTarget {
 
 extension ImportColumnDescriptorLookup on Iterable<ImportColumnDescriptor> {
   ImportColumnDescriptor? byTarget(ImportColumnTarget target) {
-    return firstWhereOrNull((descriptor) => descriptor.suggestedTarget == target);
+    return firstWhereOrNull(
+        (descriptor) => descriptor.suggestedTarget == target);
   }
 }

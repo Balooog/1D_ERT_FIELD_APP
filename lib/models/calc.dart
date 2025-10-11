@@ -83,16 +83,20 @@ QcFlags evaluateQc({
   final ratio = anisotropyRatio(rhoA, rhoB);
   final latestRho = _averageNullable([rhoA, rhoB]);
 
-  final outlier = (resistanceA != null && resistanceA.abs() > config.outlierCapOhm) ||
-      (resistanceB != null && resistanceB.abs() > config.outlierCapOhm);
+  final outlier =
+      (resistanceA != null && resistanceA.abs() > config.outlierCapOhm) ||
+          (resistanceB != null && resistanceB.abs() > config.outlierCapOhm);
   final highVariance = ((sdA ?? 0) >= config.sdThresholdPercent) ||
       ((sdB ?? 0) >= config.sdThresholdPercent);
   final anisotropy = ratio != null && ratio > config.anisotropyRatioThreshold;
 
   bool jump = false;
-  if (previousRho != null && latestRho != null && previousRho > 0 && latestRho > 0) {
-    final jumpMagnitude = (math.log(previousRho) / math.ln10) -
-        (math.log(latestRho) / math.ln10);
+  if (previousRho != null &&
+      latestRho != null &&
+      previousRho > 0 &&
+      latestRho > 0) {
+    final jumpMagnitude =
+        (math.log(previousRho) / math.ln10) - (math.log(latestRho) / math.ln10);
     jump = jumpMagnitude.abs() > config.jumpThresholdLog10;
   }
 

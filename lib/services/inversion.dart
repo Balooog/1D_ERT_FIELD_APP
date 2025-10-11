@@ -97,9 +97,11 @@ class TwoLayerInversionResult {
     }
   }
 
-  double get minRho => _allRhoSamples.isEmpty ? 1 : _allRhoSamples.reduce(math.min);
+  double get minRho =>
+      _allRhoSamples.isEmpty ? 1 : _allRhoSamples.reduce(math.min);
 
-  double get maxRho => _allRhoSamples.isEmpty ? 1 : _allRhoSamples.reduce(math.max);
+  double get maxRho =>
+      _allRhoSamples.isEmpty ? 1 : _allRhoSamples.reduce(math.max);
 }
 
 class _InversionAttempt {
@@ -205,8 +207,9 @@ Future<TwoLayerInversionResult?> invertTwoLayerSite(SiteRecord site) async {
       ? result.fitCurve
       : List<double>.generate(
           input.spacingFeet.length,
-          (index) =>
-              result.fitCurve[index < result.fitCurve.length ? index : result.fitCurve.length - 1],
+          (index) => result.fitCurve[index < result.fitCurve.length
+              ? index
+              : result.fitCurve.length - 1],
         );
   final summary = TwoLayerInversionResult(
     spacingFeet: input.spacingFeet,
@@ -216,7 +219,8 @@ Future<TwoLayerInversionResult?> invertTwoLayerSite(SiteRecord site) async {
     layerDepths: result.depthsM,
     rho1: result.resistivities.first,
     rho2: result.resistivities[1],
-    halfSpaceRho: result.resistivities.length > 2 ? result.resistivities.last : null,
+    halfSpaceRho:
+        result.resistivities.length > 2 ? result.resistivities.last : null,
     rms: result.misfit,
     thicknessM: thicknessM,
   );
@@ -411,8 +415,8 @@ void _clampFirstLayerSeed(
   if (band == null) {
     return;
   }
-  final clamped = math.log(seed.first.clamp(minRho, maxRho))
-      .clamp(band.lower, band.upper);
+  final clamped =
+      math.log(seed.first.clamp(minRho, maxRho)).clamp(band.lower, band.upper);
   seed[0] = math.exp(clamped).clamp(minRho, maxRho).toDouble();
 }
 
@@ -654,7 +658,8 @@ _InversionAttempt _segmentalApproximation({
   }
 
   final guard = math.max(minThick, 0.25);
-  final maxDepthAvailable = units.feetToMeters(aggregated.last.spacingFt * 0.5).toDouble();
+  final maxDepthAvailable =
+      units.feetToMeters(aggregated.last.spacingFt * 0.5).toDouble();
   var previousDepth = 0.0;
   for (var i = 0; i < depths.length; i++) {
     var depth = depths[i];
@@ -663,9 +668,7 @@ _InversionAttempt _segmentalApproximation({
       depth = minDepth;
     }
     final maxDepth = math.min(previousDepth + maxThick, maxDepthAvailable);
-    depth = depth
-        .clamp(minDepth, math.max(minDepth, maxDepth))
-        .toDouble();
+    depth = depth.clamp(minDepth, math.max(minDepth, maxDepth)).toDouble();
     depths[i] = depth;
     previousDepth = depth;
   }
@@ -893,7 +896,8 @@ List<double> _estimateLayerResistivities(
   return resistivities;
 }
 
-List<double?> _buildThicknesses(List<double> boundaries, double minThick, double maxThick) {
+List<double?> _buildThicknesses(
+    List<double> boundaries, double minThick, double maxThick) {
   if (boundaries.isEmpty) {
     return [null];
   }
@@ -1079,20 +1083,25 @@ _SiteInversionInput _aggregateSiteForInversion(SiteRecord site) {
   for (final spacing in spacings) {
     final aSample = spacing.orientationA.latest;
     final bSample = spacing.orientationB.latest;
-    final hasA =
-        aSample != null && !aSample.isBad && (aSample.resistanceOhm ?? 0) > 0;
-    final hasB =
-        bSample != null && !bSample.isBad && (bSample.resistanceOhm ?? 0) > 0;
-    if (!hasA && !hasB) {
-      continue;
-    }
+
     double? rhoA;
-    if (hasA) {
-      rhoA = calc.rhoAWenner(spacing.spacingFeet, aSample!.resistanceOhm!);
+    if (aSample != null && !aSample.isBad) {
+      final resistance = aSample.resistanceOhm;
+      if (resistance != null && resistance > 0) {
+        rhoA = calc.rhoAWenner(spacing.spacingFeet, resistance);
+      }
     }
+
     double? rhoB;
-    if (hasB) {
-      rhoB = calc.rhoAWenner(spacing.spacingFeet, bSample!.resistanceOhm!);
+    if (bSample != null && !bSample.isBad) {
+      final resistance = bSample.resistanceOhm;
+      if (resistance != null && resistance > 0) {
+        rhoB = calc.rhoAWenner(spacing.spacingFeet, resistance);
+      }
+    }
+
+    if (rhoA == null && rhoB == null) {
+      continue;
     }
     final values = <double>[if (rhoA != null) rhoA, if (rhoB != null) rhoB];
     if (values.isEmpty) {
@@ -1168,7 +1177,8 @@ class LiteInversionService {
     }
 
     predicted = _forward(spacings, thicknesses, logRhos);
-    final residuals = List<double>.generate(predicted.length, (i) => observations[i] - predicted[i]);
+    final residuals = List<double>.generate(
+        predicted.length, (i) => observations[i] - predicted[i]);
     final rms = _rms(residuals);
     final chiSq = _chiSquare(residuals, usable);
     final oneSigma = _oneSigmaBand(predicted, residuals);
@@ -1215,8 +1225,7 @@ class LiteInversionService {
           .map((entry) => entry.value)
           .where((value) => value.isFinite && value > 0)
           .toList();
-      final trailingSamples = paired
-          .reversed
+      final trailingSamples = paired.reversed
           .take(math.min(3, paired.length))
           .map((entry) => entry.value)
           .where((value) => value.isFinite && value > 0)
@@ -1253,7 +1262,8 @@ class LiteInversionService {
     return _SeedResult(rhos: rhos, thicknesses: thicknesses);
   }
 
-  List<double> _forward(List<double> spacings, List<double?> thicknesses, List<double> logRhos) {
+  List<double> _forward(
+      List<double> spacings, List<double?> thicknesses, List<double> logRhos) {
     final rhos = logRhos.map(math.exp).toList();
     final outputs = <double>[];
     for (var spacing in spacings) {
@@ -1284,7 +1294,8 @@ class LiteInversionService {
   ) {
     final eps = 1e-3;
     final base = _forward(spacings, thicknesses, logRhos);
-    final jacobian = List.generate(spacings.length, (_) => List<double>.filled(logRhos.length, 0));
+    final jacobian = List.generate(
+        spacings.length, (_) => List<double>.filled(logRhos.length, 0));
 
     for (var j = 0; j < logRhos.length; j++) {
       final perturbed = List<double>.from(logRhos);
@@ -1304,7 +1315,8 @@ class LiteInversionService {
   ) {
     final rows = jacobian.length;
     final cols = jacobian.first.length;
-    final jt = List.generate(cols, (i) => List<double>.generate(rows, (j) => jacobian[j][i]));
+    final jt = List.generate(
+        cols, (i) => List<double>.generate(rows, (j) => jacobian[j][i]));
     final jtj = List.generate(cols, (_) => List<double>.filled(cols, 0.0));
 
     for (var i = 0; i < cols; i++) {
@@ -1388,7 +1400,8 @@ class LiteInversionService {
     if (residuals.isEmpty) return 0;
     double chi = 0;
     for (var i = 0; i < residuals.length; i++) {
-      final sigma = points[i].sigmaRhoOhmM ?? (0.05 * points[i].rhoAppOhmM.abs());
+      final sigma =
+          points[i].sigmaRhoOhmM ?? (0.05 * points[i].rhoAppOhmM.abs());
       final weight = sigma == 0 ? 1 : 1 / sigma;
       chi += math.pow(residuals[i] * weight, 2).toDouble();
     }
@@ -1399,7 +1412,8 @@ class LiteInversionService {
     if (predicted.isEmpty) return [];
     final variance = residuals.isEmpty
         ? 0
-        : residuals.map((r) => r * r).reduce((a, b) => a + b) / residuals.length;
+        : residuals.map((r) => r * r).reduce((a, b) => a + b) /
+            residuals.length;
     final sigma = math.sqrt(variance);
     return predicted.map((p) => p == 0 ? sigma : (sigma / p)).toList();
   }
@@ -1479,7 +1493,8 @@ class LiteInversionService {
     return best;
   }
 
-  List<double> _logSlopeBreaks(List<double> spacing, List<double> obs, int count) {
+  List<double> _logSlopeBreaks(
+      List<double> spacing, List<double> obs, int count) {
     final logSpacing = spacing.map((e) => math.log(e)).toList();
     final logRho = obs.map((e) => math.log(e)).toList();
     final slopes = <double>[];
@@ -1499,7 +1514,8 @@ class LiteInversionService {
         final idx = math.min(i, spacing.length - 1);
         breaks.add(spacing[idx]);
       } else {
-        final slopeIndex = sortedIndices[math.min(i, sortedIndices.length - 1)] + 1;
+        final slopeIndex =
+            sortedIndices[math.min(i, sortedIndices.length - 1)] + 1;
         final idx = math.min(slopeIndex, spacing.length - 1);
         breaks.add(spacing[idx]);
       }
@@ -1516,7 +1532,8 @@ class _SeedResult {
 }
 
 class _TwoLayerSeed {
-  const _TwoLayerSeed({required this.rho1, required this.rho2, required this.h});
+  const _TwoLayerSeed(
+      {required this.rho1, required this.rho2, required this.h});
 
   final double rho1;
   final double rho2;

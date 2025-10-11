@@ -28,7 +28,8 @@ class ImportService {
     return ImportSession(source: source, table: table, preview: preview);
   }
 
-  ImportValidationResult validate(ImportSession session, ImportMapping mapping) {
+  ImportValidationResult validate(
+      ImportSession session, ImportMapping mapping) {
     final table = session.table;
     if (table.headers.isEmpty) {
       return ImportValidationResult(
@@ -39,24 +40,31 @@ class ImportService {
         spacings: const [],
       );
     }
-    final assignments = mapping.assignments.map((key, value) => MapEntry(key, value));
-    final spacingColumn = _columnFor(assignments, ImportColumnTarget.aSpacingFeet);
+    final assignments =
+        mapping.assignments.map((key, value) => MapEntry(key, value));
+    final spacingColumn =
+        _columnFor(assignments, ImportColumnTarget.aSpacingFeet);
     if (spacingColumn == null) {
       return ImportValidationResult(
         totalRows: table.rows.length,
         importedRows: 0,
         skippedRows: table.rows.length,
         issues: [
-          ImportValidationIssue(rowIndex: 0, message: 'Map an a-spacing column to import.'),
+          ImportValidationIssue(
+              rowIndex: 0, message: 'Map an a-spacing column to import.'),
         ],
         spacings: const [],
       );
     }
     final unitColumn = _columnFor(assignments, ImportColumnTarget.units);
-    final pinsInsideColumn = _columnFor(assignments, ImportColumnTarget.pinsInsideFeet);
-    final pinsOutsideColumn = _columnFor(assignments, ImportColumnTarget.pinsOutsideFeet);
-    final resNsColumn = _columnFor(assignments, ImportColumnTarget.resistanceNsOhm);
-    final resWeColumn = _columnFor(assignments, ImportColumnTarget.resistanceWeOhm);
+    final pinsInsideColumn =
+        _columnFor(assignments, ImportColumnTarget.pinsInsideFeet);
+    final pinsOutsideColumn =
+        _columnFor(assignments, ImportColumnTarget.pinsOutsideFeet);
+    final resNsColumn =
+        _columnFor(assignments, ImportColumnTarget.resistanceNsOhm);
+    final resWeColumn =
+        _columnFor(assignments, ImportColumnTarget.resistanceWeOhm);
     final sdNsColumn = _columnFor(assignments, ImportColumnTarget.sdNsPercent);
     final sdWeColumn = _columnFor(assignments, ImportColumnTarget.sdWePercent);
 
@@ -73,22 +81,29 @@ class ImportService {
       final spacingValue = _parseDouble(row, spacingColumn);
       if (spacingValue == null) {
         skipped++;
-        issues.add(ImportValidationIssue(rowIndex: rowIndex, message: 'Missing a-spacing value.'));
+        issues.add(ImportValidationIssue(
+            rowIndex: rowIndex, message: 'Missing a-spacing value.'));
         continue;
       }
       if (spacingValue <= 0) {
         skipped++;
-        issues.add(ImportValidationIssue(rowIndex: rowIndex, message: 'Negative or zero a-spacing.'));
+        issues.add(ImportValidationIssue(
+            rowIndex: rowIndex, message: 'Negative or zero a-spacing.'));
         continue;
       }
-      final spacingFeet = double.parse(unit.toFeet(spacingValue).toStringAsFixed(5));
-      if (!_checkPinsConsistency(row, pinsInsideColumn, pinsOutsideColumn, spacingFeet, unit)) {
-        issues.add(ImportValidationIssue(rowIndex: rowIndex, message: 'Pins in/out do not match a-spacing.'));
+      final spacingFeet =
+          double.parse(unit.toFeet(spacingValue).toStringAsFixed(5));
+      if (!_checkPinsConsistency(
+          row, pinsInsideColumn, pinsOutsideColumn, spacingFeet, unit)) {
+        issues.add(ImportValidationIssue(
+            rowIndex: rowIndex,
+            message: 'Pins in/out do not match a-spacing.'));
       }
       final spacingKey = _roundSpacing(spacingFeet);
       if (seenSpacings.contains(spacingKey)) {
         skipped++;
-        issues.add(ImportValidationIssue(rowIndex: rowIndex, message: 'Duplicate a-spacing encountered.'));
+        issues.add(ImportValidationIssue(
+            rowIndex: rowIndex, message: 'Duplicate a-spacing encountered.'));
         continue;
       }
       final resistanceNs = _parseDouble(row, resNsColumn);
@@ -98,7 +113,9 @@ class ImportService {
 
       if (resistanceNs == null && resistanceWe == null) {
         skipped++;
-        issues.add(ImportValidationIssue(rowIndex: rowIndex, message: 'No resistivity columns mapped for this row.'));
+        issues.add(ImportValidationIssue(
+            rowIndex: rowIndex,
+            message: 'No resistivity columns mapped for this row.'));
         continue;
       }
 
@@ -125,7 +142,9 @@ class ImportService {
     );
   }
 
-  ImportMergePreview previewMerge(SiteRecord? existing, ImportValidationResult validation, {bool overwrite = false}) {
+  ImportMergePreview previewMerge(
+      SiteRecord? existing, ImportValidationResult validation,
+      {bool overwrite = false}) {
     if (existing == null) {
       return ImportMergePreview(
         newRows: validation.importedRows,
@@ -139,7 +158,8 @@ class ImportService {
     var updatedRows = 0;
     var skipped = 0;
 
-    final existingSpacings = existing.spacings.map((spacing) => spacing.spacingFeet).toSet();
+    final existingSpacings =
+        existing.spacings.map((spacing) => spacing.spacingFeet).toSet();
     for (final spacing in validation.spacings) {
       if (!existingSpacings.contains(spacing.spacingFeet)) {
         newRows++;
@@ -209,8 +229,7 @@ class ImportService {
     }
     return ImportMapping(
       assignments: assignments,
-      distanceUnit:
-          preview.unitDetection.unit ?? ImportDistanceUnit.meters,
+      distanceUnit: preview.unitDetection.unit ?? ImportDistanceUnit.meters,
     );
   }
 
@@ -248,7 +267,10 @@ class ImportService {
       );
     }
 
-    final previewRows = table.rows.take(20).map((row) => row.take(table.headers.length).toList()).toList();
+    final previewRows = table.rows
+        .take(20)
+        .map((row) => row.take(table.headers.length).toList())
+        .toList();
     final detection = _detectUnits(fileName, table, columns);
     return ImportPreview(
       typeLabel: typeLabel,
@@ -278,10 +300,12 @@ class ImportService {
     return 'Delimited text';
   }
 
-  ImportColumnTarget? _suggestTarget(String header, List<String> samples, bool isNumeric) {
+  ImportColumnTarget? _suggestTarget(
+      String header, List<String> samples, bool isNumeric) {
     final normalized = header.toLowerCase();
     final sanitized = normalized.replaceAll(RegExp(r'[^a-z0-9]+'), ' ');
-    bool containsAny(List<String> tokens) => tokens.any((token) => sanitized.contains(token));
+    bool containsAny(List<String> tokens) =>
+        tokens.any((token) => sanitized.contains(token));
 
     if (containsAny(['unit', 'units'])) {
       return ImportColumnTarget.units;
@@ -330,7 +354,8 @@ class ImportService {
     return null;
   }
 
-  int? _columnFor(Map<int, ImportColumnTarget> assignments, ImportColumnTarget target) {
+  int? _columnFor(
+      Map<int, ImportColumnTarget> assignments, ImportColumnTarget target) {
     for (final entry in assignments.entries) {
       if (entry.value == target) {
         return entry.key;
@@ -339,7 +364,8 @@ class ImportService {
     return null;
   }
 
-  ImportDistanceUnit _resolveUnit(List<String> row, int? unitColumn, ImportDistanceUnit fallback) {
+  ImportDistanceUnit _resolveUnit(
+      List<String> row, int? unitColumn, ImportDistanceUnit fallback) {
     if (unitColumn == null || unitColumn >= row.length) {
       return fallback;
     }
@@ -370,11 +396,12 @@ class ImportService {
     }
     var numeric = 0;
     for (final sample in samples) {
-      if (double.tryParse(sample.replaceAll(RegExp(r'[^0-9eE+\-.]'), '')) != null) {
+      if (double.tryParse(sample.replaceAll(RegExp(r'[^0-9eE+\-.]'), '')) !=
+          null) {
         numeric++;
       }
     }
-      return numeric >= math.max(1, samples.length ~/ 2);
+    return numeric >= math.max(1, samples.length ~/ 2);
   }
 
   String _normalizeNumeric(String text) {
@@ -518,7 +545,8 @@ class ImportService {
       final values = <double>[];
       for (final row in table.rows.take(80)) {
         if (spacingColumn.index < row.length) {
-          final value = double.tryParse(_normalizeNumeric(row[spacingColumn.index]));
+          final value =
+              double.tryParse(_normalizeNumeric(row[spacingColumn.index]));
           if (value != null && value.isFinite) {
             values.add(value.abs());
           }
@@ -539,15 +567,16 @@ class ImportService {
           final remainder = value % step;
           return remainder <= tolerance || (step - remainder) <= tolerance;
         }
-        final multiplesOfFive = values
-            .where((value) {
-              if (value < 5) {
-                return false;
-              }
-              return nearMultiple(value, 5, 0.01);
-            })
-            .length;
-        if (values.length >= 3 && multiplesOfFive >= (values.length * 0.6) && max >= 20) {
+
+        final multiplesOfFive = values.where((value) {
+          if (value < 5) {
+            return false;
+          }
+          return nearMultiple(value, 5, 0.01);
+        }).length;
+        if (values.length >= 3 &&
+            multiplesOfFive >= (values.length * 0.6) &&
+            max >= 20) {
           addSignal(
             ImportDistanceUnit.feet,
             0.5,
@@ -581,7 +610,8 @@ class ImportService {
       }
     }
     final ambiguous = top.confidence < 0.6 ||
-        (competitor != null && (top.confidence - competitor.confidence).abs() <= 0.15);
+        (competitor != null &&
+            (top.confidence - competitor.confidence).abs() <= 0.15);
     return ImportUnitDetection(
       unit: top.unit,
       reason: top.reason,
@@ -605,11 +635,13 @@ class ImportService {
 
   ImportDistanceUnit? _unitFromHeaderSuffix(String header) {
     final normalized = header.toLowerCase();
-    if (normalized.endsWith('_m') || normalized.endsWith('_meter') ||
+    if (normalized.endsWith('_m') ||
+        normalized.endsWith('_meter') ||
         normalized.endsWith('_meters')) {
       return ImportDistanceUnit.meters;
     }
-    if (normalized.endsWith('_ft') || normalized.endsWith('_foot') ||
+    if (normalized.endsWith('_ft') ||
+        normalized.endsWith('_foot') ||
         normalized.endsWith('_feet')) {
       return ImportDistanceUnit.feet;
     }
@@ -624,7 +656,9 @@ class ImportService {
     if (normalized.contains('meter') || normalized == 'm') {
       return ImportDistanceUnit.meters;
     }
-    if (normalized.contains('foot') || normalized.contains('feet') || normalized.contains('ft')) {
+    if (normalized.contains('foot') ||
+        normalized.contains('feet') ||
+        normalized.contains('ft')) {
       return ImportDistanceUnit.feet;
     }
     return null;

@@ -46,8 +46,8 @@ class ProjectWorkflowShortcuts extends StatelessWidget {
             const _ImportIntent(),
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyZ):
             const _UndoIntent(),
-        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift, LogicalKeyboardKey.keyZ):
-            const _RedoIntent(),
+        LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.shift,
+            LogicalKeyboardKey.keyZ): const _RedoIntent(),
       },
       child: Actions(
         actions: <Type, Action<Intent>>{
@@ -55,15 +55,18 @@ class ProjectWorkflowShortcuts extends StatelessWidget {
             onMarkBad();
             return null;
           }),
-          _ToggleOutliersIntent: CallbackAction<_ToggleOutliersIntent>(onInvoke: (_) {
+          _ToggleOutliersIntent:
+              CallbackAction<_ToggleOutliersIntent>(onInvoke: (_) {
             onToggleOutliers();
             return null;
           }),
-          _ToggleAllSitesIntent: CallbackAction<_ToggleAllSitesIntent>(onInvoke: (_) {
+          _ToggleAllSitesIntent:
+              CallbackAction<_ToggleAllSitesIntent>(onInvoke: (_) {
             onToggleAllSites();
             return null;
           }),
-          _ToggleLockAxesIntent: CallbackAction<_ToggleLockAxesIntent>(onInvoke: (_) {
+          _ToggleLockAxesIntent:
+              CallbackAction<_ToggleLockAxesIntent>(onInvoke: (_) {
             onToggleLockAxes();
             return null;
           }),

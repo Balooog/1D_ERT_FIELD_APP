@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
+
+export FLUTTER_SUPPRESS_ANALYTICS=true
+
 mkdir -p buildlogs
-flutter pub get
-dart format . --fix
-flutter analyze | tee buildlogs/last_test.txt
-flutter test -x widget_dialog | tee -a buildlogs/last_test.txt
+
+# Keep the workflow deterministic for Codex by formatting, analyzing, and testing in sequence.
+dart format .
+dart analyze | tee buildlogs/last_test.txt
+flutter --no-version-check test -x widget_dialog | tee -a buildlogs/last_test.txt

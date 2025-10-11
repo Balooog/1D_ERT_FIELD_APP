@@ -6,7 +6,8 @@ import '../services/inversion.dart';
 import '../services/mock_stream.dart';
 import '../services/qc_rules.dart';
 
-final mockStreamProvider = Provider<MockStreamService>((ref) => MockStreamService());
+final mockStreamProvider =
+    Provider<MockStreamService>((ref) => MockStreamService());
 
 class SpacingPointsNotifier extends StateNotifier<List<SpacingPoint>> {
   SpacingPointsNotifier() : super(const []);
@@ -37,9 +38,11 @@ class SpacingPointsNotifier extends StateNotifier<List<SpacingPoint>> {
 }
 
 final spacingPointsProvider =
-    StateNotifierProvider<SpacingPointsNotifier, List<SpacingPoint>>((ref) => SpacingPointsNotifier());
+    StateNotifierProvider<SpacingPointsNotifier, List<SpacingPoint>>(
+        (ref) => SpacingPointsNotifier());
 
-final inversionServiceProvider = Provider<LiteInversionService>((ref) => LiteInversionService());
+final inversionServiceProvider =
+    Provider<LiteInversionService>((ref) => LiteInversionService());
 
 final inversionProvider = Provider<InversionModel>((ref) {
   final points = ref.watch(spacingPointsProvider);
@@ -64,8 +67,11 @@ final qaSummaryProvider = Provider<QaSummary>((ref) {
   }
   final residuals = <double>[];
   for (var i = 0; i < points.length; i++) {
-    final fit = i < inversion.predictedRho.length ? inversion.predictedRho[i] : inversion.predictedRho.last;
-    residuals.add(points[i].rhoAppOhmM == 0 ? 0 : (points[i].rhoAppOhmM - fit) / fit);
+    final fit = i < inversion.predictedRho.length
+        ? inversion.predictedRho[i]
+        : inversion.predictedRho.last;
+    residuals.add(
+        points[i].rhoAppOhmM == 0 ? 0 : (points[i].rhoAppOhmM - fit) / fit);
   }
   return summarizeQa(points, residuals, inversion.predictedRho);
 });
@@ -92,35 +98,40 @@ class TelemetryNotifier extends StateNotifier<TelemetryState> {
   TelemetryNotifier()
       : super(TelemetryState(current: [], voltage: [], spDrift: []));
 
-  void addSample({required double current, required double voltage, double? spDrift}) {
+  void addSample(
+      {required double current, required double voltage, double? spDrift}) {
     final now = DateTime.now();
     final cutoff = now.subtract(const Duration(seconds: 30));
 
-    List<TelemetrySample> updateList(List<TelemetrySample> samples, double value) {
+    List<TelemetrySample> updateList(
+        List<TelemetrySample> samples, double value) {
       final updated = [...samples, TelemetrySample(now, value)]
         ..removeWhere((sample) => sample.timestamp.isBefore(cutoff));
       return updated;
     }
 
     List<TelemetrySample> trimOnly(List<TelemetrySample> samples) {
-      return [...samples]..removeWhere((sample) => sample.timestamp.isBefore(cutoff));
+      return [...samples]
+        ..removeWhere((sample) => sample.timestamp.isBefore(cutoff));
     }
 
     state = TelemetryState(
       current: updateList(state.current, current),
       voltage: updateList(state.voltage, voltage),
-      spDrift: spDrift != null ? updateList(state.spDrift, spDrift) : trimOnly(state.spDrift),
+      spDrift: spDrift != null
+          ? updateList(state.spDrift, spDrift)
+          : trimOnly(state.spDrift),
     );
   }
 }
 
-final telemetryProvider = StateNotifierProvider<TelemetryNotifier, TelemetryState>((ref) {
+final telemetryProvider =
+    StateNotifierProvider<TelemetryNotifier, TelemetryState>((ref) {
   return TelemetryNotifier();
 });
 
 class SimulationController extends StateNotifier<bool> {
-  SimulationController(this.ref)
-      : super(false);
+  SimulationController(this.ref) : super(false);
 
   final Ref ref;
 
@@ -155,7 +166,8 @@ class SimulationController extends StateNotifier<bool> {
   }
 }
 
-final simulationControllerProvider = StateNotifierProvider<SimulationController, bool>((ref) {
+final simulationControllerProvider =
+    StateNotifierProvider<SimulationController, bool>((ref) {
   final controller = SimulationController(ref);
   ref.onDispose(() => controller.stop());
   return controller;

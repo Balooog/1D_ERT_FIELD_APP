@@ -45,7 +45,8 @@ extension DistanceUnitX on DistanceUnit {
     return value.toStringAsFixed(2);
   }
 
-  static DistanceUnit parse(String? name, {DistanceUnit fallback = DistanceUnit.meters}) {
+  static DistanceUnit parse(String? name,
+      {DistanceUnit fallback = DistanceUnit.meters}) {
     if (name == null) return fallback;
     return DistanceUnit.values.firstWhere(
       (unit) => unit.name == name,
