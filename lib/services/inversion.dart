@@ -1000,13 +1000,61 @@ class LiteInversionService {
     final thicknesses = <double?>[];
     if (layerCount == 1) {
       thicknesses.add(null);
-    } else {
-      final increments = _logSlopeBreaks(spacings, obs, layerCount - 1);
-      for (var i = 0; i < layerCount - 1; i++) {
-        thicknesses.add(increments[i]);
-      }
-      thicknesses.add(null);
+      return _SeedResult(rhos: rhos, thicknesses: thicknesses);
     }
+
+    final increments = _logSlopeBreaks(spacings, obs, layerCount - 1);
+    for (var i = 0; i < layerCount - 1; i++) {
+      thicknesses.add(increments[i]);
+    }
+    thicknesses.add(null);
+
+    if (layerCount >= 2 && spacings.isNotEmpty) {
+      final paired = List<MapEntry<double, double>>.generate(
+        spacings.length,
+        (index) => MapEntry(spacings[index], obs[index]),
+      )..sort((a, b) => a.key.compareTo(b.key));
+
+      final leadingSamples = paired
+          .take(math.min(3, paired.length))
+          .map((entry) => entry.value)
+          .where((value) => value.isFinite && value > 0)
+          .toList();
+      final trailingSamples = paired
+          .reversed
+          .take(math.min(3, paired.length))
+          .map((entry) => entry.value)
+          .where((value) => value.isFinite && value > 0)
+          .toList();
+
+      final rho1Seed =
+          leadingSamples.isEmpty ? median : _median(leadingSamples);
+      final rho2Seed =
+          trailingSamples.isEmpty ? median : _median(trailingSamples);
+
+      final sanitizedRho1 =
+          rho1Seed.isFinite && rho1Seed > 0 ? rho1Seed : math.max(median, 1.0);
+      final sanitizedRho2 =
+          rho2Seed.isFinite && rho2Seed > 0 ? rho2Seed : math.max(median, 1.0);
+
+      rhos[0] = sanitizedRho1;
+      if (rhos.length > 1) {
+        rhos[1] = sanitizedRho2;
+      }
+
+      final twoLayerSeed =
+          _gridSearchTwoLayerSeed(paired, sanitizedRho1, sanitizedRho2);
+      if (twoLayerSeed != null) {
+        rhos[0] = twoLayerSeed.rho1;
+        if (rhos.length > 1) {
+          rhos[1] = twoLayerSeed.rho2;
+        }
+        if (thicknesses.isNotEmpty) {
+          thicknesses[0] = twoLayerSeed.h;
+        }
+      }
+    }
+
     return _SeedResult(rhos: rhos, thicknesses: thicknesses);
   }
 
@@ -1161,6 +1209,81 @@ class LiteInversionService {
     return predicted.map((p) => p == 0 ? sigma : (sigma / p)).toList();
   }
 
+  List<double> _logSpace(double start, double stop, int count) {
+    final length = math.max(count, 1);
+    if (!start.isFinite || start <= 0) {
+      return List<double>.filled(length, 0.5);
+    }
+    if (!stop.isFinite || stop <= start) {
+      return List<double>.filled(length, start);
+    }
+    if (length == 1) {
+      return [start];
+    }
+    final lower = math.log(start);
+    final upper = math.log(stop);
+    if (!lower.isFinite || !upper.isFinite || (upper - lower).abs() < 1e-6) {
+      return List<double>.filled(length, start);
+    }
+    final step = (upper - lower) / (length - 1);
+    return List<double>.generate(
+      length,
+      (index) => math.exp(lower + step * index),
+    );
+  }
+
+  _TwoLayerSeed? _gridSearchTwoLayerSeed(
+    List<MapEntry<double, double>> samples,
+    double rho1Seed,
+    double rho2Seed,
+  ) {
+    if (samples.length < 2) {
+      return null;
+    }
+    final spacings = samples.map((entry) => entry.key).toList();
+    final observations = samples.map((entry) => entry.value).toList();
+
+    var lower = math.max(0.3, spacings.first * 0.5);
+    if (!lower.isFinite || lower <= 0) {
+      lower = 0.3;
+    }
+    var upper = spacings.last / 3;
+    if (!upper.isFinite || upper <= lower) {
+      upper = lower * 1.25;
+    }
+    final candidates = _logSpace(lower, upper, 7);
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    _TwoLayerSeed? best;
+    double? bestRms;
+    final safeRho1 = math.max(rho1Seed, 1e-3);
+    final safeRho2 = math.max(rho2Seed, 1e-3);
+    final logRhos = [math.log(safeRho1), math.log(safeRho2)];
+
+    for (final h in candidates) {
+      if (!h.isFinite || h <= 0) {
+        continue;
+      }
+      final predicted = _forward(spacings, <double?>[h, null], logRhos);
+      final residuals = List<double>.generate(
+        predicted.length,
+        (i) => observations[i] - predicted[i],
+      );
+      final rms = _rms(residuals);
+      if (!rms.isFinite) {
+        continue;
+      }
+      if (bestRms == null || rms < bestRms) {
+        bestRms = rms;
+        best = _TwoLayerSeed(rho1: safeRho1, rho2: safeRho2, h: h);
+      }
+    }
+
+    return best;
+  }
+
   List<double> _logSlopeBreaks(List<double> spacing, List<double> obs, int count) {
     final logSpacing = spacing.map((e) => math.log(e)).toList();
     final logRho = obs.map((e) => math.log(e)).toList();
@@ -1195,4 +1318,12 @@ class _SeedResult {
 
   final List<double> rhos;
   final List<double?> thicknesses;
+}
+
+class _TwoLayerSeed {
+  const _TwoLayerSeed({required this.rho1, required this.rho2, required this.h});
+
+  final double rho1;
+  final double rho2;
+  final double h;
 }
