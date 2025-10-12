@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/logging.dart';
 import '../../models/project.dart';
 import '../../models/site.dart';
 import '../../services/import/import_models.dart';
@@ -504,7 +506,10 @@ class _ImportSheetState extends State<ImportSheet> {
   }
 
   Future<void> _restoreUnitPreference() async {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _safeGetPrefs(operation: 'read');
+    if (prefs == null) {
+      return;
+    }
     final stored = prefs.getString(_unitPreferenceKey);
     if (!mounted) {
       _prefs = prefs;
@@ -518,9 +523,36 @@ class _ImportSheetState extends State<ImportSheet> {
   }
 
   Future<void> _persistUnitPreference(ImportDistanceUnit unit) async {
-    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    final prefs = _prefs ?? await _safeGetPrefs(operation: 'write');
+    if (prefs == null) {
+      return;
+    }
     await prefs.setString(_unitPreferenceKey, unit.name);
     _prefs = prefs;
+  }
+
+  Future<SharedPreferences?> _safeGetPrefs({required String operation}) async {
+    try {
+      return await SharedPreferences.getInstance();
+    } on MissingPluginException catch (error, stackTrace) {
+      LOG.warn('import_prefs_missing_plugin', extra: {
+        'operation': operation,
+        'project': widget.project.projectId,
+        'message': error.message,
+        'stack': stackTrace.toString(),
+      });
+    } catch (error, stackTrace) {
+      LOG.error(
+        'import_prefs_failure',
+        extra: {
+          'operation': operation,
+          'project': widget.project.projectId,
+        },
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    return null;
   }
 
   ImportDistanceUnit? _decodeUnit(String? raw) {
@@ -754,6 +786,8 @@ class _ImportSheetState extends State<ImportSheet> {
       _validation = null;
     });
     try {
+      LOG.info('import_picker_open',
+          extra: {'project': widget.project.projectId});
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowMultiple: false,
@@ -762,6 +796,8 @@ class _ImportSheetState extends State<ImportSheet> {
       );
       if (!mounted) return;
       if (result == null || result.files.isEmpty) {
+        LOG.info('import_picker_cancelled',
+            extra: {'project': widget.project.projectId});
         setState(() {
           _loading = false;
         });
@@ -769,12 +805,20 @@ class _ImportSheetState extends State<ImportSheet> {
       }
       final file = result.files.first;
       if (file.bytes == null) {
+        LOG.error(
+          'import_picker_read_error',
+          extra: {'file': file.name},
+        );
         setState(() {
           _loading = false;
           _error = 'Unable to read file contents.';
         });
         return;
       }
+      LOG.info('import_picker_selected', extra: {
+        'file': file.name,
+        'bytes': file.bytes?.length ?? 0,
+      });
       final source = ImportSource(name: file.name, bytes: file.bytes!);
       final session = await _service.load(source);
       if (!mounted) {
@@ -792,7 +836,18 @@ class _ImportSheetState extends State<ImportSheet> {
         _validation = null;
         _loading = false;
       });
-    } catch (error) {
+      LOG.info('import_picker_loaded', extra: {
+        'file': file.name,
+        'columns': session.preview.columnCount,
+        'rows': session.preview.rowCount,
+      });
+    } catch (error, stackTrace) {
+      LOG.error(
+        'import_picker_failure',
+        extra: {'project': widget.project.projectId},
+        error: error,
+        stackTrace: stackTrace,
+      );
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -872,6 +927,8 @@ class _ImportSheetState extends State<ImportSheet> {
         soil: widget.project.sites.firstOrNull?.soil ?? SoilType.unknown,
         moisture:
             widget.project.sites.firstOrNull?.moisture ?? MoistureLevel.normal,
+        groundTemperatureF:
+            widget.project.sites.firstOrNull?.groundTemperatureF ?? 68.0,
       );
       Navigator.of(context).pop(ImportSheetOutcome.newSite(site));
       return;

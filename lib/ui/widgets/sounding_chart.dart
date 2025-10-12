@@ -131,8 +131,8 @@ class SoundingChart extends StatelessWidget {
     final maxXValue = spacingMeters.map(_log10).reduce(math.max);
     final minYValue = rhoValues.map(_log10).reduce(math.min);
     final maxYValue = rhoValues.map(_log10).reduce(math.max);
-    final bottomTicks = _generateTicks(minXValue, maxXValue);
-    final leftTicks = _generateTicks(minYValue, maxYValue);
+    final spacingTickLogs = _buildLogTicks(spacingMeters, minXValue, maxXValue);
+    final rhoTickLogs = _buildLogTicks(rhoValues, minYValue, maxYValue);
 
     final theme = Theme.of(context);
     final gridColor = theme.colorScheme.outlineVariant.withValues(alpha: 0.4);
@@ -152,16 +152,16 @@ class SoundingChart extends StatelessWidget {
                 padding: EdgeInsets.only(bottom: 4.0),
                 child: Text('ρₐ (Ω·m)'),
               ),
-              axisNameSize: 28,
+              axisNameSize: 32,
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 62,
                 getTitlesWidget: (value, meta) {
-                  if (!_isTick(value, leftTicks)) {
+                  if (!_isNearTick(rhoTickLogs, value)) {
                     return const SizedBox.shrink();
                   }
                   final rho = math.pow(10, value).toDouble();
-                  final label = _formatRho(rho);
+                  final label = _formatRhoLabel(rho);
                   return Text(label, style: const TextStyle(fontSize: 11));
                 },
               ),
@@ -171,12 +171,12 @@ class SoundingChart extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 8.0),
                 child: Text(distanceUnit.axisLabel),
               ),
-              axisNameSize: 32,
+              axisNameSize: 36,
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 38,
                 getTitlesWidget: (value, meta) {
-                  if (!_isTick(value, bottomTicks)) {
+                  if (!_isNearTick(spacingTickLogs, value)) {
                     return const SizedBox.shrink();
                   }
                   final spacing = math.pow(10, value).toDouble();
@@ -195,13 +195,10 @@ class SoundingChart extends StatelessWidget {
             show: true,
             drawVerticalLine: true,
             drawHorizontalLine: true,
-            verticalInterval: bottomTicks.length > 1
-                ? (bottomTicks.last - bottomTicks.first) /
-                    (bottomTicks.length - 1)
-                : null,
-            horizontalInterval: leftTicks.length > 1
-                ? (leftTicks.last - leftTicks.first) / (leftTicks.length - 1)
-                : null,
+            checkToShowVerticalLine: (value) =>
+                _isNearTick(spacingTickLogs, value),
+            checkToShowHorizontalLine: (value) =>
+                _isNearTick(rhoTickLogs, value),
             getDrawingVerticalLine: (_) =>
                 FlLine(color: gridColor, strokeWidth: 0.5),
             getDrawingHorizontalLine: (_) =>
@@ -234,8 +231,9 @@ class SoundingChart extends StatelessWidget {
                       distanceUnit.formatSpacing(spacingMetersValue);
                   final labelPrefix =
                       spot.barIndex < pointsBarIndex ? 'Model' : 'Band';
+                  final rhoLabel = _formatRhoLabel(rhoValueLinear);
                   return LineTooltipItem(
-                    '$labelPrefix • a: $spacingLabel $unitSuffix\nρₐ: ${rhoValueLinear.toStringAsFixed(2)} Ω·m',
+                    '$labelPrefix • a: $spacingLabel $unitSuffix\nρₐ: $rhoLabel Ω·m',
                     textStyle,
                   );
                 });
@@ -264,41 +262,105 @@ class SoundingChart extends StatelessWidget {
 
   double _log10(double value) => math.log(value) / math.ln10;
 
-  List<double> _generateTicks(double min, double max) {
-    if ((max - min).abs() < 1e-6) {
-      return [min];
+  List<double> _buildLogTicks(
+    List<double> samples,
+    double minLog,
+    double maxLog, {
+    int maxCount = 8,
+  }) {
+    final minValue = math.pow(10, minLog).toDouble();
+    final maxValue = math.pow(10, maxLog).toDouble();
+    final values = <double>{};
+    for (final sample in samples) {
+      if (!sample.isFinite || sample <= 0) {
+        continue;
+      }
+      if (sample >= minValue * 0.95 && sample <= maxValue * 1.05) {
+        values.add(sample);
+      }
     }
-    const desiredCount = 5;
-    final span = max - min;
-    final step = span / (desiredCount - 1);
-    if (step.abs() < 1e-6) {
-      return [min, max];
+    values.addAll(_generateNiceTicks(minValue, maxValue));
+    if (values.isEmpty) {
+      values.addAll([minValue, maxValue]);
     }
-    return List<double>.generate(desiredCount, (index) => min + step * index);
+    final sorted = values.toList()..sort();
+    final limited = _limitTicks(sorted, maxCount: maxCount);
+    return limited.map((value) => math.log(value) / math.ln10).toList();
   }
 
-  bool _isTick(double value, List<double> ticks) {
-    const epsilon = 1e-2;
+  Iterable<double> _generateNiceTicks(double minValue, double maxValue) sync* {
+    if (!minValue.isFinite || !maxValue.isFinite || minValue <= 0) {
+      return;
+    }
+    final minExponent = math.max(-6, (math.log(minValue) / math.ln10).floor());
+    final maxExponent =
+        math.max(minExponent, (math.log(maxValue) / math.ln10).ceil());
+    const multipliers = [1.0, 2.0, 5.0];
+    for (var exp = minExponent - 1; exp <= maxExponent + 1; exp++) {
+      final base = math.pow(10.0, exp).toDouble();
+      for (final multiplier in multipliers) {
+        final candidate = base * multiplier;
+        if (candidate >= minValue * 0.95 && candidate <= maxValue * 1.05) {
+          yield candidate;
+        }
+      }
+    }
+  }
+
+  List<double> _limitTicks(List<double> values, {required int maxCount}) {
+    if (values.length <= maxCount) {
+      return values;
+    }
+    final result = <double>[];
+    final step = (values.length - 1) / (maxCount - 1);
+    for (var i = 0; i < maxCount; i++) {
+      final index = (i * step).round().clamp(0, values.length - 1);
+      final value = values[index];
+      if (result.isEmpty || (value - result.last).abs() > 1e-6) {
+        result.add(value);
+      }
+    }
+    return result;
+  }
+
+  bool _isNearTick(List<double> ticks, double value,
+      {double tolerance = 0.04}) {
     for (final tick in ticks) {
-      if ((tick - value).abs() <= epsilon) {
+      if ((tick - value).abs() <= tolerance) {
         return true;
       }
     }
     return false;
   }
 
-  String _formatRho(double value) {
+  String _formatRhoLabel(double value) {
+    if (!value.isFinite) {
+      return value.toString();
+    }
     final absValue = value.abs();
     if (absValue >= 1000) {
-      return value.toStringAsFixed(0);
+      return value.round().toString();
     }
     if (absValue >= 100) {
-      return value.toStringAsFixed(0);
+      return value.round().toString();
     }
     if (absValue >= 10) {
-      return value.toStringAsFixed(1);
+      return _trimTrailingZeros(value.toStringAsFixed(0));
     }
-    return value.toStringAsFixed(2);
+    if (absValue >= 1) {
+      return _trimTrailingZeros(value.toStringAsFixed(1));
+    }
+    if (absValue >= 0.1) {
+      return _trimTrailingZeros(value.toStringAsFixed(2));
+    }
+    return _trimTrailingZeros(value.toStringAsFixed(3));
+  }
+
+  String _trimTrailingZeros(String value) {
+    if (!value.contains('.')) {
+      return value;
+    }
+    return value.replaceFirst(RegExp(r'\.?0+$'), '');
   }
 
   Color _qaColor(QaLevel level) {

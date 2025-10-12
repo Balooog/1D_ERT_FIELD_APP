@@ -232,6 +232,7 @@ class SiteRecord {
     this.stacks = 4,
     this.soil = SoilType.unknown,
     this.moisture = MoistureLevel.normal,
+    this.groundTemperatureF = 68.0,
     List<SpacingRecord>? spacings,
   }) : spacings = List.unmodifiable(spacings ?? const <SpacingRecord>[]);
 
@@ -244,6 +245,7 @@ class SiteRecord {
       soil: SoilType.values.byName(json['soil'] as String? ?? 'unknown'),
       moisture: MoistureLevel.values
           .byName(json['moisture'] as String? ?? MoistureLevel.normal.name),
+      groundTemperatureF: (json['ground_temp_f'] as num?)?.toDouble() ?? 68.0,
       spacings: (json['spacings'] as List<dynamic>? ?? const [])
           .map((dynamic e) => SpacingRecord.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -256,6 +258,7 @@ class SiteRecord {
   final int stacks;
   final SoilType soil;
   final MoistureLevel moisture;
+  final double groundTemperatureF;
   final List<SpacingRecord> spacings;
 
   SpacingRecord? spacing(double spacingFeet) {
@@ -297,6 +300,7 @@ class SiteRecord {
     int? stacks,
     SoilType? soil,
     MoistureLevel? moisture,
+    double? groundTemperatureF,
   }) {
     return SiteRecord(
       siteId: siteId,
@@ -305,6 +309,7 @@ class SiteRecord {
       stacks: stacks ?? this.stacks,
       soil: soil ?? this.soil,
       moisture: moisture ?? this.moisture,
+      groundTemperatureF: groundTemperatureF ?? this.groundTemperatureF,
       spacings: spacings,
     );
   }
@@ -316,6 +321,7 @@ class SiteRecord {
         'stacks': stacks,
         'soil': soil.name,
         'moisture': moisture.name,
+        'ground_temp_f': groundTemperatureF,
         'spacings': spacings.map((e) => e.toJson()).toList(),
       };
 
@@ -329,6 +335,7 @@ class SiteRecord {
         stacks == other.stacks &&
         soil == other.soil &&
         moisture == other.moisture &&
+        groundTemperatureF == other.groundTemperatureF &&
         const ListEquality<SpacingRecord>().equals(spacings, other.spacings);
   }
 
@@ -340,6 +347,7 @@ class SiteRecord {
         stacks,
         soil,
         moisture,
+        groundTemperatureF,
         const ListEquality().hash(spacings),
       );
 
@@ -350,6 +358,7 @@ class SiteRecord {
     int? stacks,
     SoilType? soil,
     MoistureLevel? moisture,
+    double? groundTemperatureF,
     List<SpacingRecord>? spacings,
   }) {
     return SiteRecord(
@@ -359,6 +368,7 @@ class SiteRecord {
       stacks: stacks ?? this.stacks,
       soil: soil ?? this.soil,
       moisture: moisture ?? this.moisture,
+      groundTemperatureF: groundTemperatureF ?? this.groundTemperatureF,
       spacings: spacings ?? this.spacings,
     );
   }

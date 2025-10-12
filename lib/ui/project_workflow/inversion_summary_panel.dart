@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../models/site.dart';
 import '../../services/inversion.dart';
 import '../../utils/distance_unit.dart';
-import 'depth_cue_summary.dart';
 import 'plots_panel.dart';
 
 const _metricBlue = Color(0xFF0072B2);
@@ -19,6 +18,7 @@ class InversionSummaryPanel extends StatelessWidget {
     required this.isLoading,
     required this.distanceUnit,
     this.margin = const EdgeInsets.all(12),
+    this.plotHeight = 240,
   });
 
   final SiteRecord site;
@@ -26,14 +26,17 @@ class InversionSummaryPanel extends StatelessWidget {
   final bool isLoading;
   final DistanceUnit distanceUnit;
   final EdgeInsetsGeometry margin;
+  final double plotHeight;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cueSummary = DepthCueSummaryData.fromSite(site, distanceUnit);
     final subtitleStyle = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.outline,
     );
+    final subtitle = result == null
+        ? 'Record at least two valid spacings to compute inversion.'
+        : _buildResultSummary(result!);
 
     return Card(
       margin: margin,
@@ -51,10 +54,10 @@ class InversionSummaryPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(cueSummary.message, style: subtitleStyle),
+            Text(subtitle, style: subtitleStyle),
             const SizedBox(height: 16),
             SizedBox(
-              height: 220,
+              height: plotHeight,
               child: Align(
                 alignment: Alignment.topCenter,
                 child: InversionPlotPanel(
@@ -70,16 +73,20 @@ class InversionSummaryPanel extends StatelessWidget {
               result: result,
               distanceUnit: distanceUnit,
             ),
-            if (cueSummary.hasCue && cueSummary.steps.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Divider(color: theme.colorScheme.outlineVariant, height: 1),
-              const SizedBox(height: 12),
-              DepthCueTable(summary: cueSummary, distanceUnit: distanceUnit),
-            ],
           ],
         ),
       ),
     );
+  }
+
+  String _buildResultSummary(TwoLayerInversionResult result) {
+    final spacingCount = result.spacingFeet.length;
+    final solvedAt = result.solvedAt;
+    final timeLabel =
+        '${solvedAt.hour.toString().padLeft(2, '0')}:${solvedAt.minute.toString().padLeft(2, '0')}';
+    final spacingLabel = '$spacingCount spacing${spacingCount == 1 ? '' : 's'}';
+    final rmsLabel = '${(result.rms * 100).toStringAsFixed(1)}% RMS';
+    return 'Solved from $spacingLabel at $timeLabel • $rmsLabel';
   }
 }
 
@@ -119,38 +126,32 @@ class InversionStatsBar extends StatelessWidget {
       runSpacing: 8,
       children: [
         _MetricChip(
-          label: 'ρ₁',
+          label: 'Upper layer ρ',
           value: _formatRho(summary.rho1),
           color: _metricBlue,
         ),
         _MetricChip(
-          label: 'ρ₂',
+          label: 'Lower layer ρ',
           value: _formatRho(summary.rho2),
           color: _metricOrange,
         ),
         if (summary.halfSpaceRho != null)
           _MetricChip(
-            label: 'ρ₃',
+            label: 'Half-space ρ',
             value: _formatRho(summary.halfSpaceRho!),
             color: _metricVermillion,
           ),
         if (summary.thicknessM != null)
           _MetricChip(
-            label: 'h',
+            label: 'Layer thickness',
             value:
                 '${distanceUnit.formatSpacing(summary.thicknessM!)} ${distanceUnit == DistanceUnit.feet ? 'ft' : 'm'}',
             color: _metricAccent,
           ),
         _MetricChip(
-          label: 'RMS',
+          label: 'RMS misfit',
           value: '${(summary.rms * 100).toStringAsFixed(1)}%',
           color: theme.colorScheme.primary,
-        ),
-        _MetricChip(
-          label: 'Solved',
-          value:
-              '${summary.solvedAt.hour.toString().padLeft(2, '0')}:${summary.solvedAt.minute.toString().padLeft(2, '0')}',
-          color: theme.colorScheme.secondary,
         ),
       ],
     );

@@ -1,93 +1,165 @@
-import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
-/// Simple structured logging helper that prefixes category/level metadata and
-/// mirrors the output to a runtime log file.
-class LogHarness {
-  LogHarness._();
+typedef LogLevel = String;
 
-  static final LogHarness instance = LogHarness._();
+class AppLogger {
+  AppLogger._();
 
-  IOSink? _sink;
-  String? _sessionFileName;
-  bool _initializing = false;
+  static final AppLogger instance = AppLogger._();
 
-  Future<void> ensureInitialized() async {
-    if (kIsWeb) {
+  Directory? _directory;
+  File? _jsonl;
+  File? _txt;
+  bool _initialized = false;
+
+  Future<void> init({String subdir = 'logs/dev'}) async {
+    if (_initialized || kIsWeb) {
       return;
     }
-    if (_sink != null || _initializing) {
-      while (_initializing && _sink == null) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-      }
-      return;
+    final basePath = Directory.current.path;
+    final directory = Directory('$basePath/$subdir');
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
     }
-    _initializing = true;
-    try {
-      final directory = Directory('buildlogs');
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
-      }
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final file = File('${directory.path}/runtime_$timestamp.log');
-      _sink = file.openWrite(mode: FileMode.writeOnlyAppend);
-      _sessionFileName = file.path;
-      _sink!.writeln(
-        '--- ResiCheck runtime session started ${DateTime.now().toIso8601String()} ---',
-      );
-    } finally {
-      _initializing = false;
+    final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
+    final textFile = File('${directory.path}/session_$timestamp.txt');
+    final jsonFile = File('${directory.path}/session_$timestamp.jsonl');
+    await textFile.writeAsString('[session] $timestamp\n',
+        mode: FileMode.writeOnly);
+    _directory = directory;
+    _txt = textFile;
+    _jsonl = jsonFile;
+    _initialized = true;
+  }
+
+  void log(
+    LogLevel level,
+    String event, {
+    String? message,
+    Map<String, Object?> extra = const {},
+    Object? error,
+    StackTrace? stackTrace,
+  }) {
+    final record = <String, Object?>{
+      'ts': DateTime.now().toIso8601String(),
+      'level': level,
+      'event': event,
+    };
+    if (message != null && message.isNotEmpty) {
+      record['message'] = message;
     }
-  }
-
-  void i(String category, String message) {
-    _write('INFO', category, message);
-  }
-
-  void w(String category, String message) {
-    _write('WARN', category, message);
-  }
-
-  void e(String category, String message,
-      [Object? error, StackTrace? stackTrace]) {
-    final buffer = StringBuffer(message);
+    final payload = _normalizeExtras(extra);
+    if (payload.isNotEmpty) {
+      record['extra'] = payload;
+    }
     if (error != null) {
-      buffer
-        ..writeln()
-        ..write('Error: $error');
+      record['error'] = error.toString();
     }
     if (stackTrace != null) {
-      buffer
-        ..writeln()
-        ..write(stackTrace);
+      record['stack'] = stackTrace.toString();
     }
-    _write('ERROR', category, buffer.toString());
-  }
-
-  void _write(String level, String category, String message) {
-    final timestamp = DateTime.now().toIso8601String();
-    final normalizedCategory =
-        category.trim().isEmpty ? 'App' : category.trim();
-    final normalizedMessage = message.trim();
-    final line = '[$timestamp][$level][$normalizedCategory] $normalizedMessage';
-    debugPrint(line);
-    _sink?.writeln(line);
-  }
-
-  Future<void> dispose() async {
-    final sink = _sink;
-    if (sink != null) {
-      await sink.flush();
-      await sink.close();
+    final buffer = StringBuffer('[$level] $event');
+    if (message != null && message.isNotEmpty) {
+      buffer.write(' $message');
     }
-    _sink = null;
-    _sessionFileName = null;
+    if (payload.isNotEmpty) {
+      buffer.write(' ${jsonEncode(payload)}');
+    }
+    _writeLine(buffer.toString());
+    _appendJson(record);
   }
 
-  String? get sessionFile => _sessionFileName;
+  void info(String event, {Map<String, Object?> extra = const {}}) =>
+      log('INFO', event, extra: extra);
+
+  void warn(String event, {Map<String, Object?> extra = const {}}) =>
+      log('WARN', event, extra: extra);
+
+  void error(
+    String event, {
+    Map<String, Object?> extra = const {},
+    Object? error,
+    StackTrace? stackTrace,
+  }) =>
+      log(
+        'ERROR',
+        event,
+        extra: extra,
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+  // Backwards compatibility with previous logging helper.
+  void i(String category, String message,
+          {Map<String, Object?> extra = const {}}) =>
+      log('INFO', category, message: message, extra: extra);
+
+  void w(String category, String message,
+          {Map<String, Object?> extra = const {}}) =>
+      log('WARN', category, message: message, extra: extra);
+
+  void e(
+    String category,
+    String message, [
+    Object? error,
+    StackTrace? stackTrace,
+  ]) =>
+      log(
+        'ERROR',
+        category,
+        message: message,
+        error: error,
+        stackTrace: stackTrace,
+      );
+
+  void _appendJson(Map<String, Object?> record) {
+    final jsonFile = _jsonl;
+    if (jsonFile == null) {
+      return;
+    }
+    try {
+      jsonFile.writeAsStringSync('${jsonEncode(record)}\n',
+          mode: FileMode.append);
+    } catch (_) {
+      // Ignore JSON write failures; console output already captured.
+    }
+  }
+
+  void _writeLine(String text) {
+    final line = text.trimRight();
+    // ignore: avoid_print
+    print(line);
+    final textFile = _txt;
+    if (textFile == null) {
+      return;
+    }
+    try {
+      textFile.writeAsStringSync('$line\n', mode: FileMode.append);
+    } catch (_) {
+      // Ignore disk write failures.
+    }
+  }
+
+  Map<String, Object?> _normalizeExtras(Map<String, Object?> extra) {
+    if (extra.isEmpty) {
+      return const {};
+    }
+    final sanitized = <String, Object?>{};
+    extra.forEach((key, value) {
+      if (value == null) {
+        return;
+      }
+      sanitized[key] = value;
+    });
+    return sanitized;
+  }
+
+  Directory? get directory => _directory;
 }
 
 /// Convenient top-level logger reference.
-final LOG = LogHarness.instance;
+// ignore: non_constant_identifier_names
+final AppLogger LOG = AppLogger.instance;
