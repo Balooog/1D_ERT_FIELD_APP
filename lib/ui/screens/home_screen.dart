@@ -1124,7 +1124,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         (msg) => Align(
                           alignment: Alignment.centerLeft,
                           child: Text(
-                            '• ' + msg,
+                            '• $msg',
                             style: Theme.of(sheetCtx)
                                 .textTheme
                                 .bodySmall

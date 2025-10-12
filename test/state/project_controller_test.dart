@@ -43,7 +43,7 @@ void main() {
     container.dispose();
   });
 
-  Project _sampleProject() {
+  Project sampleProject() {
     final spacings = [1.0, 2.0, 5.0];
     List<SpacingPoint> buildPoints() => [
           for (final spacing in spacings) SpacingPoint(spacingMeters: spacing),
@@ -68,7 +68,7 @@ void main() {
   }
 
   test('updateReading mutates active site and marks dirty', () {
-    controller.setProject(_sampleProject());
+    controller.setProject(sampleProject());
     controller.setActiveSite('OH-001');
 
     controller.updateReading(Direction.a, 0, 120);
@@ -80,7 +80,7 @@ void main() {
   });
 
   test('markBad toggles exclusion flag', () {
-    controller.setProject(_sampleProject());
+    controller.setProject(sampleProject());
     controller.setActiveSite('OH-001');
 
     controller.markBad(Direction.b, 1, excluded: true);
@@ -94,7 +94,7 @@ void main() {
   });
 
   test('updateReading allows clearing rho to null', () {
-    controller.setProject(_sampleProject());
+    controller.setProject(sampleProject());
     controller.setActiveSite('OH-001');
     controller.updateReading(Direction.a, 0, 150);
     controller.updateReading(Direction.a, 0, null);
@@ -104,7 +104,7 @@ void main() {
   });
 
   test('saveProject clears dirty flag and stores data', () async {
-    controller.setProject(_sampleProject());
+    controller.setProject(sampleProject());
     controller.updateReading(Direction.a, 0, 111);
 
     await controller.saveProject();
@@ -115,7 +115,7 @@ void main() {
   });
 
   test('loadProject replaces current project', () async {
-    final project = _sampleProject();
+    final project = sampleProject();
     persistence._store['WayneCo'] = project;
 
     await controller.loadProject('WayneCo');
@@ -126,7 +126,7 @@ void main() {
   });
 
   test('setNote updates spacing note', () {
-    controller.setProject(_sampleProject());
+    controller.setProject(sampleProject());
     controller.setActiveSite('OH-001');
 
     controller.setNote(Direction.a, 1, 'Repeat measurement');

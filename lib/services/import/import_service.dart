@@ -20,6 +20,14 @@ class ImportService {
   final ImportAdapter _csvAdapter;
   final ImportAdapter _excelAdapter;
   final ImportAdapter _datAdapter;
+  static const int _syntheticUnitColumnIndex = -1;
+  static const Set<ImportColumnTarget> _coreAutoTargets = {
+    ImportColumnTarget.aSpacingFeet,
+    ImportColumnTarget.pinsInsideFeet,
+    ImportColumnTarget.pinsOutsideFeet,
+    ImportColumnTarget.resistanceNsOhm,
+    ImportColumnTarget.resistanceWeOhm,
+  };
 
   Future<ImportSession> load(ImportSource source) async {
     final adapter = _selectAdapter(source.name);
@@ -222,11 +230,36 @@ class ImportService {
 
   ImportMapping autoMap(ImportPreview preview) {
     final assignments = <int, ImportColumnTarget>{};
+    final assignedTargets = <ImportColumnTarget>{};
+
+    void tryAssign(int index, ImportColumnTarget target) {
+      if (assignedTargets.contains(target)) {
+        return;
+      }
+      assignments[index] = target;
+      assignedTargets.add(target);
+    }
+
     for (final column in preview.columns) {
-      if (column.suggestedTarget != null) {
-        assignments[column.index] = column.suggestedTarget!;
+      final target = column.suggestedTarget;
+      if (target == ImportColumnTarget.units) {
+        tryAssign(column.index, ImportColumnTarget.units);
       }
     }
+    for (final column in preview.columns) {
+      final target = column.suggestedTarget;
+      if (target != null && _coreAutoTargets.contains(target)) {
+        final resolved = target;
+        tryAssign(column.index, resolved);
+      }
+    }
+
+    final detectedUnit = preview.unitDetection.unit;
+    if (!assignedTargets.contains(ImportColumnTarget.units) &&
+        detectedUnit != null) {
+      tryAssign(_syntheticUnitColumnIndex, ImportColumnTarget.units);
+    }
+
     return ImportMapping(
       assignments: assignments,
       distanceUnit: preview.unitDetection.unit ?? ImportDistanceUnit.meters,
@@ -322,7 +355,7 @@ class ImportService {
       return null;
     }
 
-    if (containsAny(['spacing', 'a spacing', 'ab', 'electrode spacing'])) {
+    if (_looksLikeSpacingHeader(sanitized)) {
       return ImportColumnTarget.aSpacingFeet;
     }
     if (containsAny(['inside', 'pins in', 'mn', 'inner'])) {
@@ -354,6 +387,29 @@ class ImportService {
     return null;
   }
 
+  bool _looksLikeSpacingHeader(String sanitized) {
+    if (sanitized.isEmpty) {
+      return false;
+    }
+    if (sanitized.contains('spacing') ||
+        sanitized.contains('electrode spacing') ||
+        sanitized.contains('a spacing')) {
+      return true;
+    }
+    final tokens = sanitized.split(' ');
+    if (tokens.isNotEmpty &&
+        (tokens.first == 'a' ||
+            tokens.first.startsWith('ab') ||
+            tokens.first == 'ab')) {
+      return true;
+    }
+    final pattern = RegExp(r'(^|[\s_])(a|ab)([\s_]|$)');
+    if (pattern.hasMatch(sanitized)) {
+      return true;
+    }
+    return false;
+  }
+
   int? _columnFor(
       Map<int, ImportColumnTarget> assignments, ImportColumnTarget target) {
     for (final entry in assignments.entries) {
@@ -366,7 +422,7 @@ class ImportService {
 
   ImportDistanceUnit _resolveUnit(
       List<String> row, int? unitColumn, ImportDistanceUnit fallback) {
-    if (unitColumn == null || unitColumn >= row.length) {
+    if (unitColumn == null || unitColumn < 0 || unitColumn >= row.length) {
       return fallback;
     }
     final text = row[unitColumn].toLowerCase();
