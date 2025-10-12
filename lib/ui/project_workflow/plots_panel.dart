@@ -155,7 +155,7 @@ class PlotsPanel extends StatelessWidget {
               interval: (axis.maxY - axis.minY) / 4,
               getTitlesWidget: (value, meta) {
                 final rho = math.pow(10, value);
-                return Text('${rho.toStringAsFixed(0)}');
+                return Text(rho.toStringAsFixed(0));
               },
             ),
             axisNameWidget: const Padding(
@@ -168,7 +168,7 @@ class PlotsPanel extends StatelessWidget {
           topTitles:
               const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        gridData: FlGridData(
+        gridData: const FlGridData(
             show: true, drawVerticalLine: true, drawHorizontalLine: true),
         borderData: FlBorderData(show: true),
         lineBarsData: [
@@ -217,7 +217,7 @@ class PlotsPanel extends StatelessWidget {
               dotData: FlDotData(
                 show: true,
                 getDotPainter: (spot, percent, barData, index) {
-                  return _TriangleDotPainter(
+                  return const _TriangleDotPainter(
                     color: _averageGray,
                     size: 4,
                   );
@@ -480,7 +480,7 @@ class _LegendLinePainter extends CustomPainter {
         canvas.drawRect(rect, stroke);
         break;
       case _LegendMarker.triangle:
-        final half = 4.0;
+        const half = 4.0;
         final path = Path()
           ..moveTo(center.dx, center.dy - half)
           ..lineTo(center.dx + half, center.dy + half)
@@ -856,7 +856,7 @@ class InversionPlotPanel extends StatelessWidget {
     if (maxDepth <= 0) {
       return const [];
     }
-    final tickCount = 4;
+    const tickCount = 4;
     final step = maxDepth / tickCount;
     return List<double>.generate(tickCount + 1, (index) => index * step);
   }

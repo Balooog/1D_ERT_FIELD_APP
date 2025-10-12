@@ -64,13 +64,16 @@ class ProjectController extends StateNotifier<ProjectState> {
     try {
       final project = await _persistence.tryLoadDefault();
       if (project == null) {
-        LOG.w('ProjectController', 'No default project available during hydrate');
+        LOG.w(
+            'ProjectController', 'No default project available during hydrate');
         return;
       }
-      LOG.i('ProjectController', 'Loaded default project "${project.projectName}"');
+      LOG.i('ProjectController',
+          'Loaded default project "${project.projectName}"');
       _setProject(project, markSaved: true);
     } catch (error, stackTrace) {
-      LOG.e('ProjectController', 'Failed to load default project', error, stackTrace);
+      LOG.e('ProjectController', 'Failed to load default project', error,
+          stackTrace);
       rethrow;
     }
   }
@@ -84,7 +87,8 @@ class ProjectController extends StateNotifier<ProjectState> {
     if (activeSiteId != null && project.siteById(activeSiteId) != null) {
       return;
     }
-    final fallbackSiteId = project.sites.isNotEmpty ? project.sites.first.siteId : null;
+    final fallbackSiteId =
+        project.sites.isNotEmpty ? project.sites.first.siteId : null;
     if (fallbackSiteId == null) {
       LOG.w('ProjectController', 'Hydrate requested but project has no sites.');
       return;

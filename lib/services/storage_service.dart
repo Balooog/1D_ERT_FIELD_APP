@@ -98,8 +98,8 @@ class ProjectStorageService {
     }
     final updated = project.copyWith(updatedAt: DateTime.now());
     final file = File(p.join(directory.path, _projectFileName));
-    await file
-        .writeAsString(JsonEncoder.withIndent('  ').convert(updated.toJson()));
+    await file.writeAsString(
+        const JsonEncoder.withIndent('  ').convert(updated.toJson()));
     return updated;
   }
 

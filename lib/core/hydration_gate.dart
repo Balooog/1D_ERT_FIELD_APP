@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import '../state/project_controller.dart';
 import 'logging.dart';
@@ -55,8 +55,7 @@ class HydrationGate {
     }
     final completer = Completer<void>();
     _inflight = completer;
-    _snapshot.value =
-        const HydrationSnapshot(status: HydrationStatus.warming);
+    _snapshot.value = const HydrationSnapshot(status: HydrationStatus.warming);
     Future<void>(() async {
       try {
         await callback();
@@ -92,7 +91,8 @@ class HydrationGate {
   }
 }
 
-class _HydrationSelector<T> extends ChangeNotifier implements ValueListenable<T> {
+class _HydrationSelector<T> extends ChangeNotifier
+    implements ValueListenable<T> {
   _HydrationSelector(this._gate, this._selector)
       : _value = _selector(_gate.value) {
     _gate._snapshot.addListener(_handleChange);

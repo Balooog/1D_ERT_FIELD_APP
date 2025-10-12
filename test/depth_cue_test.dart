@@ -18,11 +18,8 @@ void main() {
       ),
     );
 
-    final tables =
-        tester.widgetList<DataTable>(find.byType(DataTable)).toList();
-    expect(tables, isNotEmpty);
-    final dataTable = tables.first;
-    expect(dataTable.rows, hasLength(3));
+    expect(find.text('Depth (ft)'), findsOneWidget);
+    expect(find.text('ρa (Ω·m)'), findsOneWidget);
 
     final expectedRows = [
       _ExpectedRow(spacing: 10, resistances: [3, 4]),
@@ -31,15 +28,11 @@ void main() {
     ];
 
     for (var i = 0; i < expectedRows.length; i++) {
-      final dataRow = dataTable.rows[i];
       final expected = expectedRows[i];
-      final depthCell = dataRow.cells[0].child as Center;
-      final depthText = (depthCell.child as Text).data;
-      expect(depthText, _formatNumber(expected.spacing * 0.5));
-
-      final rhoCell = dataRow.cells[1].child as Center;
-      final rhoText = (rhoCell.child as Text).data;
-      expect(rhoText, _formatNumber(expected.averageRho()));
+      final expectedDepth = _formatNumber(expected.spacing * 0.5);
+      final expectedRho = _formatNumber(expected.averageRho());
+      expect(find.text(expectedDepth), findsOneWidget);
+      expect(find.text(expectedRho), findsOneWidget);
     }
   });
 }

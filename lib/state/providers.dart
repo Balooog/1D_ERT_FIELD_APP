@@ -146,7 +146,7 @@ class SimulationController extends StateNotifier<bool> {
   void start() {
     if (state) return;
     final stream = ref.read(mockStreamProvider);
-    final options = const SimulationOptions();
+    const options = SimulationOptions();
     stream.start(options, (point) {
       ref.read(spacingPointsProvider.notifier).addPoint(point);
       ref.read(telemetryProvider.notifier).addSample(

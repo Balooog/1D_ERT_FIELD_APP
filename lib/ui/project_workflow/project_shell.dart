@@ -53,7 +53,7 @@ class _ProjectShellState extends State<ProjectShell> {
   int _historyIndex = -1;
   double? _focusedSpacing;
   OrientationKind? _focusedOrientation;
-  DistanceUnit _distanceUnit = DistanceUnit.feet;
+  final DistanceUnit _distanceUnit = DistanceUnit.feet;
   TwoLayerInversionResult? _inversionResult;
   bool _inversionLoading = false;
   Future<TwoLayerInversionResult?>? _inversionTask;

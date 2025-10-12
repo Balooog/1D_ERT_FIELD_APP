@@ -57,7 +57,7 @@ void main() {
     final point = points.first;
     expect(point.aMeters, closeTo(5, 1e-6));
     expect(point.aFeet, closeTo(metersToFeet(5), 1e-6));
-    final derivedRho = 2 * math.pi * 5 * (1.2 / 0.4);
+    const derivedRho = 2 * math.pi * 5 * (1.2 / 0.4);
     expect(point.rhoAppOhmM, closeTo(derivedRho, 1e-6));
     expect(point.rhoFromVi, closeTo(derivedRho, 1e-6));
   });
