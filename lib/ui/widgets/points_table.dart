@@ -188,7 +188,8 @@ class _PointsTableState extends ConsumerState<PointsTable> {
           child: DataTable(
             headingTextStyle: theme.textTheme.labelMedium
                 ?.copyWith(fontWeight: FontWeight.bold),
-            dataRowMinHeight: 44,
+            dataRowMinHeight: 96,
+            dataRowMaxHeight: 112,
             columns: [
               const DataColumn(label: Text('#')),
               const DataColumn(label: Text('Array')),

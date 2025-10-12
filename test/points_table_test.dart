@@ -21,7 +21,8 @@ void main() {
               onSdChanged: (_, __, ___) {},
               onInterpretationChanged: (_, __) {},
               onToggleBad: (_, __, ___) {},
-              onMetadataChanged: ({power, stacks, soil, moisture}) {},
+              onMetadataChanged: (
+                  {power, stacks, soil, moisture, groundTemperatureF}) {},
               onShowHistory: (_, __) async {},
               onFocusChanged: (_, __) {},
             ),

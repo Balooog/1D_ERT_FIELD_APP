@@ -18,10 +18,22 @@ const _sampleProjectFolderName = 'Sample_Project';
 const _sampleProjectAsset = 'assets/samples/sample_project.json';
 
 class ProjectStorageService {
-  ProjectStorageService({Directory? overrideRoot})
-      : _overrideRoot = overrideRoot;
+  ProjectStorageService({
+    Directory? overrideRoot,
+    Future<Directory> Function()? documentsDirectoryResolver,
+    Duration documentsDirectoryTimeout = const Duration(seconds: 3),
+    Directory Function()? fallbackRootResolver,
+  })  : _overrideRoot = overrideRoot,
+        _documentsDirectoryResolver =
+            documentsDirectoryResolver ?? getApplicationDocumentsDirectory,
+        _documentsDirectoryTimeout = documentsDirectoryTimeout,
+        _fallbackRootResolver =
+            fallbackRootResolver ?? ProjectStorageService._defaultFallbackRoot;
 
   final Directory? _overrideRoot;
+  final Future<Directory> Function() _documentsDirectoryResolver;
+  final Duration _documentsDirectoryTimeout;
+  final Directory Function() _fallbackRootResolver;
   final _uuid = const Uuid();
 
   Future<Directory> _ensureRoot() async {
@@ -32,8 +44,21 @@ class ProjectStorageService {
       }
       return overrideRoot;
     }
-    final docs = await getApplicationDocumentsDirectory();
-    final root = Directory(p.join(docs.path, 'ResiCheckProjects'));
+
+    Directory baseDirectory;
+    try {
+      baseDirectory = await _documentsDirectoryResolver()
+          .timeout(_documentsDirectoryTimeout);
+    } on Object catch (error, stackTrace) {
+      debugPrint(
+        'ProjectStorageService: falling back to home directory after failing to '
+        'resolve application documents directory: $error',
+      );
+      debugPrint(stackTrace.toString());
+      baseDirectory = _fallbackRootResolver();
+    }
+
+    final root = Directory(p.join(baseDirectory.path, 'ResiCheckProjects'));
     if (!await root.exists()) {
       await root.create(recursive: true);
     }
@@ -192,6 +217,20 @@ class ProjectStorageService {
     return sanitized.isEmpty
         ? 'Project_${DateTime.now().millisecondsSinceEpoch}'
         : sanitized;
+  }
+
+  static Directory _defaultFallbackRoot() {
+    final candidates = [
+      Platform.environment['HOME'],
+      Platform.environment['USERPROFILE'],
+      Platform.environment['APPDATA'],
+    ];
+    for (final candidate in candidates) {
+      if (candidate != null && candidate.isNotEmpty) {
+        return Directory(candidate);
+      }
+    }
+    return Directory.current;
   }
 }
 

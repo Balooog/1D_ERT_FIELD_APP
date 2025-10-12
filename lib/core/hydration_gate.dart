@@ -54,6 +54,8 @@ class HydrationGate {
       return Future<void>.value();
     }
     final completer = Completer<void>();
+    final startedAt = DateTime.now();
+    LOG.info('hydration_start', extra: {'status': value.status.name});
     _inflight = completer;
     _snapshot.value = const HydrationSnapshot(status: HydrationStatus.warming);
     Future<void>(() async {
@@ -61,10 +63,17 @@ class HydrationGate {
         await callback();
         _snapshot.value =
             const HydrationSnapshot(status: HydrationStatus.ready);
-        LOG.i('Hydration', 'Warm-up sequence completed');
+        final durationMs = DateTime.now().difference(startedAt).inMilliseconds;
+        LOG.info('hydration_success', extra: {'duration_ms': durationMs});
         completer.complete();
       } catch (error, stackTrace) {
-        LOG.e('Hydration', 'Warm-up failed', error, stackTrace);
+        final durationMs = DateTime.now().difference(startedAt).inMilliseconds;
+        LOG.error(
+          'hydration_fail',
+          extra: {'duration_ms': durationMs},
+          error: error,
+          stackTrace: stackTrace,
+        );
         _snapshot.value = HydrationSnapshot(
           status: HydrationStatus.error,
           error: error,

@@ -84,6 +84,7 @@ class TablePanel extends StatefulWidget {
     int? stacks,
     SoilType? soil,
     MoistureLevel? moisture,
+    double? groundTemperatureF,
   }) onMetadataChanged;
   final Future<void> Function(
     double spacingFt,
@@ -173,18 +174,18 @@ class _TablePanelState extends State<TablePanel> {
   final Map<_FieldKey, _RowConfig> _rowByField = {};
   static final RegExp _sdPromptRegExp = RegExp(TablePanel.sdPromptPattern);
   static const InputDecoration _resistanceDecoration = InputDecoration(
-    isDense: true,
+    isDense: false,
     contentPadding: EdgeInsets.symmetric(
-      vertical: 4,
-      horizontal: 6,
+      vertical: 12,
+      horizontal: 12,
     ),
     border: OutlineInputBorder(),
   );
   static const InputDecoration _hiddenResistanceDecoration = InputDecoration(
-    isDense: true,
+    isDense: false,
     contentPadding: EdgeInsets.symmetric(
-      vertical: 4,
-      horizontal: 6,
+      vertical: 12,
+      horizontal: 12,
     ),
     hintText: 'Hidden',
     border: OutlineInputBorder(),
@@ -423,8 +424,8 @@ class _TablePanelState extends State<TablePanel> {
                           DataTable(
                             headingTextStyle: headingStyle,
                             dataTextStyle: dataStyle,
-                            dataRowMinHeight: 56,
-                            dataRowMaxHeight: 68,
+                            dataRowMinHeight: 104,
+                            dataRowMaxHeight: 120,
                             headingRowHeight: 0,
                             columnSpacing: 12,
                             horizontalMargin: 12,
@@ -803,13 +804,13 @@ class _TablePanelState extends State<TablePanel> {
       child: _wrapTightCell(
         maxWidth: 150,
         minWidth: 140,
-        height: 68,
+        height: 104,
         child: ClipRect(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SizedBox(
-                height: 36,
+                height: 56,
                 child: FocusTraversalOrder(
                   order: NumericFocusOrder(rank),
                   child: TextField(
@@ -819,7 +820,7 @@ class _TablePanelState extends State<TablePanel> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     textInputAction: TextInputAction.next,
-                    textAlign: TextAlign.right,
+                    textAlign: TextAlign.center,
                     maxLengthEnforcement:
                         MaxLengthEnforcement.truncateAfterCompositionEnds,
                     inputFormatters: [
@@ -828,10 +829,16 @@ class _TablePanelState extends State<TablePanel> {
                         RegExp(r'^[0-9]{0,4}(\.[0-9]{0,2})?$'),
                       ),
                     ],
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                      height: 1.1,
-                    ),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                          fontWeight: FontWeight.w700,
+                          height: 1.05,
+                        ) ??
+                        const TextStyle(
+                          fontSize: 20,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                          fontWeight: FontWeight.w700,
+                        ),
                     decoration: decoration,
                     onChanged: (_) => setState(() {}),
                     onSubmitted: (value) => _submitResistance(key, value),
@@ -842,7 +849,7 @@ class _TablePanelState extends State<TablePanel> {
               ),
               const SizedBox(height: 4),
               SizedBox(
-                height: 28,
+                height: 36,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -976,66 +983,33 @@ class _TablePanelState extends State<TablePanel> {
   Widget _buildMetadata(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 420;
+        final fieldControls = <Widget>[
+          _buildPowerField(),
+          _buildSoilDropdown(
+            context,
+            value: widget.site.soil,
+            onChanged: (soil) => widget.onMetadataChanged(soil: soil),
+          ),
+          _buildMoistureDropdown(
+            context,
+            value: widget.site.moisture,
+            onChanged: (level) => widget.onMetadataChanged(moisture: level),
+          ),
+          _buildGroundTemperatureField(),
+          ..._buildStacksControls(context),
+        ];
+
         final content = <Widget>[
           Text(
             widget.site.displayName,
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          if (isCompact) ...[
-            SizedBox(width: double.infinity, child: _buildPowerField()),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              children: _buildStacksControls(context),
-            ),
-          ] else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: _buildPowerField()),
-                const SizedBox(width: 12),
-                ..._buildStacksControls(context).map(
-                  (widget) => Flexible(fit: FlexFit.loose, child: widget),
-                ),
-              ],
-            ),
-          const SizedBox(height: 8),
-          if (isCompact) ...[
-            _buildSoilDropdown(
-              context,
-              value: widget.site.soil,
-              onChanged: (soil) => widget.onMetadataChanged(soil: soil),
-            ),
-            const SizedBox(height: 8),
-            _buildMoistureDropdown(
-              context,
-              value: widget.site.moisture,
-              onChanged: (level) => widget.onMetadataChanged(moisture: level),
-            ),
-          ] else
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSoilDropdown(
-                    context,
-                    value: widget.site.soil,
-                    onChanged: (soil) => widget.onMetadataChanged(soil: soil),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildMoistureDropdown(
-                    context,
-                    value: widget.site.moisture,
-                    onChanged: (level) =>
-                        widget.onMetadataChanged(moisture: level),
-                  ),
-                ),
-              ],
-            ),
+          Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            children: fieldControls,
+          ),
         ];
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
@@ -1049,20 +1023,48 @@ class _TablePanelState extends State<TablePanel> {
   }
 
   Widget _buildPowerField() {
-    return TextFormField(
-      initialValue: widget.site.powerMilliAmps.toStringAsFixed(2),
-      decoration: const InputDecoration(
-        labelText: 'Power (mA)',
-        isDense: true,
+    return SizedBox(
+      width: 140,
+      child: TextFormField(
+        initialValue: widget.site.powerMilliAmps.toStringAsFixed(2),
+        decoration: const InputDecoration(
+          labelText: 'Power (mA)',
+          isDense: true,
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textInputAction: TextInputAction.next,
+        onFieldSubmitted: (value) {
+          final parsed = double.tryParse(value);
+          if (parsed != null) {
+            widget.onMetadataChanged(power: parsed);
+          }
+        },
       ),
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      textInputAction: TextInputAction.next,
-      onFieldSubmitted: (value) {
-        final parsed = double.tryParse(value);
-        if (parsed != null) {
-          widget.onMetadataChanged(power: parsed);
-        }
-      },
+    );
+  }
+
+  Widget _buildGroundTemperatureField() {
+    return SizedBox(
+      width: 140,
+      child: TextFormField(
+        initialValue: widget.site.groundTemperatureF.toStringAsFixed(1),
+        decoration: const InputDecoration(
+          labelText: 'Ground temp (°F)',
+          isDense: true,
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        textInputAction: TextInputAction.next,
+        onFieldSubmitted: (value) {
+          final parsed = double.tryParse(value);
+          if (parsed != null) {
+            widget.onMetadataChanged(groundTemperatureF: parsed);
+          }
+        },
+      ),
     );
   }
 
@@ -1072,37 +1074,34 @@ class _TablePanelState extends State<TablePanel> {
     required ValueChanged<SoilType?> onChanged,
   }) {
     final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 120, maxHeight: 56),
-      child: SizedBox(
-        height: 44,
-        child: DropdownButtonFormField<SoilType>(
-          initialValue: value,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Soil',
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            border: OutlineInputBorder(),
-          ),
-          iconSize: 18,
-          menuMaxHeight: 240,
-          alignment: AlignmentDirectional.centerStart,
-          style: theme.textTheme.bodySmall,
-          items: SoilType.values
-              .map(
-                (soil) => DropdownMenuItem(
-                  value: soil,
-                  child: Text(
-                    _soilShortLabel(soil),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
+    return SizedBox(
+      width: 140,
+      child: DropdownButtonFormField<SoilType>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Soil',
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          border: OutlineInputBorder(),
         ),
+        iconSize: 18,
+        menuMaxHeight: 240,
+        alignment: AlignmentDirectional.centerStart,
+        style: theme.textTheme.bodySmall,
+        items: SoilType.values
+            .map(
+              (soil) => DropdownMenuItem(
+                value: soil,
+                child: Text(
+                  _soilShortLabel(soil),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: onChanged,
       ),
     );
   }
@@ -1113,73 +1112,42 @@ class _TablePanelState extends State<TablePanel> {
     required ValueChanged<MoistureLevel?> onChanged,
   }) {
     final theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 120, maxHeight: 56),
-      child: SizedBox(
-        height: 44,
-        child: DropdownButtonFormField<MoistureLevel>(
-          initialValue: value,
-          isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Moisture',
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            border: OutlineInputBorder(),
-          ),
-          iconSize: 18,
-          menuMaxHeight: 240,
-          alignment: AlignmentDirectional.centerStart,
-          style: theme.textTheme.bodySmall,
-          items: MoistureLevel.values
-              .map(
-                (level) => DropdownMenuItem(
-                  value: level,
-                  child: Text(
-                    level.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-              .toList(),
-          onChanged: onChanged,
+    return SizedBox(
+      width: 140,
+      child: DropdownButtonFormField<MoistureLevel>(
+        initialValue: value,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          labelText: 'Moisture',
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          border: OutlineInputBorder(),
         ),
+        iconSize: 18,
+        menuMaxHeight: 240,
+        alignment: AlignmentDirectional.centerStart,
+        style: theme.textTheme.bodySmall,
+        items: MoistureLevel.values
+            .map(
+              (level) => DropdownMenuItem(
+                value: level,
+                child: Text(
+                  level.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: onChanged,
       ),
     );
   }
 
   List<Widget> _buildStacksControls(BuildContext context) {
-    final theme = Theme.of(context);
     final stacksLocked = widget.site.stacks == widget.projectDefaultStacks;
     if (stacksLocked) {
-      return [
-        Tooltip(
-          message: 'Stacks locked to project default',
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.colorScheme.outlineVariant),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.lock_outline,
-                    size: 14, color: theme.colorScheme.outline),
-                const SizedBox(width: 6),
-                Flexible(
-                  child: Text(
-                    'Project default: ${widget.projectDefaultStacks} stacks',
-                    style: theme.textTheme.labelSmall,
-                    softWrap: true,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ];
+      return const [];
     }
     return [
       SizedBox(
@@ -1536,7 +1504,8 @@ class TablePanelDebugFixture extends StatelessWidget {
           {double? power,
           int? stacks,
           SoilType? soil,
-          MoistureLevel? moisture}) {},
+          MoistureLevel? moisture,
+          double? groundTemperatureF}) {},
       onShowHistory: (_, __) async {},
       onFocusChanged: (_, __) {},
     );
