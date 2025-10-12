@@ -62,6 +62,7 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
       isScrollControlled: true,
       builder: (context) => ImportSheet(project: tempProject),
     );
+    if (!mounted) return;
     if (outcome == null) {
       return;
     }
@@ -131,31 +132,16 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
                 tooltip: 'Refresh projects list',
                 onPressed: _refresh,
               ),
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'import') {
-                    unawaited(_startImport());
-                  }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'import',
-                    child: Text('Import from file…'),
-                  ),
-                ],
-              ),
             ],
-          ),
-          floatingActionButton: FloatingActionButton.extended(
-            onPressed: _showCreateDialog,
-            icon: const Icon(Icons.add),
-            label: const Text('New Project'),
           ),
           body: FutureBuilder<List<ProjectSummary>>(
             future: _recentFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+                return _LoadingProjects(
+                  onImport: () => unawaited(_startImport()),
+                  onNewProject: _showCreateDialog,
+                );
               }
               if (snapshot.hasError) {
                 return Center(
@@ -178,27 +164,40 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 16),
-                        FilledButton.icon(
-                          icon: const Icon(Icons.add),
-                          label: const Text('Create project'),
-                          onPressed: _showCreateDialog,
+                        _QuickActions(
+                          onImport: () => unawaited(_startImport()),
+                          onNewProject: _showCreateDialog,
+                          alignment: WrapAlignment.center,
                         ),
                       ],
                     ),
                   ),
                 );
               }
-              return ListView.separated(
-                itemCount: projects.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+              return ListView.builder(
+                padding: const EdgeInsets.only(bottom: 24),
+                itemCount: projects.length + 1,
                 itemBuilder: (context, index) {
-                  final summary = projects[index];
-                  return ListTile(
-                    leading: const Icon(Icons.workspaces_outline),
-                    title: Text(summary.projectName),
-                    subtitle:
-                        Text('Last opened: ${summary.lastOpened.toLocal()}'),
-                    onTap: () => _openProject(summary),
+                  if (index == 0) {
+                    return _QuickActions(
+                      onImport: () => unawaited(_startImport()),
+                      onNewProject: _showCreateDialog,
+                    );
+                  }
+                  final summary = projects[index - 1];
+                  return Column(
+                    children: [
+                      if (index == 1) const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.workspaces_outline),
+                        title: Text(summary.projectName),
+                        subtitle: Text(
+                          'Last opened: ${summary.lastOpened.toLocal()}',
+                        ),
+                        onTap: () => _openProject(summary),
+                      ),
+                      const Divider(height: 1),
+                    ],
                   );
                 },
               );
@@ -296,6 +295,76 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
       ),
     ));
     await _refresh();
+  }
+}
+
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({
+    required this.onImport,
+    required this.onNewProject,
+    this.alignment = WrapAlignment.start,
+  });
+
+  final VoidCallback onImport;
+  final VoidCallback onNewProject;
+  final WrapAlignment alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        alignment: alignment,
+        children: [
+          FilledButton.icon(
+            icon: const Icon(Icons.upload_file),
+            label: const Text('Import from file'),
+            onPressed: onImport,
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add),
+            label: const Text('New Project'),
+            onPressed: onNewProject,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadingProjects extends StatelessWidget {
+  const _LoadingProjects({
+    required this.onImport,
+    required this.onNewProject,
+  });
+
+  final VoidCallback onImport;
+  final VoidCallback onNewProject;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          Text(
+            'Loading projects…',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 20),
+          _QuickActions(
+            onImport: onImport,
+            onNewProject: onNewProject,
+            alignment: WrapAlignment.center,
+          ),
+        ],
+      ),
+    );
   }
 }
 

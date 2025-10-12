@@ -1,8 +1,10 @@
+import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/logging.dart';
 import '../../models/calc.dart';
 import '../../models/project.dart';
 import '../../models/site.dart';
@@ -95,6 +97,27 @@ class PlotsPanel extends StatelessWidget {
       );
     }
     final axis = _computeAxisRanges(site);
+    LOG.info('plot_render', extra: {
+      'site': site.siteId,
+      'spacing_count': site.spacings.length,
+      'lock_axes': lockAxes,
+      'show_outliers': showOutliers,
+      'series_a': data.aSeries.length,
+      'series_b': data.bSeries.length,
+      'has_template': template != null,
+    });
+    final spacingSamples = List<double>.of(
+      lockAxes
+          ? project.sites.expand((s) => s.spacings.map((p) => p.spacingFeet))
+          : site.spacings.map((p) => p.spacingFeet),
+    );
+    final rhoSamples = List<double>.of(
+      lockAxes ? project.sites.expand(_collectRho) : _collectRho(site),
+    );
+    final spacingTickLogs =
+        _buildSpacingTicks(spacingSamples, axis.minX, axis.maxX);
+    final rhoTickLogs =
+        _buildResistivityTicks(rhoSamples, axis.minY, axis.maxY);
     final sortedGhost = List<GhostSeriesPoint>.of(averageGhost)
       ..sort((a, b) => a.spacingFt.compareTo(b.spacingFt));
     final ghostSpots = sortedGhost
@@ -119,8 +142,8 @@ class PlotsPanel extends StatelessWidget {
             ),
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
-                final spacing = math.pow(10, spot.x);
-                final rho = math.pow(10, spot.y);
+                final spacing = math.pow(10, spot.x).toDouble();
+                final rho = math.pow(10, spot.y).toDouble();
                 return LineTooltipItem(
                   'a=${spacing.toStringAsFixed(1)} ft\nρa=${rho.toStringAsFixed(1)} Ω·m',
                   theme.textTheme.bodyMedium!,
@@ -137,10 +160,14 @@ class PlotsPanel extends StatelessWidget {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              interval: (axis.maxX - axis.minX) / 4,
+              reservedSize: 48,
               getTitlesWidget: (value, meta) {
-                final spacing = math.pow(10, value);
-                return Text('${spacing.toStringAsFixed(1)} ft');
+                if (!_isNearTick(spacingTickLogs, value)) {
+                  return const SizedBox.shrink();
+                }
+                final spacing = math.pow(10, value).toDouble();
+                final label = _formatSpacingLabel(spacing);
+                return Text('$label ft', style: theme.textTheme.labelSmall);
               },
             ),
             axisNameWidget: const Padding(
@@ -152,10 +179,15 @@ class PlotsPanel extends StatelessWidget {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 60,
-              interval: (axis.maxY - axis.minY) / 4,
               getTitlesWidget: (value, meta) {
-                final rho = math.pow(10, value);
-                return Text(rho.toStringAsFixed(0));
+                if (!_isNearTick(rhoTickLogs, value)) {
+                  return const SizedBox.shrink();
+                }
+                final rho = math.pow(10, value).toDouble();
+                return Text(
+                  _formatResistivityLabel(rho),
+                  style: theme.textTheme.labelSmall,
+                );
               },
             ),
             axisNameWidget: const Padding(
@@ -168,8 +200,22 @@ class PlotsPanel extends StatelessWidget {
           topTitles:
               const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        gridData: const FlGridData(
-            show: true, drawVerticalLine: true, drawHorizontalLine: true),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: true,
+          drawHorizontalLine: true,
+          checkToShowVerticalLine: (value) =>
+              _isNearTick(spacingTickLogs, value),
+          checkToShowHorizontalLine: (value) => _isNearTick(rhoTickLogs, value),
+          getDrawingVerticalLine: (value) => FlLine(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+            strokeWidth: 0.8,
+          ),
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
+            strokeWidth: 0.8,
+          ),
+        ),
         borderData: FlBorderData(show: true),
         lineBarsData: [
           if (data.aSeries.isNotEmpty)
@@ -327,6 +373,138 @@ class PlotsPanel extends StatelessWidget {
   }
 
   double _log(double value) => math.log(value) / math.ln10;
+}
+
+List<double> _buildSpacingTicks(
+  List<double> spacings,
+  double minLog,
+  double maxLog, {
+  int maxCount = 8,
+}) {
+  final minSpacing = math.pow(10, minLog).toDouble();
+  final maxSpacing = math.pow(10, maxLog).toDouble();
+  final tickSet = SplayTreeSet<double>();
+  for (final spacing in spacings) {
+    if (!spacing.isFinite || spacing <= 0) {
+      continue;
+    }
+    if (spacing >= minSpacing * 0.95 && spacing <= maxSpacing * 1.05) {
+      tickSet.add(spacing);
+    }
+  }
+  tickSet.addAll(_generateNiceTicks(minSpacing, maxSpacing));
+  if (tickSet.isEmpty) {
+    tickSet.addAll([minSpacing, maxSpacing]);
+  }
+  final limited = _limitTicks(tickSet.toList(), maxCount: maxCount);
+  return limited.map((value) => math.log(value) / math.ln10).toList();
+}
+
+List<double> _buildResistivityTicks(
+  List<double> rhoValues,
+  double minLog,
+  double maxLog, {
+  int maxCount = 8,
+}) {
+  final minValue = math.pow(10, minLog).toDouble();
+  final maxValue = math.pow(10, maxLog).toDouble();
+  final tickSet = SplayTreeSet<double>();
+  for (final rho in rhoValues) {
+    if (!rho.isFinite || rho <= 0) {
+      continue;
+    }
+    if (rho >= minValue * 0.9 && rho <= maxValue * 1.1) {
+      tickSet.add(rho);
+    }
+  }
+  tickSet.addAll(_generateNiceTicks(minValue, maxValue));
+  if (tickSet.isEmpty) {
+    tickSet.addAll([minValue, maxValue]);
+  }
+  final limited = _limitTicks(tickSet.toList(), maxCount: maxCount);
+  return limited.map((value) => math.log(value) / math.ln10).toList();
+}
+
+List<double> _limitTicks(List<double> ticks, {required int maxCount}) {
+  if (ticks.length <= maxCount) {
+    return ticks;
+  }
+  final result = <double>[];
+  final step = (ticks.length - 1) / (maxCount - 1);
+  for (var i = 0; i < maxCount; i++) {
+    final index = (i * step).round().clamp(0, ticks.length - 1);
+    final value = ticks[index];
+    if (result.isEmpty || (value - result.last).abs() > 1e-6) {
+      result.add(value);
+    }
+  }
+  return result;
+}
+
+Iterable<double> _generateNiceTicks(double minValue, double maxValue) sync* {
+  if (!minValue.isFinite || !maxValue.isFinite || minValue <= 0) {
+    return;
+  }
+  final minExponent = minValue <= 0
+      ? 0
+      : math.max((-6), (math.log(minValue) / math.ln10).floor());
+  final maxExponent =
+      math.max(minExponent, (math.log(maxValue) / math.ln10).ceil());
+  const multipliers = [1.0, 2.0, 5.0];
+  for (var exp = minExponent - 1; exp <= maxExponent + 1; exp++) {
+    final base = math.pow(10.0, exp).toDouble();
+    for (final multiplier in multipliers) {
+      final candidate = base * multiplier;
+      if (candidate >= minValue * 0.95 && candidate <= maxValue * 1.05) {
+        yield candidate;
+      }
+    }
+  }
+}
+
+bool _isNearTick(List<double> ticks, double value, {double tolerance = 0.04}) {
+  for (final tick in ticks) {
+    if ((value - tick).abs() <= tolerance) {
+      return true;
+    }
+  }
+  return false;
+}
+
+String _formatSpacingLabel(double spacing) {
+  if (spacing >= 1000) {
+    return spacing.toStringAsFixed(0);
+  }
+  if (spacing >= 100) {
+    return spacing.toStringAsFixed(0);
+  }
+  if (spacing >= 10) {
+    final rounded = (spacing / 5).round() * 5;
+    if ((rounded - spacing).abs() <= 0.1) {
+      return rounded.toStringAsFixed(0);
+    }
+    return spacing.toStringAsFixed(1);
+  }
+  if (spacing >= 1) {
+    return spacing.toStringAsFixed(1);
+  }
+  return spacing.toStringAsFixed(2);
+}
+
+String _formatResistivityLabel(double value) {
+  if (value >= 1000) {
+    return value.round().toString();
+  }
+  if (value >= 100) {
+    return value.round().toString();
+  }
+  if (value >= 10) {
+    return value.toStringAsFixed(0);
+  }
+  if (value >= 1) {
+    return value.toStringAsFixed(1);
+  }
+  return value.toStringAsFixed(2);
 }
 
 class SeriesData {
@@ -683,7 +861,7 @@ class InversionPlotPanel extends StatelessWidget {
     ];
 
     final chart = SizedBox(
-      height: 220,
+      height: 240,
       child: LineChart(
         LineChartData(
           minX: minLog - 0.1,
@@ -725,6 +903,7 @@ class InversionPlotPanel extends StatelessWidget {
                 padding: EdgeInsets.only(top: 8.0),
                 child: Text('Resistivity (Ω·m)'),
               ),
+              axisNameSize: 32,
               sideTitles: SideTitles(
                 showTitles: true,
                 interval: 1,
@@ -733,7 +912,7 @@ class InversionPlotPanel extends StatelessWidget {
                   if (!resistivityTicks.contains(value.round())) {
                     return const SizedBox.shrink();
                   }
-                  final label = math.pow(10, value).toStringAsFixed(0);
+                  final label = _formatResistivityTick(value);
                   return Text(label, style: theme.textTheme.labelSmall);
                 },
               ),
@@ -743,6 +922,7 @@ class InversionPlotPanel extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 4.0),
                 child: Text('Depth (${_unitLabel(distanceUnit)})'),
               ),
+              axisNameSize: 32,
               sideTitles: SideTitles(
                 showTitles: true,
                 reservedSize: 56,
@@ -779,61 +959,38 @@ class InversionPlotPanel extends StatelessWidget {
           children: [
             header,
             const SizedBox(height: 12),
-            Stack(
-              children: [
-                chart,
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface.withValues(alpha: 0.9),
-                      borderRadius: BorderRadius.circular(12),
-                      border:
-                          Border.all(color: theme.colorScheme.outlineVariant),
-                    ),
-                    child: Text(
-                      'RMS ${(summary.rms * 100).toStringAsFixed(1)}%',
-                      style: theme.textTheme.labelMedium,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            chart,
             const SizedBox(height: 12),
             Wrap(
               spacing: 12,
               runSpacing: 8,
               children: [
                 _SummaryChip(
-                  label: 'ρ₁',
+                  label: 'Upper layer ρ',
                   value: _formatRho(summary.rho1),
                   color: _okabeBlue,
                 ),
                 _SummaryChip(
-                  label: 'ρ₂',
+                  label: 'Lower layer ρ',
                   value: _formatRho(summary.rho2),
                   color: _okabeOrange,
                 ),
                 if (summary.halfSpaceRho != null)
                   _SummaryChip(
-                    label: 'ρ₃',
+                    label: 'Half-space ρ',
                     value: _formatRho(summary.halfSpaceRho!),
                     color: _okabeVermillion,
                   ),
                 if (summary.thicknessM != null)
                   _SummaryChip(
-                    label: 'h',
+                    label: 'Layer thickness',
                     value:
                         '${distanceUnit.formatSpacing(summary.thicknessM!)} ${_unitLabel(distanceUnit)}',
                     color: theme.colorScheme.primary,
                   ),
                 _SummaryChip(
-                  label: 'Solved',
-                  value:
-                      '${summary.solvedAt.hour.toString().padLeft(2, '0')}:${summary.solvedAt.minute.toString().padLeft(2, '0')}',
+                  label: 'RMS misfit',
+                  value: '${(summary.rms * 100).toStringAsFixed(1)}%',
                   color: theme.colorScheme.secondary,
                 ),
               ],
@@ -886,6 +1043,21 @@ class InversionPlotPanel extends StatelessWidget {
 
   static double _log10(double value) => math.log(value) / math.ln10;
 
+  static String _formatResistivityTick(double logValue) {
+    final value = math.pow(10, logValue).toDouble();
+    String label;
+    if (value >= 1000) {
+      label = value.toStringAsFixed(0);
+    } else if (value >= 100) {
+      label = value.toStringAsFixed(0);
+    } else if (value >= 10) {
+      label = value.toStringAsFixed(1);
+    } else {
+      label = value.toStringAsFixed(2);
+    }
+    return _trimTrailingZeros(label);
+  }
+
   static String _formatRho(double rho) {
     if (rho >= 1000) {
       return '${rho.toStringAsFixed(0)} Ω·m';
@@ -898,6 +1070,13 @@ class InversionPlotPanel extends StatelessWidget {
 
   static String _unitLabel(DistanceUnit unit) =>
       unit == DistanceUnit.feet ? 'ft' : 'm';
+
+  static String _trimTrailingZeros(String value) {
+    if (!value.contains('.')) {
+      return value;
+    }
+    return value.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
 }
 
 class _SummaryChip extends StatelessWidget {

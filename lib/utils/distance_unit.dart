@@ -33,16 +33,35 @@ extension DistanceUnitX on DistanceUnit {
   String formatSpacing(double meters) {
     final value = fromMeters(meters);
     final absValue = value.abs();
+    if (!value.isFinite) {
+      return value.toString();
+    }
+
+    double? rounded;
+    int fractionDigits;
     if (absValue >= 1000) {
-      return value.toStringAsFixed(0);
+      fractionDigits = 0;
+    } else if (absValue >= 100) {
+      fractionDigits = 0;
+    } else if (absValue >= 10) {
+      final nearestFive = (value / 5).round() * 5;
+      if ((nearestFive - value).abs() <= 0.1) {
+        rounded = nearestFive.toDouble();
+        fractionDigits = 0;
+      } else {
+        fractionDigits = 1;
+      }
+    } else if (absValue >= 1) {
+      fractionDigits = 1;
+    } else if (absValue >= 0.1) {
+      fractionDigits = 2;
+    } else {
+      fractionDigits = 3;
     }
-    if (absValue >= 100) {
-      return value.toStringAsFixed(0);
-    }
-    if (absValue >= 10) {
-      return value.toStringAsFixed(1);
-    }
-    return value.toStringAsFixed(2);
+
+    final target = rounded ?? value;
+    final formatted = target.toStringAsFixed(fractionDigits);
+    return _stripTrailingZeros(formatted);
   }
 
   static DistanceUnit parse(String? name,
@@ -53,4 +72,11 @@ extension DistanceUnitX on DistanceUnit {
       orElse: () => fallback,
     );
   }
+}
+
+String _stripTrailingZeros(String value) {
+  if (!value.contains('.')) {
+    return value;
+  }
+  return value.replaceFirst(RegExp(r'\.?0+$'), '');
 }

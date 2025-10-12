@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import '../../core/logging.dart';
 import '../../models/direction_reading.dart';
 import '../../models/site.dart';
 import 'adapter_csv.dart';
@@ -30,10 +31,27 @@ class ImportService {
   };
 
   Future<ImportSession> load(ImportSource source) async {
-    final adapter = _selectAdapter(source.name);
-    final table = await adapter.parse(source);
-    final preview = _buildPreview(source.name, table);
-    return ImportSession(source: source, table: table, preview: preview);
+    LOG.info('import_parse_start', extra: {'file': source.name});
+    try {
+      final adapter = _selectAdapter(source.name);
+      final table = await adapter.parse(source);
+      final preview = _buildPreview(source.name, table);
+      LOG.info('import_parse_success', extra: {
+        'file': source.name,
+        'rows': table.rows.length,
+        'columns': table.headers.length,
+        'issues': table.issues.length,
+      });
+      return ImportSession(source: source, table: table, preview: preview);
+    } catch (error, stackTrace) {
+      LOG.error(
+        'import_parse_fail',
+        extra: {'file': source.name},
+        error: error,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
   }
 
   ImportValidationResult validate(
@@ -141,13 +159,21 @@ class ImportService {
     }
 
     records.sort((a, b) => a.spacingFeet.compareTo(b.spacingFeet));
-    return ImportValidationResult(
+    final result = ImportValidationResult(
       totalRows: table.rows.length,
       importedRows: imported,
       skippedRows: skipped,
       issues: issues,
       spacings: records,
     );
+    LOG.info('import_validate', extra: {
+      'file': session.source.name,
+      'total_rows': result.totalRows,
+      'imported_rows': result.importedRows,
+      'skipped_rows': result.skippedRows,
+      'issues': result.issues.length,
+    });
+    return result;
   }
 
   ImportMergePreview previewMerge(
@@ -193,6 +219,11 @@ class ImportService {
     required ImportValidationResult validation,
     bool overwrite = false,
   }) {
+    LOG.info('import_merge_begin', extra: {
+      'site': base.siteId,
+      'overwrite': overwrite,
+      'incoming_rows': validation.importedRows,
+    });
     var updated = base;
     for (final spacing in validation.spacings) {
       final existing = updated.spacing(spacing.spacingFeet);
@@ -205,6 +236,10 @@ class ImportService {
       }
       updated = updated.upsertSpacing(_mergeSpacing(existing, spacing));
     }
+    LOG.info('import_merge_complete', extra: {
+      'site': updated.siteId,
+      'total_spacings': updated.spacings.length,
+    });
     return updated;
   }
 
@@ -216,6 +251,7 @@ class ImportService {
     int stacks = 4,
     SoilType soil = SoilType.unknown,
     MoistureLevel moisture = MoistureLevel.normal,
+    double groundTemperatureF = 68.0,
   }) {
     return SiteRecord(
       siteId: siteId,
@@ -224,6 +260,7 @@ class ImportService {
       stacks: stacks,
       soil: soil,
       moisture: moisture,
+      groundTemperatureF: groundTemperatureF,
       spacings: validation.spacings,
     );
   }

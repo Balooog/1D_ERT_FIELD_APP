@@ -86,6 +86,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final isSimulating = ref.watch(simulationControllerProvider);
     final telemetry = ref.watch(telemetryProvider);
     final projectState = ref.watch(projectControllerProvider);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -104,13 +106,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildProjectPanel(projectState, points),
             HeaderBadges(summary: qaSummary),
+            const SizedBox(height: 8),
+            _buildQuickActions(isSimulating),
+            const SizedBox(height: 8),
             Expanded(
               child: Column(
                 children: [
                   Expanded(
+                    flex: 5,
                     child: points.isEmpty
                         ? const Center(
                             child: Text(
@@ -123,86 +130,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                   ),
                   const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Container(
-                      height: 220,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Theme.of(context).colorScheme.outlineVariant,
+                  Expanded(
+                    flex: 3,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: colorScheme.outlineVariant,
+                          ),
                         ),
-                      ),
-                      child: points.isEmpty
-                          ? Center(
-                              child: Text(
-                                'No spacing points recorded yet.',
-                                style: Theme.of(context).textTheme.bodyMedium,
+                        child: points.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No spacing points recorded yet.',
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              )
+                            : PointsTable(
+                                points: points,
+                                inversion: inversion,
+                                distanceUnit: _distanceUnit,
                               ),
-                            )
-                          : PointsTable(
-                              points: points,
-                              inversion: inversion,
-                              distanceUnit: _distanceUnit,
-                            ),
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 8),
             ResidualStrip(points: points, inversion: inversion),
+            const SizedBox(height: 8),
             TelemetryPanel(state: telemetry),
-          ],
-        ),
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          children: [
-            Expanded(
-              child: Semantics(
-                label: 'Add Point',
-                button: true,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add Point'),
-                  onPressed: _showAddPointDialog,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.replay),
-                label: const Text('Re-read'),
-                onPressed: () {},
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.flag),
-                label: const Text('Mark bad'),
-                onPressed: () {},
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Tooltip(
-                message:
-                    'Generate a synthetic VES (ρₐ vs a-spacing) for demo/QA.',
-                child: FilledButton.tonalIcon(
-                  icon: Icon(isSimulating ? Icons.stop : Icons.play_arrow),
-                  label: Text(
-                      isSimulating ? 'Stop simulation' : 'Simulate sounding'),
-                  onPressed: () =>
-                      ref.read(simulationControllerProvider.notifier).toggle(),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -330,6 +291,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActions(bool isSimulating) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            SizedBox(
+              width: 200,
+              child: Semantics(
+                label: 'Add Point',
+                button: true,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Point'),
+                  onPressed: _showAddPointDialog,
+                ),
+              ),
+            ),
+            SizedBox(
+              width: 200,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.replay),
+                label: const Text('Re-read'),
+                onPressed: () {},
+              ),
+            ),
+            SizedBox(
+              width: 200,
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.flag),
+                label: const Text('Mark bad'),
+                onPressed: () {},
+              ),
+            ),
+            Tooltip(
+              message:
+                  'Generate a synthetic VES (ρₐ vs a-spacing) for demo/QA.',
+              child: SizedBox(
+                width: 210,
+                child: FilledButton.tonalIcon(
+                  icon: Icon(isSimulating ? Icons.stop : Icons.play_arrow),
+                  label: Text(
+                      isSimulating ? 'Stop simulation' : 'Simulate sounding'),
+                  onPressed: () =>
+                      ref.read(simulationControllerProvider.notifier).toggle(),
+                ),
+              ),
             ),
           ],
         ),
