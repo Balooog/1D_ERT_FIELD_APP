@@ -25,16 +25,16 @@ class LoggingService {
       return;
     }
 
-    final directory = Directory('logs');
+    final directory = Directory('buildlogs');
     if (!await directory.exists()) {
       await directory.create(recursive: true);
     }
 
     final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-    final file = File('${directory.path}/session_$timestamp.log');
+    final file = File('${directory.path}/runtime_$timestamp.log');
     _sink = file.openWrite(mode: FileMode.writeOnlyAppend);
     _sink?.writeln(
-        '--- ResiCheck session started ${DateTime.now().toIso8601String()} ---');
+        '--- ResiCheck runtime session started ${DateTime.now().toIso8601String()} ---');
 
     final previousDebugPrint = _previousDebugPrint;
     debugPrint = (String? message, {int? wrapWidth}) {
