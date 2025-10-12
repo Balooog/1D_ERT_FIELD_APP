@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,6 +12,8 @@ import 'ui/project_workflow/home_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LOG.init();
+
   ErrorWidget.builder = (FlutterErrorDetails details) {
     return Material(
       color: Colors.black,
@@ -28,12 +33,34 @@ Future<void> main() async {
       ),
     );
   };
+
+  final previousFlutterError = FlutterError.onError;
   FlutterError.onError = (FlutterErrorDetails details) {
+    LOG.error(
+      'flutter_error',
+      extra: {
+        'exception': details.exceptionAsString(),
+        'library': details.library,
+      },
+      error: details.exception,
+      stackTrace: details.stack,
+    );
+    previousFlutterError?.call(details);
     FlutterError.presentError(details);
   };
-  await LoggingService.instance.ensureInitialized();
-  LOG.i('Bootstrap', 'Launching ResiCheck UI');
-  runApp(const ProviderScope(child: ResiCheckApp()));
+
+  runZonedGuarded(() async {
+    await LoggingService.instance.ensureInitialized();
+    LOG.info('app_start', extra: {'platform': defaultTargetPlatform.name});
+    runApp(const ProviderScope(child: ResiCheckApp()));
+  }, (error, stackTrace) {
+    LOG.error(
+      'uncaught',
+      extra: {'exception': error.toString()},
+      error: error,
+      stackTrace: stackTrace,
+    );
+  });
 }
 
 class ResiCheckApp extends StatefulWidget {

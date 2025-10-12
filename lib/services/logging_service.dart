@@ -40,8 +40,7 @@ class LoggingService {
     debugPrint = (String? message, {int? wrapWidth}) {
       final text = message ?? '';
       final now = DateTime.now().toIso8601String();
-      _sink?.writeln('[$now] $text');
-      _sink?.flush();
+      _safeWrite('[$now] $text');
       previousDebugPrint?.call(message, wrapWidth: wrapWidth);
     };
 
@@ -69,9 +68,22 @@ class LoggingService {
     }
 
     final now = DateTime.now().toIso8601String();
-    _sink?.writeln('[$now] $message');
-    _sink?.flush();
+    _safeWrite('[$now] $message');
     _previousDebugPrint?.call(message);
+  }
+
+  void _safeWrite(String message) {
+    final sink = _sink;
+    if (sink == null) {
+      return;
+    }
+    try {
+      sink.writeln(message);
+    } catch (error) {
+      _previousDebugPrint?.call(
+        'LoggingService failed to write log entry: $error',
+      );
+    }
   }
 
   Future<void> dispose() async {
@@ -79,7 +91,6 @@ class LoggingService {
       debugPrint = _previousDebugPrint!;
     }
     FlutterError.onError = _previousFlutterError;
-    await _sink?.flush();
     await _sink?.close();
     _sink = null;
     _initialized = false;

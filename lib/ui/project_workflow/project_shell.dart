@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/logging.dart';
 import '../../core/render_safety.dart';
 import '../../models/calc.dart';
 import '../../models/direction_reading.dart';
@@ -225,6 +226,7 @@ class _ProjectShellState extends State<ProjectShell> {
     int? stacks,
     SoilType? soil,
     MoistureLevel? moisture,
+    double? groundTemperatureF,
   }) {
     final site = _selectedSite;
     if (site == null) {
@@ -237,6 +239,7 @@ class _ProjectShellState extends State<ProjectShell> {
           stacks: stacks,
           soil: soil,
           moisture: moisture,
+          groundTemperatureF: groundTemperatureF,
         );
       });
     });
@@ -397,6 +400,7 @@ class _ProjectShellState extends State<ProjectShell> {
       displayName: result.siteId,
       powerMilliAmps: _project.defaultPowerMilliAmps,
       stacks: _project.defaultStacks,
+      groundTemperatureF: _selectedSite?.groundTemperatureF ?? 68.0,
       spacings: canonicalSpacings
           .map(
             (spacing) => SpacingRecord.seed(
@@ -422,6 +426,7 @@ class _ProjectShellState extends State<ProjectShell> {
       stacks: site.stacks,
       soil: site.soil,
       moisture: site.moisture,
+      groundTemperatureF: site.groundTemperatureF,
       spacings: [
         for (final spacing in site.spacings)
           SpacingRecord(
@@ -494,21 +499,27 @@ class _ProjectShellState extends State<ProjectShell> {
   }
 
   void _toggleAllSitesView() {
+    final next = !_showAllSites;
     setState(() {
-      _showAllSites = !_showAllSites;
+      _showAllSites = next;
     });
+    LOG.info('toggle_all_sites', extra: {'show_all_sites': next});
   }
 
   void _toggleOutliers() {
+    final next = !_showOutliers;
     setState(() {
-      _showOutliers = !_showOutliers;
+      _showOutliers = next;
     });
+    LOG.info('toggle_outliers', extra: {'show_outliers': next});
   }
 
   void _toggleLockAxes() {
+    final next = !_lockAxes;
     setState(() {
-      _lockAxes = !_lockAxes;
+      _lockAxes = next;
     });
+    LOG.info('toggle_lock_axes', extra: {'lock_axes': next});
   }
 
   Future<void> _exportSite() async {
@@ -937,14 +948,18 @@ class _ProjectShellState extends State<ProjectShell> {
     final theme = Theme.of(context);
     final templateSelector = SizedBox(
       width: 240,
-      child: DropdownButton<GhostTemplate?>(
-        isExpanded: true,
+      child: DropdownButtonFormField<GhostTemplate?>(
         value: _selectedTemplate,
-        hint: const Text('Template ghost curve'),
+        decoration: const InputDecoration(
+          labelText: 'Ghost template',
+          isDense: true,
+          border: OutlineInputBorder(),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        ),
         items: [
           const DropdownMenuItem<GhostTemplate?>(
             value: null,
-            child: Text('No template'),
+            child: Text('None'),
           ),
           for (final template in templateOptions)
             DropdownMenuItem<GhostTemplate?>(
@@ -960,12 +975,48 @@ class _ProjectShellState extends State<ProjectShell> {
       ),
     );
 
+    final isSaving = _saveIndicator.startsWith('Saving');
+    final statusBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isSaving)
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.colorScheme.primary,
+              ),
+            )
+          else
+            Icon(
+              Icons.check_circle,
+              size: 16,
+              color: theme.colorScheme.primary,
+            ),
+          const SizedBox(width: 6),
+          Text(
+            'Status: $_saveIndicator',
+            style: theme.textTheme.labelMedium
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+
     final statusGroup = Wrap(
       spacing: 12,
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text(_saveIndicator),
+        statusBadge,
         templateSelector,
       ],
     );
@@ -975,8 +1026,33 @@ class _ProjectShellState extends State<ProjectShell> {
       runSpacing: 8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Text('Outliers ${_showOutliers ? 'shown' : 'hidden'}'),
-        Text('Axes ${_lockAxes ? 'locked' : 'auto'}'),
+        FilterChip(
+          avatar: Icon(
+            _showOutliers ? Icons.visibility : Icons.visibility_off,
+            size: 16,
+          ),
+          label: Text(_showOutliers ? 'Outliers shown' : 'Outliers hidden'),
+          selected: _showOutliers,
+          onSelected: (_) => _toggleOutliers(),
+        ),
+        FilterChip(
+          avatar: Icon(
+            _lockAxes ? Icons.center_focus_strong : Icons.auto_graph,
+            size: 16,
+          ),
+          label: Text(_lockAxes ? 'Axes locked' : 'Axes auto'),
+          selected: _lockAxes,
+          onSelected: (_) => _toggleLockAxes(),
+        ),
+        FilterChip(
+          avatar: Icon(
+            _showAllSites ? Icons.grid_view : Icons.insights,
+            size: 16,
+          ),
+          label: Text(_showAllSites ? 'All sites view' : 'Single site view'),
+          selected: _showAllSites,
+          onSelected: (_) => _toggleAllSitesView(),
+        ),
       ],
     );
 
@@ -1062,9 +1138,9 @@ class _ProjectShellState extends State<ProjectShell> {
         }
 
         final isLarge = width >= 1440;
-        final mainFlex = isLarge ? 8 : 9;
-        final railFlex = isLarge ? 4 : 3;
-        final siteListWidth = isLarge ? 280.0 : 240.0;
+        final mainFlex = isLarge ? 6 : 7;
+        final railFlex = isLarge ? 5 : 4;
+        final siteListWidth = isLarge ? 260.0 : 220.0;
 
         return Padding(
           padding: const EdgeInsets.all(12),
