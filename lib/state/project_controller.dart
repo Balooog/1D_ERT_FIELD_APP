@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/logging.dart';
 import '../models/project_models.dart';
 import '../services/persistence.dart';
 
@@ -55,6 +56,42 @@ class ProjectController extends StateNotifier<ProjectState> {
 
   final PersistenceService _persistence;
   Timer? _autosaveTimer;
+
+  Future<void> ensureProjectLoaded() async {
+    if (state.project != null) {
+      return;
+    }
+    try {
+      final project = await _persistence.tryLoadDefault();
+      if (project == null) {
+        LOG.w('ProjectController', 'No default project available during hydrate');
+        return;
+      }
+      LOG.i('ProjectController', 'Loaded default project "${project.projectName}"');
+      _setProject(project, markSaved: true);
+    } catch (error, stackTrace) {
+      LOG.e('ProjectController', 'Failed to load default project', error, stackTrace);
+      rethrow;
+    }
+  }
+
+  Future<void> ensureSitesIndexed() async {
+    final project = state.project;
+    if (project == null) {
+      return;
+    }
+    final activeSiteId = state.activeSiteId;
+    if (activeSiteId != null && project.siteById(activeSiteId) != null) {
+      return;
+    }
+    final fallbackSiteId = project.sites.isNotEmpty ? project.sites.first.siteId : null;
+    if (fallbackSiteId == null) {
+      LOG.w('ProjectController', 'Hydrate requested but project has no sites.');
+      return;
+    }
+    state = state.copyWith(activeSiteId: fallbackSiteId);
+    LOG.i('ProjectController', 'Defaulted active site to $fallbackSiteId');
+  }
 
   @override
   void dispose() {

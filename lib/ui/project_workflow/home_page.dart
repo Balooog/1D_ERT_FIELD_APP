@@ -10,7 +10,12 @@ import '../import/import_sheet.dart';
 import 'project_shell.dart';
 
 class ProjectWorkflowHomePage extends StatefulWidget {
-  const ProjectWorkflowHomePage({super.key});
+  const ProjectWorkflowHomePage({
+    super.key,
+    ProjectStorageService? storage,
+  }) : storage = storage ?? ProjectStorageService();
+
+  final ProjectStorageService storage;
 
   @override
   State<ProjectWorkflowHomePage> createState() =>
@@ -18,8 +23,9 @@ class ProjectWorkflowHomePage extends StatefulWidget {
 }
 
 class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
-  final ProjectStorageService _storage = ProjectStorageService();
   late Future<List<ProjectSummary>> _recentFuture;
+
+  ProjectStorageService get _storage => widget.storage;
 
   @override
   void initState() {
