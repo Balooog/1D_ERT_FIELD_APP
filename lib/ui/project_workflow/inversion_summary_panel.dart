@@ -55,7 +55,8 @@ class InversionSummaryPanel extends StatelessWidget {
             const SizedBox(height: 4),
             Text(cueSummary.message, style: subtitleStyle),
             const SizedBox(height: 16),
-            Expanded(
+            SizedBox(
+              height: 220,
               child: Align(
                 alignment: Alignment.topCenter,
                 child: InversionPlotPanel(
