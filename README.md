@@ -41,6 +41,18 @@ statistics against a log-linear model. Project files are saved under
 `ResiCheckProjects/<name>.resicheck.json` via `lib/services/persistence.dart` and
 load seamlessly on all supported platforms.
 
+## 🚀 Quick Start (Fresh WSL Ubuntu)
+
+These are the exact steps I use after a clean WSL setup to get ResiCheck running.
+
+### 0) Create a workspace and clone
+```bash
+# In WSL (Ubuntu)
+mkdir -p ~/code && cd ~/code
+git clone https://github.com/Balooog/1D_ERT_FIELD_APP.git resicheck
+cd resicheck
+''' 
+
 ## Quick build on Windows (PowerShell)
 
 ```
