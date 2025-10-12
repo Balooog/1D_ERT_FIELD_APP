@@ -50,7 +50,8 @@ class LogHarness {
     _write('WARN', category, message);
   }
 
-  void e(String category, String message, [Object? error, StackTrace? stackTrace]) {
+  void e(String category, String message,
+      [Object? error, StackTrace? stackTrace]) {
     final buffer = StringBuffer(message);
     if (error != null) {
       buffer
@@ -67,7 +68,8 @@ class LogHarness {
 
   void _write(String level, String category, String message) {
     final timestamp = DateTime.now().toIso8601String();
-    final normalizedCategory = category.trim().isEmpty ? 'App' : category.trim();
+    final normalizedCategory =
+        category.trim().isEmpty ? 'App' : category.trim();
     final normalizedMessage = message.trim();
     final line = '[$timestamp][$level][$normalizedCategory] $normalizedMessage';
     debugPrint(line);

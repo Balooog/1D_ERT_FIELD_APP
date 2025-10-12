@@ -9,7 +9,7 @@ import 'package:resicheck/services/qc_rules.dart';
 SpacingPoint _makePoint(double rho, {double? sigma}) {
   const spacingMeters = 5.0;
   const current = 0.5;
-  final geometryFactor = 2 * math.pi * spacingMeters;
+  const geometryFactor = 2 * math.pi * spacingMeters;
   final resistance = rho / geometryFactor;
   final voltage = resistance * current;
   return SpacingPoint(

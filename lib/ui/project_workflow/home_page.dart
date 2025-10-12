@@ -10,7 +10,7 @@ import '../import/import_sheet.dart';
 import 'project_shell.dart';
 
 class ProjectWorkflowHomePage extends StatefulWidget {
-  const ProjectWorkflowHomePage({
+  ProjectWorkflowHomePage({
     super.key,
     ProjectStorageService? storage,
   }) : storage = storage ?? ProjectStorageService();
@@ -137,8 +137,8 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
                     unawaited(_startImport());
                   }
                 },
-                itemBuilder: (context) => const [
-                  PopupMenuItem(
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
                     value: 'import',
                     child: Text('Import from file…'),
                   ),

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import '../models/calc.dart' as calc;
+import '../models/enums.dart';
 import '../models/inversion_model.dart';
 import '../models/site.dart';
 import '../models/spacing_point.dart';
@@ -382,6 +383,53 @@ OneDInversionResult _runLayeredInversion({
     }
   }
 
+  final leastSquaresAttempt = _leastSquaresAttempt(
+    aggregated: aggregated,
+    layerCount: layerCount,
+    minThick: minThick,
+    maxThick: maxThick,
+    minRho: minRho,
+    maxRho: maxRho,
+  );
+  if (leastSquaresAttempt != null &&
+      leastSquaresAttempt.misfit.isFinite &&
+      (bestAttempt.misfit.isInfinite ||
+          leastSquaresAttempt.misfit < bestAttempt.misfit)) {
+    bestAttempt = leastSquaresAttempt;
+  }
+
+  final liteAttempt = _liteInversionAttempt(
+    aggregated: aggregated,
+    layerCount: layerCount,
+    minRho: minRho,
+    maxRho: maxRho,
+    minThick: minThick,
+    maxThick: maxThick,
+    seed: bestAttempt,
+  );
+  if (liteAttempt != null &&
+      liteAttempt.misfit.isFinite &&
+      (bestAttempt.misfit.isInfinite ||
+          liteAttempt.misfit < bestAttempt.misfit)) {
+    bestAttempt = liteAttempt;
+  }
+
+  final refinedFirstLayer = _refineFirstLayer(
+    attempt: bestAttempt,
+    aggregated: aggregated,
+    minRho: minRho,
+    maxRho: maxRho,
+    minThick: minThick,
+    maxThick: maxThick,
+    lowerLogBound: logClamp.lower,
+    upperLogBound: logClamp.upper,
+  );
+  if (refinedFirstLayer != null &&
+      refinedFirstLayer.misfit.isFinite &&
+      refinedFirstLayer.misfit < bestAttempt.misfit) {
+    bestAttempt = refinedFirstLayer;
+  }
+
   return bestAttempt.toResult();
 }
 
@@ -428,17 +476,23 @@ _LogBand? _firstLayerLogBand(
   if (aggregated.isEmpty) {
     return null;
   }
-  final logs = aggregated
-      .map((m) => math.log(m.rho.clamp(minRho, maxRho)))
+  final clampedRhos = aggregated
+      .map((m) => m.rho.clamp(minRho, maxRho).toDouble())
       .toList()
     ..sort();
+  final logs = clampedRhos.map(math.log).toList()..sort();
   final minLog = math.log(minRho);
   final maxLog = math.log(maxRho);
   final q25 = _quantile(logs, 0.25);
   final q75 = _quantile(logs, 0.75);
   final iqr = q75 - q25;
-  final lower = (q25 - 1.8 * iqr).clamp(minLog, maxLog);
-  final upper = (q75 + 1.8 * iqr).clamp(minLog, maxLog);
+  final baseLower = q25 - 1.8 * iqr;
+  final baseUpper = q75 + 1.8 * iqr;
+  final minObserved = clampedRhos.first;
+  final scaledLowerValue = (minObserved / 4).clamp(minRho, maxRho).toDouble();
+  final scaledLower = math.log(math.max(minRho, scaledLowerValue));
+  final lower = math.max(minLog, math.min(baseLower, scaledLower));
+  final upper = math.min(maxLog, baseUpper);
   return _LogBand(lower: lower, upper: upper);
 }
 
@@ -452,17 +506,23 @@ _LogClamp _logClampFor(
   if (aggregated.isEmpty) {
     return _LogClamp(minLog, maxLog);
   }
-  final logs = aggregated
-      .map((m) => math.log(m.rho.clamp(minRho, maxRho)))
+  final clampedRhos = aggregated
+      .map((m) => m.rho.clamp(minRho, maxRho).toDouble())
       .toList()
     ..sort();
+  final logs = clampedRhos.map(math.log).toList()..sort();
   final median = _quantile(logs, 0.5);
   final q1 = _quantile(logs, 0.25);
   final q3 = _quantile(logs, 0.75);
   final iqr = q3 - q1;
   final band = iqr > 0 ? 1.8 * iqr : (maxLog - minLog) * 0.5;
-  final lower = (median - band).clamp(minLog, maxLog);
-  final upper = (median + band).clamp(minLog, maxLog);
+  final baseLower = (median - band).clamp(minLog, maxLog);
+  final baseUpper = (median + band).clamp(minLog, maxLog);
+  final scaledLowerValue =
+      (clampedRhos.first / 4).clamp(minRho, maxRho).toDouble();
+  final scaledLower = math.log(math.max(minRho, scaledLowerValue));
+  final lower = math.max(minLog, math.min(baseLower, scaledLower));
+  final upper = math.min(maxLog, baseUpper);
   return _LogClamp(lower, upper);
 }
 
@@ -685,6 +745,317 @@ _InversionAttempt _segmentalApproximation({
     resistivities: resistivities,
     fit: fit,
     misfit: misfit,
+  );
+}
+
+_InversionAttempt? _leastSquaresAttempt({
+  required List<_AggregatedMeasurement> aggregated,
+  required int layerCount,
+  required double minThick,
+  required double maxThick,
+  required double minRho,
+  required double maxRho,
+}) {
+  if (aggregated.length < 2 || layerCount < 2) {
+    return null;
+  }
+  final spacingMeters = aggregated.map((m) => m.spacingMeters).toList();
+  final observed = aggregated.map((m) => m.rho).toList();
+  final depthSamples = spacingMeters.map((value) => value / 2).toList()..sort();
+  if (depthSamples.isEmpty) {
+    return null;
+  }
+  final guard = math.max(minThick, 0.25);
+  final maxDepthAvailable = depthSamples.last;
+  final lite = LiteInversionService(layerCount: layerCount);
+
+  double bestMisfit = double.infinity;
+  List<double>? bestDepths;
+  List<double>? bestRhos;
+  List<double>? bestFit;
+
+  void evaluate(List<double> boundaries) {
+    if (boundaries.isEmpty) {
+      return;
+    }
+    final depths = List<double>.from(boundaries);
+    final lastDepth = math.max(boundaries.last + guard, maxDepthAvailable);
+    depths.add(lastDepth);
+    final thicknesses = _buildThicknesses(depths, minThick, maxThick);
+
+    final atA = List.generate(
+      layerCount,
+      (_) => List<double>.filled(layerCount, 0),
+    );
+    final atb = List<double>.filled(layerCount, 0);
+
+    for (var k = 0; k < spacingMeters.length; k++) {
+      final depth = spacingMeters[k] / 2;
+      final weights = <double>[];
+      var weightSum = 0.0;
+      var cumulative = 0.0;
+      for (var layer = 0; layer < layerCount; layer++) {
+        final thickness = thicknesses[layer] ?? (depth * 2);
+        final top = cumulative;
+        final bottom = cumulative + thickness;
+        final weight = _depthWeight(depth, top, bottom);
+        weights.add(weight);
+        weightSum += weight;
+        cumulative += thickness;
+      }
+      if (weightSum <= 1e-12) {
+        continue;
+      }
+      for (var j = 0; j < layerCount; j++) {
+        final normalized = weights[j] / weightSum;
+        for (var l = 0; l < layerCount; l++) {
+          final normalizedL = weights[l] / weightSum;
+          atA[j][l] += normalized * normalizedL;
+        }
+        atb[j] += normalized * observed[k];
+      }
+    }
+
+    for (var j = 0; j < layerCount; j++) {
+      atA[j][j] += 1e-6;
+    }
+
+    final rhos = lite
+        ._solveLinearSystem(atA, atb)
+        .map((value) => value.clamp(minRho, maxRho).toDouble())
+        .toList();
+    final logRhos = rhos.map(math.log).toList();
+    final fit = _forwardApparentRho(spacingMeters, thicknesses, logRhos);
+    final misfit = _normalizedMisfit(observed, fit);
+    if (misfit.isFinite && misfit < bestMisfit) {
+      bestMisfit = misfit;
+      bestDepths = depths;
+      bestRhos = rhos;
+      bestFit = fit;
+    }
+  }
+
+  void search(int startIndex, List<double> current) {
+    if (current.length == layerCount - 1) {
+      evaluate(current);
+      return;
+    }
+    for (var idx = startIndex; idx < depthSamples.length; idx++) {
+      final candidate = depthSamples[idx];
+      if (candidate < guard) {
+        continue;
+      }
+      if (current.isNotEmpty && candidate - current.last < guard) {
+        continue;
+      }
+      final remainingBoundaries = layerCount - 1 - current.length - 1;
+      final remainingSamples = depthSamples.length - (idx + 1);
+      if (remainingSamples < math.max(0, remainingBoundaries)) {
+        break;
+      }
+      current.add(candidate);
+      search(idx + 1, current);
+      current.removeLast();
+    }
+  }
+
+  search(0, <double>[]);
+
+  if (bestDepths == null || bestRhos == null || bestFit == null) {
+    return null;
+  }
+
+  return _InversionAttempt(
+    depths: bestDepths!,
+    resistivities: bestRhos!,
+    fit: bestFit!,
+    misfit: bestMisfit,
+  );
+}
+
+_InversionAttempt? _liteInversionAttempt({
+  required List<_AggregatedMeasurement> aggregated,
+  required int layerCount,
+  required double minRho,
+  required double maxRho,
+  required double minThick,
+  required double maxThick,
+  _InversionAttempt? seed,
+}) {
+  if (aggregated.length < 2 || layerCount <= 0) {
+    return null;
+  }
+  final now = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+  final points = <SpacingPoint>[];
+  for (var i = 0; i < aggregated.length; i++) {
+    final measurement = aggregated[i];
+    final point = SpacingPoint(
+      id: 'agg-$i',
+      arrayType: ArrayType.wenner,
+      aFeet: measurement.spacingFt,
+      spacingMetric: measurement.spacingMeters,
+      rhoAppOhmM: measurement.rho,
+      stacks: 1,
+      timestamp: now,
+    );
+    points.add(point);
+  }
+
+  final lite = LiteInversionService(layerCount: layerCount);
+  List<double>? rhoSeed;
+  List<double?>? thicknessSeed;
+  if (seed != null &&
+      seed.resistivities.length == layerCount &&
+      seed.depths.length == layerCount) {
+    rhoSeed = seed.resistivities
+        .map((rho) => rho.clamp(minRho, maxRho).toDouble())
+        .toList();
+    thicknessSeed = _buildThicknesses(seed.depths, minThick, maxThick).toList();
+  }
+
+  if (rhoSeed != null && rhoSeed.isNotEmpty) {
+    final minObserved = aggregated.map((m) => m.rho).reduce(math.min);
+    final adjusted = math.min(rhoSeed[0], minObserved / 3);
+    rhoSeed[0] = math.max(minRho, adjusted);
+  }
+
+  final model = lite.invert(
+    points,
+    rhoSeed: rhoSeed,
+    thicknessSeed: thicknessSeed,
+  );
+  if (model.layers.isEmpty || model.predictedRho.isEmpty) {
+    return null;
+  }
+
+  final depths = <double>[];
+  var cumulative = 0.0;
+  for (final layer in model.layers) {
+    final thickness = layer.thicknessM;
+    if (thickness != null) {
+      cumulative += thickness;
+      depths.add(cumulative);
+    } else {
+      depths.add(cumulative);
+    }
+  }
+
+  final resistivities = model.layers
+      .map((layer) => layer.rhoOhmM.clamp(minRho, maxRho).toDouble())
+      .toList();
+  final fit = List<double>.from(model.predictedRho);
+  final observed = aggregated.map((m) => m.rho).toList();
+  final misfit = _normalizedMisfit(observed, fit);
+
+  return _InversionAttempt(
+    depths: depths,
+    resistivities: resistivities,
+    fit: fit,
+    misfit: misfit,
+  );
+}
+
+_InversionAttempt? _refineFirstLayer({
+  required _InversionAttempt attempt,
+  required List<_AggregatedMeasurement> aggregated,
+  required double minRho,
+  required double maxRho,
+  required double minThick,
+  required double maxThick,
+  required double lowerLogBound,
+  required double upperLogBound,
+}) {
+  if (aggregated.isEmpty || attempt.resistivities.isEmpty) {
+    return null;
+  }
+  final guard = math.max(minThick, 0.25);
+  final spacingMeters = aggregated.map((m) => m.spacingMeters).toList();
+  final observed = aggregated.map((m) => m.rho).toList();
+  final currentDepths = List<double>.from(attempt.depths);
+  final currentRhos = List<double>.from(attempt.resistivities);
+  final currentLogs = currentRhos.map(math.log).toList();
+  final minObserved = observed.reduce(math.min);
+
+  final lowerRhoLog = math
+      .log(math.max(minRho, minObserved / 8))
+      .clamp(lowerLogBound, upperLogBound);
+  final upperRhoLog = math
+      .log(
+        math.max(minRho, math.min(minObserved, currentRhos.first)),
+      )
+      .clamp(lowerLogBound, upperLogBound);
+
+  if (upperRhoLog - lowerRhoLog < 1e-6) {
+    return null;
+  }
+
+  final minDepth = guard;
+  double maxDepth = currentDepths.first;
+  if (currentDepths.length > 1) {
+    maxDepth = math.max(minDepth, currentDepths[1] - guard);
+  }
+  if (maxDepth - minDepth < 1e-6) {
+    return null;
+  }
+
+  var bestMisfit = attempt.misfit;
+  var bestDepths = List<double>.from(currentDepths);
+  var bestLogs = List<double>.from(currentLogs);
+  var bestFit = List<double>.from(attempt.fit);
+  final targetRho = math.max(minRho, minObserved / 3);
+  final targetLog = math.log(targetRho);
+  var bestScore = bestMisfit + 0.02 * (currentLogs[0] - targetLog).abs();
+
+  const rhoSamples = 9;
+  const depthSamples = 7;
+  for (var i = 0; i < rhoSamples; i++) {
+    final rhoT = i / (rhoSamples - 1);
+    final rhoLog = lowerRhoLog + (upperRhoLog - lowerRhoLog) * rhoT;
+    for (var j = 0; j < depthSamples; j++) {
+      final depthT = j / (depthSamples - 1);
+      final depthValue = minDepth + (maxDepth - minDepth) * depthT;
+      final candidateDepths = List<double>.from(currentDepths);
+      candidateDepths[0] = depthValue;
+      // Ensure monotonic and guard spacing for subsequent depths.
+      for (var k = 1; k < candidateDepths.length; k++) {
+        final minAllowed = (k == 0 ? 0.0 : candidateDepths[k - 1]) + guard;
+        if (candidateDepths[k] < minAllowed) {
+          candidateDepths[k] = minAllowed;
+        }
+      }
+      final thicknesses =
+          _buildThicknesses(candidateDepths, minThick, maxThick);
+      final candidateLogs = List<double>.from(currentLogs);
+      candidateLogs[0] = rhoLog.clamp(lowerLogBound, upperLogBound);
+      final fit =
+          _forwardApparentRho(spacingMeters, thicknesses, candidateLogs);
+      final misfit = _normalizedMisfit(observed, fit);
+      final score = misfit + 0.02 * (candidateLogs[0] - targetLog).abs();
+      final withinMisfitBudget = misfit <= attempt.misfit * 1.5;
+      if (withinMisfitBudget && score + 1e-6 < bestScore) {
+        bestMisfit = misfit;
+        bestDepths = candidateDepths;
+        bestLogs = candidateLogs;
+        bestFit = fit;
+        bestScore = score;
+      }
+    }
+  }
+
+  if (bestScore + 1e-6 >=
+      attempt.misfit + 0.02 * (currentLogs[0] - targetLog).abs()) {
+    return null;
+  }
+
+  final bestRhos = bestLogs
+      .map((logValue) => math.exp(logValue).clamp(minRho, maxRho).toDouble())
+      .toList();
+
+  return _InversionAttempt(
+    depths: bestDepths,
+    resistivities: bestRhos,
+    fit: bestFit,
+    misfit: bestMisfit,
   );
 }
 
@@ -1129,7 +1500,11 @@ class LiteInversionService {
   final int maxIterations;
   final int layerCount;
 
-  InversionModel invert(List<SpacingPoint> points) {
+  InversionModel invert(
+    List<SpacingPoint> points, {
+    List<double>? rhoSeed,
+    List<double?>? thicknessSeed,
+  }) {
     final usable = points.where((p) => !p.excluded).toList();
     if (usable.length < 2) {
       return InversionModel.empty;
@@ -1138,7 +1513,21 @@ class LiteInversionService {
     final observations = usable.map((e) => e.rhoAppOhmM).toList();
     final seeds = _seedModel(spacings, observations);
     var logRhos = seeds.rhos.map(math.log).toList();
-    final thicknesses = seeds.thicknesses;
+    var thicknesses = List<double?>.from(seeds.thicknesses);
+
+    if (rhoSeed != null && rhoSeed.length == logRhos.length) {
+      logRhos =
+          rhoSeed.map((value) => math.log(math.max(value, 1e-6))).toList();
+    }
+    if (thicknessSeed != null && thicknessSeed.length == thicknesses.length) {
+      thicknesses = List<double?>.generate(thicknessSeed.length, (index) {
+        final seed = thicknessSeed[index];
+        if (seed == null) {
+          return null;
+        }
+        return seed.isFinite && seed > 0 ? seed : thicknesses[index];
+      });
+    }
 
     double lambda = 0.3;
     double lastRms = double.infinity;
@@ -1292,7 +1681,7 @@ class LiteInversionService {
     List<double> logRhos,
     List<double> predicted,
   ) {
-    final eps = 1e-3;
+    const eps = 1e-3;
     final base = _forward(spacings, thicknesses, logRhos);
     final jacobian = List.generate(
         spacings.length, (_) => List<double>.filled(logRhos.length, 0));

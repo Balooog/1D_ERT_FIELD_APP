@@ -476,7 +476,7 @@ class _ImportSheetState extends State<ImportSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               DropdownButtonFormField<String>(
-                value: _selectedMergeSiteId,
+                initialValue: _selectedMergeSiteId,
                 decoration: const InputDecoration(labelText: 'Target site'),
                 items: [
                   for (final site in widget.project.sites)

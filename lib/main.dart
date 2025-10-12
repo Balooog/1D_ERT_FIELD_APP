@@ -33,7 +33,7 @@ Future<void> main() async {
   };
   await LoggingService.instance.ensureInitialized();
   LOG.i('Bootstrap', 'Launching ResiCheck UI');
-  runApp(ProviderScope(child: ResiCheckApp()));
+  runApp(const ProviderScope(child: ResiCheckApp()));
 }
 
 class ResiCheckApp extends StatefulWidget {
