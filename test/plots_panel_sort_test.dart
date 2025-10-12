@@ -47,9 +47,9 @@ void main() {
     );
 
     final averageGhost = [
-      GhostSeriesPoint(spacingFt: 30, rho: 100),
-      GhostSeriesPoint(spacingFt: 10, rho: 200),
-      GhostSeriesPoint(spacingFt: 20, rho: 150),
+      const GhostSeriesPoint(spacingFt: 30, rho: 100),
+      const GhostSeriesPoint(spacingFt: 10, rho: 200),
+      const GhostSeriesPoint(spacingFt: 20, rho: 150),
     ];
 
     final template = GhostTemplate(

@@ -40,7 +40,7 @@ class PersistenceService {
   Future<void> saveProject(Project project, {String? fileId}) async {
     final fileIdOrName = fileId ?? project.projectName;
     final file = await _resolveProjectFile(fileIdOrName, ensureDir: true);
-    final encoder = const JsonEncoder.withIndent('  ');
+    const encoder = JsonEncoder.withIndent('  ');
     final data = encoder.convert(project.toJson());
     await file.writeAsString(data);
   }

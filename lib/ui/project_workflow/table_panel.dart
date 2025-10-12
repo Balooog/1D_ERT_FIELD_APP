@@ -244,7 +244,7 @@ class _TablePanelState extends State<TablePanel> {
     final spacings = [...widget.site.spacings]
       ..sort((a, b) => a.spacingFeet.compareTo(b.spacingFeet));
 
-    final qcConfig = const QcConfig();
+    const qcConfig = QcConfig();
     final rowConfigs = <_RowConfig>[];
     final requiredKeys = <_FieldKey>[];
     final values = <_FieldKey, String>{};
@@ -709,6 +709,8 @@ class _TablePanelState extends State<TablePanel> {
             child: Text(
               '$inside / $outside',
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyMedium,
             ),
           ),
@@ -716,6 +718,8 @@ class _TablePanelState extends State<TablePanel> {
           Text(
             '${formatCompactValue(row.insideMeters)} m · ${formatCompactValue(row.outsideMeters)} m',
             textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelSmall?.copyWith(
               color: theme.colorScheme.outline,
             ),
@@ -1073,7 +1077,7 @@ class _TablePanelState extends State<TablePanel> {
       child: SizedBox(
         height: 44,
         child: DropdownButtonFormField<SoilType>(
-          value: value,
+          initialValue: value,
           isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Soil',
@@ -1114,7 +1118,7 @@ class _TablePanelState extends State<TablePanel> {
       child: SizedBox(
         height: 44,
         child: DropdownButtonFormField<MoistureLevel>(
-          value: value,
+          initialValue: value,
           isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Moisture',

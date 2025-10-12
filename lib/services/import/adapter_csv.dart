@@ -20,7 +20,7 @@ class CsvImportAdapter implements ImportAdapter {
       decoded = decoded.substring(1);
     }
 
-    final splitter = const LineSplitter();
+    const splitter = LineSplitter();
     final lines = splitter.convert(decoded);
     final filteredLines = <String>[];
     String? unitDirective;

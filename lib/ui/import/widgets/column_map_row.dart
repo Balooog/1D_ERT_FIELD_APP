@@ -56,7 +56,7 @@ class ColumnMapRow extends StatelessWidget {
           SizedBox(
             width: 180,
             child: DropdownButtonFormField<ImportColumnTarget?>(
-              value: selected,
+              initialValue: selected,
               onChanged: onChanged,
               decoration: const InputDecoration(
                 labelText: 'Map to',

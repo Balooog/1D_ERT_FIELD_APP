@@ -100,11 +100,11 @@ class _RightDetailPanelState extends State<RightDetailPanel> {
   Widget _buildPowerField(ThemeData theme) {
     return TextField(
       controller: _powerController,
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         labelText: 'Transmitter power (mA)',
         helperText: 'Typical: 0.5–2.0 mA',
         suffixText: 'mA',
-        border: const OutlineInputBorder(),
+        border: OutlineInputBorder(),
       ),
       keyboardType:
           const TextInputType.numberWithOptions(decimal: true, signed: false),

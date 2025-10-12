@@ -184,7 +184,7 @@ class ExportService {
         pw.SizedBox(height: 2),
         pw.Text(
           'Generated ${dateFormat.format(generatedAt)}',
-          style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
+          style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
         ),
       ],
     );

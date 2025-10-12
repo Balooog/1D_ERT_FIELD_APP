@@ -1,28 +1,10 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:resicheck/main.dart';
 import 'package:resicheck/services/storage_service.dart';
 
-Future<void> pumpAppAndHydrate(
-  WidgetTester tester, {
-  ProjectStorageService? storage,
-}) async {
-  final projectStorage = storage ??
-      ProjectStorageService(
-        overrideRoot: Directory.systemTemp.createTempSync('resicheck_test'),
-      );
-  await tester.pumpWidget(
-    ProviderScope(
-      child: ResiCheckApp(storage: projectStorage),
-    ),
-  );
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 50));
-  await tester.pumpAndSettle(const Duration(seconds: 2));
-}
+import '../test_utils/pump_app.dart';
 
 void main() {
   testWidgets('app hydrates and shows project list', (tester) async {
@@ -33,7 +15,7 @@ void main() {
       }
     });
     final storage = ProjectStorageService(overrideRoot: tempDir);
-    await pumpAppAndHydrate(tester, storage: storage);
+    await pumpResiCheckApp(tester, storage: storage);
     expect(find.text('ResiCheck Projects'), findsOneWidget);
   });
 }
