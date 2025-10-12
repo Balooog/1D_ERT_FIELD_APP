@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/render_safety.dart';
 import '../../models/calc.dart';
 import '../../models/direction_reading.dart';
 import '../../models/project.dart';
@@ -15,11 +16,10 @@ import '../../services/storage_service.dart';
 import '../../services/templates_service.dart';
 import '../../utils/distance_unit.dart';
 import '../import/import_sheet.dart';
-import 'inversion_summary_panel.dart';
 import 'plots_panel.dart';
+import 'right_rail.dart';
 import 'shortcuts.dart';
 import 'table_panel.dart';
-import 'right_detail_panel.dart';
 
 class ProjectShell extends StatefulWidget {
   const ProjectShell({
@@ -57,6 +57,7 @@ class _ProjectShellState extends State<ProjectShell> {
   TwoLayerInversionResult? _inversionResult;
   bool _inversionLoading = false;
   Future<TwoLayerInversionResult?>? _inversionTask;
+  Timer? _inversionDebounce;
 
   @override
   void initState() {
@@ -69,13 +70,14 @@ class _ProjectShellState extends State<ProjectShell> {
     _historyIndex = 0;
     _loadTemplates();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshInversion();
+      _queueInversionRefresh();
     });
   }
 
   @override
   void dispose() {
     _autosave.dispose();
+    _inversionDebounce?.cancel();
     super.dispose();
   }
 
@@ -121,7 +123,7 @@ class _ProjectShellState extends State<ProjectShell> {
     setState(() {
       _selectedSite = site;
     });
-    unawaited(_refreshInversion());
+    _queueInversionRefresh();
   }
 
   void _recordFocus(double spacingFt, OrientationKind orientation) {
@@ -147,7 +149,7 @@ class _ProjectShellState extends State<ProjectShell> {
       _pushHistory(updated);
     });
     _scheduleAutosave();
-    unawaited(_refreshInversion());
+    _queueInversionRefresh();
   }
 
   void _handleReadingSubmitted(
@@ -156,7 +158,10 @@ class _ProjectShellState extends State<ProjectShell> {
     double? resistance,
     double? sd,
   ) {
-    final site = _selectedSite;
+    final site = tryRenderSafe<SiteRecord?>(
+      _selectedSite,
+      _project.sites.firstOrNull,
+    );
     if (site == null) {
       return;
     }
@@ -729,6 +734,14 @@ class _ProjectShellState extends State<ProjectShell> {
     return future;
   }
 
+  void _queueInversionRefresh() {
+    _inversionDebounce?.cancel();
+    _inversionDebounce = Timer(const Duration(milliseconds: 80), () {
+      _inversionDebounce = null;
+      unawaited(_refreshInversion());
+    });
+  }
+
   Future<TwoLayerInversionResult?> _solveCurrentInversion() async {
     final site = _selectedSite;
     if (site == null) {
@@ -882,185 +895,12 @@ class _ProjectShellState extends State<ProjectShell> {
               )
             : Column(
                 children: [
-                  Container(
-                    width: double.infinity,
-                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        Text(_saveIndicator),
-                        const SizedBox(width: 16),
-                        DropdownButton<GhostTemplate?>(
-                          value: _selectedTemplate,
-                          hint: const Text('Template ghost curve'),
-                          items: [
-                            const DropdownMenuItem<GhostTemplate?>(
-                              value: null,
-                              child: Text('No template'),
-                            ),
-                            for (final template in templateOptions)
-                              DropdownMenuItem<GhostTemplate?>(
-                                value: template,
-                                child: Text(template.name),
-                              ),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedTemplate = value;
-                            });
-                          },
-                        ),
-                        const Spacer(),
-                        Text('Outliers ${_showOutliers ? 'shown' : 'hidden'}'),
-                        const SizedBox(width: 12),
-                        Text('Axes ${_lockAxes ? 'locked' : 'auto'}'),
-                      ],
-                    ),
-                  ),
+                  _buildWorkspaceToolbar(context, templateOptions),
                   Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (constraints.maxWidth >= 1500) {
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              SizedBox(
-                                width: 280,
-                                child: _buildSiteListCard(context, site),
-                              ),
-                              Expanded(
-                                flex: 6,
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      flex: _showAllSites ? 5 : 4,
-                                      child: _buildPlotsCard(
-                                        context,
-                                        site,
-                                        averageGhost,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Expanded(
-                                      flex: 5,
-                                      child: _buildInversionSummaryCard(
-                                          context, site),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(
-                                width: 380,
-                                child: _buildTableCard(context, site),
-                              ),
-                              SizedBox(
-                                width: 320,
-                                child: _buildRightDetailCard(context, site),
-                              ),
-                            ],
-                          );
-                        }
-                        if (constraints.maxWidth >= 1200) {
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Flexible(
-                                flex: 3,
-                                child: _buildSiteListCard(context, site),
-                              ),
-                              const SizedBox(width: 12),
-                              Flexible(
-                                flex: 6,
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      flex: _showAllSites ? 6 : 4,
-                                      child: _buildPlotsCard(
-                                        context,
-                                        site,
-                                        averageGhost,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Expanded(
-                                      flex: 5,
-                                      child: _buildInversionSummaryCard(
-                                          context, site),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Flexible(
-                                flex: 5,
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: _buildTableCard(context, site),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Expanded(
-                                      flex: 2,
-                                      child:
-                                          _buildRightDetailCard(context, site),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          );
-                        }
-                        return SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildSiteListCard(
-                                context,
-                                site,
-                                margin: EdgeInsets.zero,
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                height: 320,
-                                child: _buildPlotsCard(
-                                  context,
-                                  site,
-                                  averageGhost,
-                                  margin: EdgeInsets.zero,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                height: 520,
-                                child: _buildInversionSummaryCard(
-                                  context,
-                                  site,
-                                  margin: EdgeInsets.zero,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                height: 520,
-                                child: _buildTableCard(
-                                  context,
-                                  site,
-                                  margin: EdgeInsets.zero,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              _buildRightDetailCard(
-                                context,
-                                site,
-                                margin: EdgeInsets.zero,
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                    child: _buildResponsiveWorkspace(
+                      context,
+                      site,
+                      averageGhost,
                     ),
                   ),
                 ],
@@ -1087,6 +927,203 @@ class _ProjectShellState extends State<ProjectShell> {
         onDelete: _deleteSite,
         validSpacingCount: _validSpacingCount,
       ),
+    );
+  }
+
+  Widget _buildWorkspaceToolbar(
+    BuildContext context,
+    List<GhostTemplate> templateOptions,
+  ) {
+    final theme = Theme.of(context);
+    final templateSelector = SizedBox(
+      width: 240,
+      child: DropdownButton<GhostTemplate?>(
+        isExpanded: true,
+        value: _selectedTemplate,
+        hint: const Text('Template ghost curve'),
+        items: [
+          const DropdownMenuItem<GhostTemplate?>(
+            value: null,
+            child: Text('No template'),
+          ),
+          for (final template in templateOptions)
+            DropdownMenuItem<GhostTemplate?>(
+              value: template,
+              child: Text(template.name),
+            ),
+        ],
+        onChanged: (value) {
+          setState(() {
+            _selectedTemplate = value;
+          });
+        },
+      ),
+    );
+
+    final statusGroup = Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(_saveIndicator),
+        templateSelector,
+      ],
+    );
+
+    final togglesGroup = Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text('Outliers ${_showOutliers ? 'shown' : 'hidden'}'),
+        Text('Axes ${_lockAxes ? 'locked' : 'auto'}'),
+      ],
+    );
+
+    return Container(
+      width: double.infinity,
+      color: theme.colorScheme.surfaceContainerHigh,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 720;
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                statusGroup,
+                const SizedBox(height: 8),
+                togglesGroup,
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: statusGroup),
+              const SizedBox(width: 12),
+              togglesGroup,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildResponsiveWorkspace(
+    BuildContext context,
+    SiteRecord site,
+    List<GhostSeriesPoint> averageGhost,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        if (width < 1024) {
+          return ListView(
+            padding: const EdgeInsets.all(12),
+            children: [
+              _buildSiteListCard(
+                context,
+                site,
+                margin: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: _showAllSites ? 420 : 360,
+                child: _buildPlotsCard(
+                  context,
+                  site,
+                  averageGhost,
+                  margin: EdgeInsets.zero,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 520,
+                child: _buildTableCard(
+                  context,
+                  site,
+                  margin: EdgeInsets.zero,
+                ),
+              ),
+              const SizedBox(height: 12),
+              RightRail(
+                site: site,
+                projectDefaultStacks: _project.defaultStacks,
+                onMetadataChanged: _handleMetadataChanged,
+                inversionResult: _inversionResult,
+                isInversionLoading: _inversionLoading,
+                distanceUnit: _distanceUnit,
+                onExportCsv: () => unawaited(_exportSite()),
+                onExportSitePdf: () => unawaited(_exportSitePdf()),
+                onExportAllSitesPdf: () => unawaited(_exportAllSitesPdf()),
+              ),
+            ],
+          );
+        }
+
+        final isLarge = width >= 1440;
+        final mainFlex = isLarge ? 8 : 9;
+        final railFlex = isLarge ? 4 : 3;
+        final siteListWidth = isLarge ? 280.0 : 240.0;
+
+        return Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: siteListWidth,
+                child: _buildSiteListCard(
+                  context,
+                  site,
+                  margin: EdgeInsets.zero,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: mainFlex,
+                child: Column(
+                  children: [
+                    Expanded(
+                      flex: _showAllSites ? 5 : 4,
+                      child: _buildPlotsCard(
+                        context,
+                        site,
+                        averageGhost,
+                        margin: EdgeInsets.zero,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      flex: 6,
+                      child: _buildTableCard(
+                        context,
+                        site,
+                        margin: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: railFlex,
+                child: RightRail(
+                  site: site,
+                  projectDefaultStacks: _project.defaultStacks,
+                  onMetadataChanged: _handleMetadataChanged,
+                  inversionResult: _inversionResult,
+                  isInversionLoading: _inversionLoading,
+                  distanceUnit: _distanceUnit,
+                  onExportCsv: () => unawaited(_exportSite()),
+                  onExportSitePdf: () => unawaited(_exportSitePdf()),
+                  onExportAllSitesPdf: () => unawaited(_exportAllSitesPdf()),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1119,20 +1156,6 @@ class _ProjectShellState extends State<ProjectShell> {
     );
   }
 
-  Widget _buildInversionSummaryCard(
-    BuildContext context,
-    SiteRecord site, {
-    EdgeInsets margin = const EdgeInsets.all(12),
-  }) {
-    return InversionSummaryPanel(
-      site: site,
-      result: _inversionResult,
-      isLoading: _inversionLoading,
-      distanceUnit: _distanceUnit,
-      margin: margin,
-    );
-  }
-
   Widget _buildTableCard(
     BuildContext context,
     SiteRecord site, {
@@ -1154,21 +1177,6 @@ class _ProjectShellState extends State<ProjectShell> {
         onMetadataChanged: _handleMetadataChanged,
         onShowHistory: _showHistory,
         onFocusChanged: _recordFocus,
-      ),
-    );
-  }
-
-  Widget _buildRightDetailCard(
-    BuildContext context,
-    SiteRecord site, {
-    EdgeInsets margin = const EdgeInsets.all(12),
-  }) {
-    return Padding(
-      padding: margin,
-      child: RightDetailPanel(
-        site: site,
-        projectDefaultStacks: _project.defaultStacks,
-        onMetadataChanged: _handleMetadataChanged,
       ),
     );
   }
