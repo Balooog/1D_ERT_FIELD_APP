@@ -43,15 +43,26 @@ load seamlessly on all supported platforms.
 
 ## 🚀 Quick Start (Fresh WSL Ubuntu)
 
-These are the exact steps I use after a clean WSL setup to get ResiCheck running.
+### Create a workspace and clone
 
-### 0) Create a workspace and clone
 ```bash
 # In WSL (Ubuntu)
 mkdir -p ~/code && cd ~/code
 git clone https://github.com/Balooog/1D_ERT_FIELD_APP.git resicheck
 cd resicheck
-''' 
+export PATH="$HOME/flutter/bin:$PATH"
+codex
+``` 
+## In Codex CLI
+
+```bash
+dart analyze --no-fatal-warnings
+flutter test
+# If the repo does NOT have a linux/ folder, generate it once:
+# flutter create --platforms=linux .
+flutter build linux
+flutter run -d linux    # WSLg should pop a window on Windows 11
+```
 
 ## Quick build on Windows (PowerShell)
 
