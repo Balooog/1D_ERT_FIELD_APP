@@ -437,71 +437,95 @@ class _ImportSheetState extends State<ImportSheet> {
   }
 
   Widget _buildDestinationChooser(ThemeData theme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Destination', style: theme.textTheme.titleSmall),
-        const SizedBox(height: 8),
-        RadioListTile<_ImportDestination>(
-          value: _ImportDestination.newSite,
-          groupValue: _destination,
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => _destination = value);
-          },
-          title: const Text('Create a new site'),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _siteIdController,
-                decoration: const InputDecoration(labelText: 'Site ID'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _displayNameController,
-                decoration: const InputDecoration(labelText: 'Display name'),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 4),
-        RadioListTile<_ImportDestination>(
-          value: _ImportDestination.merge,
-          groupValue: _destination,
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => _destination = value);
-          },
-          title: const Text('Merge into existing site'),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: _selectedMergeSiteId,
-                decoration: const InputDecoration(labelText: 'Target site'),
-                items: [
-                  for (final site in widget.project.sites)
-                    DropdownMenuItem(
-                      value: site.siteId,
-                      child: Text(site.displayName),
+    final isNewSite = _destination == _ImportDestination.newSite;
+    final isMerge = _destination == _ImportDestination.merge;
+
+    return RadioGroup<_ImportDestination>(
+      groupValue: _destination,
+      onChanged: (value) {
+        if (value == null) {
+          return;
+        }
+        setState(() => _destination = value);
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Destination', style: theme.textTheme.titleSmall),
+          const SizedBox(height: 8),
+          RadioListTile<_ImportDestination>(
+            value: _ImportDestination.newSite,
+            selected: isNewSite,
+            title: const Text('Create a new site'),
+            subtitle: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: isNewSite ? 1 : 0.55,
+              child: IgnorePointer(
+                ignoring: !isNewSite,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _siteIdController,
+                      decoration: const InputDecoration(labelText: 'Site ID'),
                     ),
-                ],
-                onChanged: (value) =>
-                    setState(() => _selectedMergeSiteId = value),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _displayNameController,
+                      decoration:
+                          const InputDecoration(labelText: 'Display name'),
+                    ),
+                  ],
+                ),
               ),
-              CheckboxListTile(
-                value: _overwrite,
-                onChanged: (value) =>
-                    setState(() => _overwrite = value ?? false),
-                title: const Text(
-                    'Overwrite existing readings for matching spacings'),
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-            ],
+            ),
           ),
-        ),
-      ],
+          const SizedBox(height: 4),
+          RadioListTile<_ImportDestination>(
+            value: _ImportDestination.merge,
+            selected: isMerge,
+            title: const Text('Merge into existing site'),
+            subtitle: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: isMerge ? 1 : 0.55,
+              child: IgnorePointer(
+                ignoring: !isMerge,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedMergeSiteId,
+                      decoration:
+                          const InputDecoration(labelText: 'Target site'),
+                      items: [
+                        for (final site in widget.project.sites)
+                          DropdownMenuItem(
+                            value: site.siteId,
+                            child: Text(site.displayName),
+                          ),
+                      ],
+                      onChanged: isMerge
+                          ? (value) =>
+                              setState(() => _selectedMergeSiteId = value)
+                          : null,
+                    ),
+                    CheckboxListTile(
+                      value: _overwrite,
+                      onChanged: isMerge
+                          ? (value) =>
+                              setState(() => _overwrite = value ?? false)
+                          : null,
+                      title: const Text(
+                          'Overwrite existing readings for matching spacings'),
+                      controlAffinity: ListTileControlAffinity.leading,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

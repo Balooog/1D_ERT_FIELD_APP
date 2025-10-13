@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:resicheck/models/direction_reading.dart';
@@ -13,18 +14,27 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Material(
-            child: TablePanel(
-              site: site,
-              projectDefaultStacks: 4,
-              showOutliers: true,
-              onResistanceChanged: (_, __, ___, ____) {},
-              onSdChanged: (_, __, ___) {},
-              onInterpretationChanged: (_, __) {},
-              onToggleBad: (_, __, ___) {},
-              onMetadataChanged: (
-                  {power, stacks, soil, moisture, groundTemperatureF}) {},
-              onShowHistory: (_, __) async {},
-              onFocusChanged: (_, __) {},
+            child: ProviderScope(
+              child: TablePanel(
+                site: site,
+                projectDefaultStacks: 4,
+                showOutliers: true,
+                onResistanceChanged: (_, __, ___, ____) {},
+                onSdChanged: (_, __, ___) {},
+                onInterpretationChanged: (_, __) {},
+                onToggleBad: (_, __, ___) {},
+                onMetadataChanged: ({
+                  power,
+                  stacks,
+                  soil,
+                  moisture,
+                  groundTemperatureF,
+                  location,
+                  updateLocation,
+                }) {},
+                onShowHistory: (_, __) async {},
+                onFocusChanged: (_, __) {},
+              ),
             ),
           ),
         ),

@@ -18,7 +18,8 @@ class InversionSummaryPanel extends StatelessWidget {
     required this.isLoading,
     required this.distanceUnit,
     this.margin = const EdgeInsets.all(12),
-    this.plotHeight = 240,
+    this.plotHeight = 280,
+    this.trailing,
   });
 
   final SiteRecord site;
@@ -27,6 +28,7 @@ class InversionSummaryPanel extends StatelessWidget {
   final DistanceUnit distanceUnit;
   final EdgeInsetsGeometry margin;
   final double plotHeight;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -47,15 +49,28 @@ class InversionSummaryPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Two-layer inversion — ${site.displayName}',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Two-layer inversion — ${site.displayName}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 8),
+                  trailing!,
+                ],
+              ],
             ),
             const SizedBox(height: 4),
             Text(subtitle, style: subtitleStyle),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             SizedBox(
               height: plotHeight,
               child: Align(

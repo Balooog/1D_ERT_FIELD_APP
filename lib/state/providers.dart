@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/inversion_model.dart';
 import '../models/spacing_point.dart';
 import '../services/inversion.dart';
+import '../services/location_service.dart';
 import '../services/mock_stream.dart';
 import '../services/qc_rules.dart';
 
@@ -171,4 +172,53 @@ final simulationControllerProvider =
   final controller = SimulationController(ref);
   ref.onDispose(() => controller.stop());
   return controller;
+});
+
+final locationServiceProvider =
+    Provider<LocationService>((ref) => geolocatorLocationService());
+
+class LocationCaptureSnapshot {
+  const LocationCaptureSnapshot({
+    this.latest,
+    this.isLoading = false,
+  });
+
+  final LocationResult? latest;
+  final bool isLoading;
+
+  LocationCaptureSnapshot copyWith({
+    LocationResult? latest,
+    bool? isLoading,
+    bool clearLatest = false,
+  }) {
+    return LocationCaptureSnapshot(
+      latest: clearLatest ? null : (latest ?? this.latest),
+      isLoading: isLoading ?? this.isLoading,
+    );
+  }
+}
+
+class LocationCaptureController extends StateNotifier<LocationCaptureSnapshot> {
+  LocationCaptureController(this._service)
+      : super(const LocationCaptureSnapshot());
+
+  final LocationService _service;
+
+  Future<LocationResult> request({Duration? timeout}) async {
+    state = state.copyWith(isLoading: true);
+    final result = await _service.tryGetCurrentLocation(timeout: timeout);
+    state = LocationCaptureSnapshot(latest: result, isLoading: false);
+    return result;
+  }
+
+  void reset() {
+    state = const LocationCaptureSnapshot();
+  }
+}
+
+final locationCaptureProvider =
+    StateNotifierProvider<LocationCaptureController, LocationCaptureSnapshot>(
+        (ref) {
+  final service = ref.watch(locationServiceProvider);
+  return LocationCaptureController(service);
 });

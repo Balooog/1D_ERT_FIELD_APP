@@ -105,12 +105,10 @@ class Site {
   Site({
     required this.siteId,
     this.displayName,
-    required DirectionReadings dirA,
-    required DirectionReadings dirB,
+    required this.dirA,
+    required this.dirB,
     Map<String, dynamic>? meta,
-  })  : dirA = dirA,
-        dirB = dirB,
-        meta = meta == null ? null : Map.unmodifiable(meta);
+  }) : meta = meta == null ? null : Map.unmodifiable(meta);
 
   factory Site.fromJson(Map<String, dynamic> json) => _$SiteFromJson(json);
 
