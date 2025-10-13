@@ -46,6 +46,7 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
 
   Future<void> _startImport() async {
     final name = await _promptImportProjectName();
+    if (!mounted) return;
     if (name == null) {
       return;
     }
@@ -71,13 +72,15 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
     final updated = created.upsertSite(outcome.site);
     await _storage.saveProject(updated, directoryOverride: directory);
     if (!mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(
+    final navigator = Navigator.of(context);
+    await navigator.push(MaterialPageRoute(
       builder: (_) => ProjectShell(
         initialProject: updated,
         storageService: _storage,
         projectDirectory: directory,
       ),
     ));
+    if (!mounted) return;
     await _refresh();
   }
 
@@ -209,23 +212,26 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
   }
 
   Future<void> _openProject(ProjectSummary summary) async {
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
     final record = await _storage.loadProjectFromPath(summary.path);
     if (!mounted) return;
     if (record == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
             content: Text('Failed to open project ${summary.projectName}')),
       );
       return;
     }
     final directory = Directory(summary.path);
-    await Navigator.of(context).push(MaterialPageRoute(
+    await navigator.push(MaterialPageRoute(
       builder: (_) => ProjectShell(
         initialProject: record,
         storageService: _storage,
         projectDirectory: directory,
       ),
     ));
+    if (!mounted) return;
     await _refresh();
   }
 
@@ -281,19 +287,22 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
     if (result == null) {
       return;
     }
+    if (!mounted) return;
+    final navigator = Navigator.of(context);
     final project = await _storage.createProject(
       result.name,
       canonicalSpacingsFeet: result.spacings.isEmpty ? null : result.spacings,
     );
     final directory = await _storage.projectDirectory(project);
     if (!mounted) return;
-    await Navigator.of(context).push(MaterialPageRoute(
+    await navigator.push(MaterialPageRoute(
       builder: (_) => ProjectShell(
         initialProject: project,
         storageService: _storage,
         projectDirectory: directory,
       ),
     ));
+    if (!mounted) return;
     await _refresh();
   }
 }
