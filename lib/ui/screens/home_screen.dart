@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import '../../services/geometry_factors.dart' as geom;
 import '../../services/persistence.dart';
 import '../../state/providers.dart';
 import '../../state/project_controller.dart';
+import '../../state/settings_state.dart';
 import '../../utils/distance_unit.dart';
 import '../widgets/header_badges.dart';
 import '../widgets/points_table.dart';
@@ -191,20 +193,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         }
         break;
       case 'settings':
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Settings'),
-              content: const Text('Settings are not yet implemented.'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('OK')),
-              ],
-            ),
-          );
+        if (!mounted) {
+          return;
         }
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => const _SettingsDialog(),
+        );
+        break;
     }
   }
 
@@ -1159,6 +1155,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
         );
       },
+    );
+  }
+}
+
+class _SettingsDialog extends ConsumerWidget {
+  const _SettingsDialog();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final notifier = ref.read(settingsProvider.notifier);
+    const showDeveloperControls = !kReleaseMode;
+
+    return AlertDialog(
+      title: const Text('Settings'),
+      content: SizedBox(
+        width: 360,
+        child: showDeveloperControls
+            ? SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Enable Developer Screenshot Mode'),
+                subtitle: const Text(
+                  'Adds an in-app capture button for workspace QA.',
+                ),
+                value: settings.devScreenshotEnabled,
+                onChanged: (value) => notifier.setDevScreenshotEnabled(value),
+              )
+            : const Text('Settings are not available in this build.'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
     );
   }
 }

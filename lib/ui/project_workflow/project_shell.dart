@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/logging.dart';
 import '../../core/render_safety.dart';
@@ -13,17 +16,20 @@ import '../../models/project.dart';
 import '../../models/site.dart';
 import '../../services/export_service.dart';
 import '../../services/inversion.dart';
+import '../../services/screenshot_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/templates_service.dart';
+import '../../state/settings_state.dart';
 import '../../utils/distance_unit.dart';
 import '../style/density.dart';
+import '../style/icons.dart';
 import '../import/import_sheet.dart';
 import 'plots_panel.dart';
 import 'right_rail.dart';
 import 'shortcuts.dart';
 import 'table_panel.dart';
 
-class ProjectShell extends StatefulWidget {
+class ProjectShell extends ConsumerStatefulWidget {
   const ProjectShell({
     super.key,
     required this.initialProject,
@@ -36,10 +42,10 @@ class ProjectShell extends StatefulWidget {
   final Directory projectDirectory;
 
   @override
-  State<ProjectShell> createState() => _ProjectShellState();
+  ConsumerState<ProjectShell> createState() => _ProjectShellState();
 }
 
-class _ProjectShellState extends State<ProjectShell> {
+class _ProjectShellState extends ConsumerState<ProjectShell> {
   late ProjectRecord _project;
   SiteRecord? _selectedSite;
   bool _showOutliers = false;
@@ -48,6 +54,8 @@ class _ProjectShellState extends State<ProjectShell> {
   GhostTemplate? _selectedTemplate;
   final TemplatesService _templatesService = TemplatesService();
   List<GhostTemplate> _templates = const [];
+  final ScreenshotService _screenshotService = ScreenshotService();
+  bool _isCapturingScreenshot = false;
   late ProjectAutosaveController _autosave;
   late ExportService _exportService;
   String _saveIndicator = 'Saved';
@@ -96,6 +104,10 @@ class _ProjectShellState extends State<ProjectShell> {
         SnackBar(content: Text('Failed to load template curves: $error')),
       );
     }
+  }
+
+  Widget _wrapWithScreenshot(ScreenshotRegion region, Widget child) {
+    return _screenshotService.wrapRegion(region: region, child: child);
   }
 
   Future<void> _persistProject(ProjectRecord project) async {
@@ -819,6 +831,8 @@ class _ProjectShellState extends State<ProjectShell> {
     final site = _selectedSite;
     final averageGhost = _computeSiteAverage(site);
     final templateOptions = _templates;
+    final settings = ref.watch(settingsProvider);
+    final devScreenshotEnabled = !kReleaseMode && settings.devScreenshotEnabled;
 
     return ProjectWorkflowShortcuts(
       onToggleOutliers: _toggleOutliers,
@@ -833,119 +847,143 @@ class _ProjectShellState extends State<ProjectShell> {
       onUndo: _undo,
       onRedo: _redo,
       onMarkBad: _markFocusedBad,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(_project.projectName),
-          actions: [
-            if (_selectedTemplate != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Chip(
-                  avatar: const Icon(Icons.timeline),
-                  label: Text(_selectedTemplate!.name),
+      child: _wrapWithScreenshot(
+        ScreenshotRegion.workspace,
+        Scaffold(
+          appBar: AppBar(
+            title: Text(_project.projectName),
+            actions: [
+              if (_selectedTemplate != null)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Chip(
+                    avatar: const Icon(Icons.timeline),
+                    label: Text(_selectedTemplate!.name),
+                  ),
                 ),
+              IconButton(
+                icon: Icon(
+                    _showOutliers ? Icons.visibility : Icons.visibility_off),
+                tooltip: _showOutliers ? 'Hide outliers' : 'Show outliers',
+                onPressed: _toggleOutliers,
               ),
-            IconButton(
-              icon:
-                  Icon(_showOutliers ? Icons.visibility : Icons.visibility_off),
-              tooltip: _showOutliers ? 'Hide outliers' : 'Show outliers',
-              onPressed: _toggleOutliers,
-            ),
-            PopupMenuButton<String>(
-              tooltip: 'Export',
-              icon: const Icon(Icons.file_download),
-              onSelected: (value) {
-                switch (value) {
-                  case 'csv':
-                    _exportSite();
-                    break;
-                  case 'pdf_site':
-                    unawaited(_exportSitePdf());
-                    break;
-                  case 'pdf_all':
-                    unawaited(_exportAllSitesPdf());
-                    break;
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
-                  value: 'csv',
-                  child: Text('Export CSV & DAT'),
-                ),
-                PopupMenuItem(
-                  value: 'pdf_site',
-                  child: Text('Save site PDF…'),
-                ),
-                PopupMenuItem(
-                  value: 'pdf_all',
-                  child: Text('Save all sites to PDF'),
-                ),
-              ],
-            ),
-            PopupMenuButton<String>(
-              tooltip: 'Add',
-              icon: const Icon(Icons.add),
-              onSelected: (value) {
-                switch (value) {
-                  case 'import':
-                    _showImportSheet();
-                    break;
-                  case 'new_site':
-                    _addSite();
-                    break;
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(
-                  value: 'import',
-                  child: Text('Import from file…'),
-                ),
-                PopupMenuItem(
-                  value: 'new_site',
-                  child: Text('New site'),
-                ),
-              ],
-            ),
-            const SizedBox(width: 8),
-          ],
-        ),
-        body: site == null
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'No sites yet. Import existing data or add a new site to begin.',
-                      style: Theme.of(context).textTheme.titleMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      icon: const Icon(Icons.file_open),
-                      label: const Text('Import from file…'),
-                      onPressed: _showImportSheet,
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.add_location_alt),
-                      label: const Text('New site'),
-                      onPressed: _addSite,
-                    ),
-                  ],
-                ),
-              )
-            : Column(
-                children: [
-                  _buildWorkspaceToolbar(context, templateOptions),
-                  Expanded(
-                    child: _buildResponsiveWorkspace(
-                      context,
-                      site,
-                      averageGhost,
-                    ),
+              PopupMenuButton<String>(
+                tooltip: 'Export',
+                icon: const Icon(Icons.file_download),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'csv':
+                      _exportSite();
+                      break;
+                    case 'pdf_site':
+                      unawaited(_exportSitePdf());
+                      break;
+                    case 'pdf_all':
+                      unawaited(_exportAllSitesPdf());
+                      break;
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'csv',
+                    child: Text('Export CSV & DAT'),
+                  ),
+                  PopupMenuItem(
+                    value: 'pdf_site',
+                    child: Text('Save site PDF…'),
+                  ),
+                  PopupMenuItem(
+                    value: 'pdf_all',
+                    child: Text('Save all sites to PDF'),
                   ),
                 ],
               ),
+              PopupMenuButton<String>(
+                tooltip: 'Add',
+                icon: const Icon(Icons.add),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'import':
+                      _showImportSheet();
+                      break;
+                    case 'new_site':
+                      _addSite();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: 'import',
+                    child: Text('Import from file…'),
+                  ),
+                  PopupMenuItem(
+                    value: 'new_site',
+                    child: Text('New site'),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+          floatingActionButton: devScreenshotEnabled
+              ? FloatingActionButton.small(
+                  heroTag: 'project-shell-screenshot',
+                  tooltip: 'Capture workspace screenshot',
+                  onPressed: _isCapturingScreenshot
+                      ? null
+                      : _captureWorkspaceScreenshot,
+                  child: _isCapturingScreenshot
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Theme.of(context).colorScheme.onPrimary,
+                            ),
+                          ),
+                        )
+                      : const Icon(AppIcons.camera),
+                )
+              : null,
+          body: site == null
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'No sites yet. Import existing data or add a new site to begin.',
+                        style: Theme.of(context).textTheme.titleMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        icon: const Icon(Icons.file_open),
+                        label: const Text('Import from file…'),
+                        onPressed: _showImportSheet,
+                      ),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.add_location_alt),
+                        label: const Text('New site'),
+                        onPressed: _addSite,
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
+                  children: [
+                    _buildWorkspaceToolbar(context, templateOptions),
+                    Expanded(
+                      child: _buildResponsiveWorkspace(
+                        context,
+                        site,
+                        averageGhost,
+                      ),
+                    ),
+                  ],
+                ),
+        ),
       ),
     );
   }
@@ -955,18 +993,21 @@ class _ProjectShellState extends State<ProjectShell> {
     SiteRecord site, {
     EdgeInsets margin = const EdgeInsets.all(12),
   }) {
-    return Card(
-      margin: margin,
-      clipBehavior: Clip.antiAlias,
-      color: Theme.of(context).colorScheme.surfaceContainerHigh,
-      child: SiteListPanel(
-        sites: _project.sites,
-        selectedSiteId: site.siteId,
-        onSelect: _selectSite,
-        onAdd: _addSite,
-        onDuplicate: _duplicateSite,
-        onDelete: _deleteSite,
-        validSpacingCount: _validSpacingCount,
+    return _wrapWithScreenshot(
+      ScreenshotRegion.siteList,
+      Card(
+        margin: margin,
+        clipBehavior: Clip.antiAlias,
+        color: Theme.of(context).colorScheme.surfaceContainerHigh,
+        child: SiteListPanel(
+          sites: _project.sites,
+          selectedSiteId: site.siteId,
+          onSelect: _selectSite,
+          onAdd: _addSite,
+          onDuplicate: _duplicateSite,
+          onDelete: _deleteSite,
+          validSpacingCount: _validSpacingCount,
+        ),
       ),
     );
   }
@@ -1159,17 +1200,7 @@ class _ProjectShellState extends State<ProjectShell> {
                 ),
               ),
               const SizedBox(height: 12),
-              RightRail(
-                site: site,
-                projectDefaultStacks: _project.defaultStacks,
-                onMetadataChanged: _handleMetadataChanged,
-                inversionResult: _inversionResult,
-                isInversionLoading: _inversionLoading,
-                distanceUnit: _distanceUnit,
-                onExportCsv: () => unawaited(_exportSite()),
-                onExportSitePdf: () => unawaited(_exportSitePdf()),
-                onExportAllSitesPdf: () => unawaited(_exportAllSitesPdf()),
-              ),
+              _buildRightRail(site),
             ],
           );
         }
@@ -1221,23 +1252,62 @@ class _ProjectShellState extends State<ProjectShell> {
               const SizedBox(width: 12),
               Expanded(
                 flex: railFlex,
-                child: RightRail(
-                  site: site,
-                  projectDefaultStacks: _project.defaultStacks,
-                  onMetadataChanged: _handleMetadataChanged,
-                  inversionResult: _inversionResult,
-                  isInversionLoading: _inversionLoading,
-                  distanceUnit: _distanceUnit,
-                  onExportCsv: () => unawaited(_exportSite()),
-                  onExportSitePdf: () => unawaited(_exportSitePdf()),
-                  onExportAllSitesPdf: () => unawaited(_exportAllSitesPdf()),
-                ),
+                child: _buildRightRail(site),
               ),
             ],
           ),
         );
       },
     );
+  }
+
+  Future<void> _captureWorkspaceScreenshot() async {
+    if (_isCapturingScreenshot) {
+      return;
+    }
+    setState(() {
+      _isCapturingScreenshot = true;
+    });
+
+    final result = await _screenshotService.captureRegion(
+      region: ScreenshotRegion.workspace,
+      projectDirectory: widget.projectDirectory,
+      prefixOverride: ScreenshotRegion.workspace.filePrefix,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isCapturingScreenshot = false;
+    });
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    if (result.isSuccess && result.path != null) {
+      final displayPath = _formatScreenshotPath(result.path!);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Screenshot saved to $displayPath'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Screenshot failed: ${result.error}'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  String _formatScreenshotPath(String absolutePath) {
+    try {
+      return p.relative(absolutePath);
+    } on ArgumentError {
+      return absolutePath;
+    }
   }
 
   Widget _buildPlotsCard(
@@ -1256,15 +1326,18 @@ class _ProjectShellState extends State<ProjectShell> {
       template: _selectedTemplate,
       averageGhost: averageGhost,
     );
-    return Card(
-      margin: margin,
-      clipBehavior: Clip.antiAlias,
-      color: theme.colorScheme.surfaceContainerHighest,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(child: chart),
-        ],
+    return _wrapWithScreenshot(
+      ScreenshotRegion.plotsPanel,
+      Card(
+        margin: margin,
+        clipBehavior: Clip.antiAlias,
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: chart),
+          ],
+        ),
       ),
     );
   }
@@ -1276,23 +1349,43 @@ class _ProjectShellState extends State<ProjectShell> {
   }) {
     final theme = Theme.of(context);
     final isSaving = _saveIndicator.startsWith('Saving');
-    return Card(
-      margin: margin,
-      clipBehavior: Clip.antiAlias,
-      color: theme.colorScheme.surfaceContainerHighest,
-      child: TablePanel(
+    return _wrapWithScreenshot(
+      ScreenshotRegion.tablePanel,
+      Card(
+        margin: margin,
+        clipBehavior: Clip.antiAlias,
+        color: theme.colorScheme.surfaceContainerHighest,
+        child: TablePanel(
+          site: site,
+          projectDefaultStacks: _project.defaultStacks,
+          showOutliers: _showOutliers,
+          onResistanceChanged: _handleReadingSubmitted,
+          onSdChanged: _handleSdChanged,
+          onInterpretationChanged: _handleInterpretationChanged,
+          onToggleBad: _handleBadToggle,
+          onMetadataChanged: _handleMetadataChanged,
+          onShowHistory: _showHistory,
+          onFocusChanged: _recordFocus,
+          isSaving: isSaving,
+          saveStatusLabel: _saveIndicator,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRightRail(SiteRecord site) {
+    return _wrapWithScreenshot(
+      ScreenshotRegion.rightRail,
+      RightRail(
         site: site,
         projectDefaultStacks: _project.defaultStacks,
-        showOutliers: _showOutliers,
-        onResistanceChanged: _handleReadingSubmitted,
-        onSdChanged: _handleSdChanged,
-        onInterpretationChanged: _handleInterpretationChanged,
-        onToggleBad: _handleBadToggle,
         onMetadataChanged: _handleMetadataChanged,
-        onShowHistory: _showHistory,
-        onFocusChanged: _recordFocus,
-        isSaving: isSaving,
-        saveStatusLabel: _saveIndicator,
+        inversionResult: _inversionResult,
+        isInversionLoading: _inversionLoading,
+        distanceUnit: _distanceUnit,
+        onExportCsv: () => unawaited(_exportSite()),
+        onExportSitePdf: () => unawaited(_exportSitePdf()),
+        onExportAllSitesPdf: () => unawaited(_exportAllSitesPdf()),
       ),
     );
   }

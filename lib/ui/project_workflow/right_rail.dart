@@ -171,9 +171,10 @@ class _RightRailState extends State<RightRail> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final plotHeight = constraints.maxHeight.isFinite
-              ? (constraints.maxHeight - 140).clamp(260, 440).toDouble()
+          final availableHeight = constraints.maxHeight.isFinite
+              ? constraints.maxHeight - 140
               : 320.0;
+          final plotHeight = availableHeight.clamp(280.0, 480.0).toDouble();
           final panel = InversionSummaryPanel(
             site: widget.site,
             result: safeResult,
