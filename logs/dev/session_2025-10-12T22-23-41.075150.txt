@@ -1,0 +1,30 @@
+[session] 2025-10-12T22-23-41.075150
+[INFO] app_start {"platform":"linux"}
+[ERROR] flutter_error {"exception":"Zone mismatch.\nThe Flutter bindings were initialized in a different zone than is now being used. This will likely cause confusion and bugs as any zone-specific configuration will inconsistently use the configuration of the original binding initialization zone or this zone based on hard-to-predict factors such as which zone was active when a particular callback was set.\nIt is important to use the same zone when calling `ensureInitialized` on the binding as when calling `runApp` later.\nTo make this warning fatal, set BindingBase.debugZoneErrorsAreFatal to true before the bindings are initialized (i.e. as the first statement in `void main() { }`).","library":"Flutter framework"}
+[INFO] hydration_start {"status":"cold"}
+[INFO] Hydration Ensuring sample project assets
+[INFO] hydration_success {"duration_ms":29}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":false,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":false,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":false,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":false,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] toggle_lock_axes {"lock_axes":true}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":true,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] toggle_lock_axes {"lock_axes":false}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":false,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] toggle_outliers {"show_outliers":true}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":false,"show_outliers":true,"series_a":6,"series_b":6,"has_template":false}
+[INFO] toggle_outliers {"show_outliers":false}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":false,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] toggle_lock_axes {"lock_axes":true}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":true,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] toggle_lock_axes {"lock_axes":false}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":false,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] toggle_lock_axes {"lock_axes":true}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":true,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] toggle_lock_axes {"lock_axes":false}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":false,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] toggle_lock_axes {"lock_axes":true}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":true,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}
+[INFO] toggle_lock_axes {"lock_axes":false}
+[INFO] plot_render {"site":"ERT-1","spacing_count":6,"lock_axes":false,"show_outliers":false,"series_a":6,"series_b":6,"has_template":false}

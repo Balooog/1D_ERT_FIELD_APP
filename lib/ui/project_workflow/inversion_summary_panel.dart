@@ -71,17 +71,12 @@ class InversionSummaryPanel extends StatelessWidget {
             const SizedBox(height: 4),
             Text(subtitle, style: subtitleStyle),
             const SizedBox(height: 12),
-            SizedBox(
-              height: plotHeight,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: InversionPlotPanel(
-                  result: result,
-                  isLoading: isLoading,
-                  distanceUnit: distanceUnit,
-                  siteLabel: null,
-                ),
-              ),
+            InversionPlotPanel(
+              result: result,
+              isLoading: isLoading,
+              distanceUnit: distanceUnit,
+              siteLabel: null,
+              chartHeight: plotHeight,
             ),
             const SizedBox(height: 16),
             InversionStatsBar(
@@ -136,39 +131,51 @@ class InversionStatsBar extends StatelessWidget {
     }
 
     final summary = result!;
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      children: [
+    final chips = <Widget>[
+      _MetricChip(
+        label: 'Upper layer ρ',
+        value: _formatRho(summary.rho1),
+        color: _metricBlue,
+      ),
+      _MetricChip(
+        label: 'Lower layer ρ',
+        value: _formatRho(summary.rho2),
+        color: _metricOrange,
+      ),
+      if (summary.halfSpaceRho != null)
         _MetricChip(
-          label: 'Upper layer ρ',
-          value: _formatRho(summary.rho1),
-          color: _metricBlue,
+          label: 'Half-space ρ',
+          value: _formatRho(summary.halfSpaceRho!),
+          color: _metricVermillion,
         ),
+      if (summary.thicknessM != null)
         _MetricChip(
-          label: 'Lower layer ρ',
-          value: _formatRho(summary.rho2),
-          color: _metricOrange,
+          label: 'Layer thickness',
+          value:
+              '${distanceUnit.formatSpacing(summary.thicknessM!)} ${distanceUnit == DistanceUnit.feet ? 'ft' : 'm'}',
+          color: _metricAccent,
         ),
-        if (summary.halfSpaceRho != null)
-          _MetricChip(
-            label: 'Half-space ρ',
-            value: _formatRho(summary.halfSpaceRho!),
-            color: _metricVermillion,
-          ),
-        if (summary.thicknessM != null)
-          _MetricChip(
-            label: 'Layer thickness',
-            value:
-                '${distanceUnit.formatSpacing(summary.thicknessM!)} ${distanceUnit == DistanceUnit.feet ? 'ft' : 'm'}',
-            color: _metricAccent,
-          ),
-        _MetricChip(
-          label: 'RMS misfit',
-          value: '${(summary.rms * 100).toStringAsFixed(1)}%',
-          color: theme.colorScheme.primary,
+      _MetricChip(
+        label: 'RMS misfit',
+        value: '${(summary.rms * 100).toStringAsFixed(1)}%',
+        color: theme.colorScheme.primary,
+      ),
+    ];
+
+    return Container(
+      decoration: decoration,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < chips.length; i++) ...[
+              if (i > 0) const SizedBox(width: 12),
+              chips[i],
+            ],
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -197,32 +204,38 @@ class _MetricChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final baseStyle = theme.textTheme.labelSmall?.copyWith(
+          fontSize: 12,
+          height: 1.1,
+        ) ??
+        const TextStyle(fontSize: 12, height: 1.1);
+    final valueStyle = baseStyle.copyWith(
+      fontFeatures: const [FontFeature.tabularFigures()],
+      color: theme.colorScheme.onSurface,
+    );
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: color,
+      child: Text.rich(
+        TextSpan(
+          style: valueStyle,
+          children: [
+            TextSpan(
+              text: '$label ',
+              style: baseStyle.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: theme.textTheme.bodySmall?.copyWith(
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-          ),
-        ],
+            TextSpan(text: value, style: valueStyle),
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

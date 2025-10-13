@@ -569,12 +569,14 @@ class InversionPlotPanel extends StatelessWidget {
     required this.isLoading,
     required this.distanceUnit,
     this.siteLabel,
+    this.chartHeight = 280,
   });
 
   final TwoLayerInversionResult? result;
   final bool isLoading;
   final DistanceUnit distanceUnit;
   final String? siteLabel;
+  final double chartHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -582,7 +584,7 @@ class InversionPlotPanel extends StatelessWidget {
       return Card(
         margin: const EdgeInsets.all(12),
         child: SizedBox(
-          height: 240,
+          height: chartHeight,
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -604,7 +606,7 @@ class InversionPlotPanel extends StatelessWidget {
       return Card(
         margin: const EdgeInsets.all(12),
         child: SizedBox(
-          height: 180,
+          height: math.max(chartHeight * 0.6, 200),
           child: Center(
             child: Text(
               'Record at least two valid spacings to compute inversion.',
@@ -685,7 +687,7 @@ class InversionPlotPanel extends StatelessWidget {
     ];
 
     final chart = SizedBox(
-      height: 240,
+      height: chartHeight,
       child: LineChart(
         LineChartData(
           minX: minLog - 0.1,
@@ -784,41 +786,6 @@ class InversionPlotPanel extends StatelessWidget {
             header,
             const SizedBox(height: 12),
             chart,
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              children: [
-                _SummaryChip(
-                  label: 'Upper layer ρ',
-                  value: _formatRho(summary.rho1),
-                  color: _okabeBlue,
-                ),
-                _SummaryChip(
-                  label: 'Lower layer ρ',
-                  value: _formatRho(summary.rho2),
-                  color: _okabeOrange,
-                ),
-                if (summary.halfSpaceRho != null)
-                  _SummaryChip(
-                    label: 'Half-space ρ',
-                    value: _formatRho(summary.halfSpaceRho!),
-                    color: _okabeVermillion,
-                  ),
-                if (summary.thicknessM != null)
-                  _SummaryChip(
-                    label: 'Layer thickness',
-                    value:
-                        '${distanceUnit.formatSpacing(summary.thicknessM!)} ${_unitLabel(distanceUnit)}',
-                    color: theme.colorScheme.primary,
-                  ),
-                _SummaryChip(
-                  label: 'RMS misfit',
-                  value: '${(summary.rms * 100).toStringAsFixed(1)}%',
-                  color: theme.colorScheme.secondary,
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -882,16 +849,6 @@ class InversionPlotPanel extends StatelessWidget {
     return _trimTrailingZeros(label);
   }
 
-  static String _formatRho(double rho) {
-    if (rho >= 1000) {
-      return '${rho.toStringAsFixed(0)} Ω·m';
-    }
-    if (rho >= 100) {
-      return '${rho.toStringAsFixed(1)} Ω·m';
-    }
-    return '${rho.toStringAsFixed(2)} Ω·m';
-  }
-
   static String _unitLabel(DistanceUnit unit) =>
       unit == DistanceUnit.feet ? 'ft' : 'm';
 
@@ -900,39 +857,5 @@ class InversionPlotPanel extends StatelessWidget {
       return value;
     }
     return value.replaceFirst(RegExp(r'\.?0+$'), '');
-  }
-}
-
-class _SummaryChip extends StatelessWidget {
-  const _SummaryChip(
-      {required this.label, required this.value, required this.color});
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
-      ),
-      child: RichText(
-        text: TextSpan(
-          style: theme.textTheme.labelMedium,
-          children: [
-            TextSpan(
-                text: '$label ',
-                style: theme.textTheme.labelMedium
-                    ?.copyWith(color: color, fontWeight: FontWeight.w600)),
-            TextSpan(text: value, style: theme.textTheme.labelMedium),
-          ],
-        ),
-      ),
-    );
   }
 }

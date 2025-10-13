@@ -13,14 +13,13 @@ import '../../state/providers.dart';
 import '../../utils/format.dart';
 import '../style/density.dart';
 
-const double _kTableHeaderHeight = 40;
+const double _kTableHeaderHeight = 34;
 const double _kTableRowHeight = 48;
-const double _kMetaFieldWidth = 132;
-const double _kSpacingColumnWidth = 136;
-const double _kPinsColumnWidth = 136;
-const double _kResistanceColumnWidth = 176;
-const double _kGridGutter = 12;
-const double _kHeaderFieldGap = 4;
+const int _kSpacingColumnFlex = 12;
+const int _kPinsColumnFlex = 12;
+const int _kResistanceColumnFlex = 14;
+const double _kGridGutter = 10;
+const double _kHeaderFieldGap = 2;
 const double _kFieldHeight = 40;
 
 class TablePanel extends ConsumerStatefulWidget {
@@ -151,6 +150,13 @@ class _RowConfig {
   final double outsideMeters;
   final _FieldKey aResKey;
   final _FieldKey bResKey;
+}
+
+class _MetadataField {
+  const _MetadataField({required this.child, this.flex = 1});
+
+  final Widget child;
+  final int flex;
 }
 
 class _TablePanelState extends ConsumerState<TablePanel> {
@@ -371,8 +377,8 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         final isCompact = constraints.maxWidth < 920;
         final headerStyle = theme.textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w600,
-          fontSize: 12,
-          height: 1.1,
+          fontSize: 11,
+          height: 1.05,
           letterSpacing: 0.2,
           fontFeatures: const [FontFeature.tabularFigures()],
           color: theme.colorScheme.onSurfaceVariant,
@@ -582,37 +588,49 @@ class _TablePanelState extends ConsumerState<TablePanel> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          _headerLabel(
-            context,
-            'a-spacing (ft)',
-            width: _kSpacingColumnWidth,
-            style: style,
-            tooltip: 'Source electrode spacing, feet',
+          Flexible(
+            flex: _kSpacingColumnFlex,
+            fit: FlexFit.tight,
+            child: _headerLabel(
+              context,
+              'a-spacing (ft)',
+              style: style,
+              tooltip: 'Source electrode spacing, feet',
+            ),
           ),
           const SizedBox(width: _kGridGutter),
-          _headerLabel(
-            context,
-            'Pins at (ft)',
-            width: _kPinsColumnWidth,
-            style: style,
-            tooltip:
-                'Inside/outside electrode positions derived from spacing (feet)',
+          Flexible(
+            flex: _kPinsColumnFlex,
+            fit: FlexFit.tight,
+            child: _headerLabel(
+              context,
+              'Pins at (ft)',
+              style: style,
+              tooltip:
+                  'Inside/outside electrode positions derived from spacing (feet)',
+            ),
           ),
           const SizedBox(width: _kGridGutter),
-          _headerLabel(
-            context,
-            'Res $orientationALabel (Ω)',
-            width: _kResistanceColumnWidth,
-            style: style,
-            tooltip: 'Apparent resistance for $orientationALabel orientation',
+          Flexible(
+            flex: _kResistanceColumnFlex,
+            fit: FlexFit.tight,
+            child: _headerLabel(
+              context,
+              'Res $orientationALabel (Ω)',
+              style: style,
+              tooltip: 'Apparent resistance for $orientationALabel orientation',
+            ),
           ),
           const SizedBox(width: _kGridGutter),
-          _headerLabel(
-            context,
-            'Res $orientationBLabel (Ω)',
-            width: _kResistanceColumnWidth,
-            style: style,
-            tooltip: 'Apparent resistance for $orientationBLabel orientation',
+          Flexible(
+            flex: _kResistanceColumnFlex,
+            fit: FlexFit.tight,
+            child: _headerLabel(
+              context,
+              'Res $orientationBLabel (Ω)',
+              style: style,
+              tooltip: 'Apparent resistance for $orientationBLabel orientation',
+            ),
           ),
         ],
       ),
@@ -632,43 +650,51 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         children: [
           Row(
             children: [
-              _headerLabel(
-                context,
-                'a-spacing (ft)',
-                width: _kSpacingColumnWidth,
-                style: style,
-                tooltip: 'Source electrode spacing, feet',
+              Expanded(
+                flex: _kSpacingColumnFlex,
+                child: _headerLabel(
+                  context,
+                  'a-spacing (ft)',
+                  style: style,
+                  tooltip: 'Source electrode spacing, feet',
+                ),
               ),
               const SizedBox(width: _kGridGutter),
-              _headerLabel(
-                context,
-                'Pins at (ft)',
-                width: _kPinsColumnWidth,
-                style: style,
-                tooltip:
-                    'Inside/outside electrode positions derived from spacing (feet)',
+              Expanded(
+                flex: _kPinsColumnFlex,
+                child: _headerLabel(
+                  context,
+                  'Pins at (ft)',
+                  style: style,
+                  tooltip:
+                      'Inside/outside electrode positions derived from spacing (feet)',
+                ),
               ),
             ],
           ),
           const SizedBox(height: _kHeaderFieldGap),
           Row(
             children: [
-              _headerLabel(
-                context,
-                'Res $orientationALabel (Ω)',
-                width: _kResistanceColumnWidth,
-                style: style,
-                tooltip:
-                    'Apparent resistance for $orientationALabel orientation',
+              Expanded(
+                flex: _kResistanceColumnFlex,
+                child: _headerLabel(
+                  context,
+                  'Res $orientationALabel (Ω)',
+                  style: style,
+                  tooltip:
+                      'Apparent resistance for $orientationALabel orientation',
+                ),
               ),
               const SizedBox(width: _kGridGutter),
-              _headerLabel(
-                context,
-                'Res $orientationBLabel (Ω)',
-                width: _kResistanceColumnWidth,
-                style: style,
-                tooltip:
-                    'Apparent resistance for $orientationBLabel orientation',
+              Expanded(
+                flex: _kResistanceColumnFlex,
+                child: _headerLabel(
+                  context,
+                  'Res $orientationBLabel (Ω)',
+                  style: style,
+                  tooltip:
+                      'Apparent resistance for $orientationBLabel orientation',
+                ),
               ),
             ],
           ),
@@ -709,18 +735,21 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            SizedBox(
-              width: _kSpacingColumnWidth,
+            Flexible(
+              flex: _kSpacingColumnFlex,
+              fit: FlexFit.tight,
               child: _buildSpacingCell(theme, row),
             ),
             const SizedBox(width: _kGridGutter),
-            SizedBox(
-              width: _kPinsColumnWidth,
+            Flexible(
+              flex: _kPinsColumnFlex,
+              fit: FlexFit.tight,
               child: _buildPinsCell(theme, row),
             ),
             const SizedBox(width: _kGridGutter),
-            SizedBox(
-              width: _kResistanceColumnWidth,
+            Flexible(
+              flex: _kResistanceColumnFlex,
+              fit: FlexFit.tight,
               child: _buildResistanceCell(
                 theme,
                 row,
@@ -731,8 +760,9 @@ class _TablePanelState extends ConsumerState<TablePanel> {
               ),
             ),
             const SizedBox(width: _kGridGutter),
-            SizedBox(
-              width: _kResistanceColumnWidth,
+            Flexible(
+              flex: _kResistanceColumnFlex,
+              fit: FlexFit.tight,
               child: _buildResistanceCell(
                 theme,
                 row,
@@ -825,7 +855,6 @@ class _TablePanelState extends ConsumerState<TablePanel> {
   Widget _headerLabel(
     BuildContext context,
     String label, {
-    required double width,
     TextStyle? style,
     String? tooltip,
   }) {
@@ -837,12 +866,12 @@ class _TablePanelState extends ConsumerState<TablePanel> {
       overflow: TextOverflow.ellipsis,
     );
     return SizedBox(
-      width: width,
       height: _kTableHeaderHeight,
-      child: Center(
-        child: Tooltip(
-          message: tooltip ?? label,
-          waitDuration: const Duration(milliseconds: 400),
+      child: Tooltip(
+        message: tooltip ?? label,
+        waitDuration: const Duration(milliseconds: 400),
+        child: Align(
+          alignment: Alignment.center,
           child: text,
         ),
       ),
@@ -1370,25 +1399,44 @@ class _TablePanelState extends ConsumerState<TablePanel> {
       ),
     );
 
-    final fieldControls = <Widget>[
-      _buildPowerField(),
-      _buildSoilDropdown(
-        context,
-        value: widget.site.soil,
-        onChanged: (soil) => widget.onMetadataChanged(soil: soil),
+    final metadataFields = <_MetadataField>[
+      _MetadataField(child: _buildPowerField()),
+      _MetadataField(
+        child: _buildSoilDropdown(
+          context,
+          value: widget.site.soil,
+          onChanged: (soil) => widget.onMetadataChanged(soil: soil),
+        ),
       ),
-      _buildMoistureDropdown(
-        context,
-        value: widget.site.moisture,
-        onChanged: (level) => widget.onMetadataChanged(moisture: level),
+      _MetadataField(
+        child: _buildMoistureDropdown(
+          context,
+          value: widget.site.moisture,
+          onChanged: (level) => widget.onMetadataChanged(moisture: level),
+        ),
       ),
-      _buildGroundTemperatureField(),
-      _buildLocationCaptureField(context),
+      _MetadataField(child: _buildGroundTemperatureField()),
+      _MetadataField(child: _buildLocationCaptureField(context), flex: 2),
       ..._buildStacksControls(context),
     ];
 
+    final fieldRowChildren = <Widget>[];
+    for (var i = 0; i < metadataFields.length; i++) {
+      final field = metadataFields[i];
+      if (i > 0) {
+        fieldRowChildren.add(const SizedBox(width: kDenseGap));
+      }
+      fieldRowChildren.add(
+        Flexible(
+          flex: field.flex,
+          fit: FlexFit.tight,
+          child: field.child,
+        ),
+      );
+    }
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1410,11 +1458,10 @@ class _TablePanelState extends ConsumerState<TablePanel> {
             ],
           ),
           const SizedBox(height: kDenseGap),
-          Wrap(
-            spacing: kDenseGap,
-            runSpacing: kDenseGap,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: fieldControls,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: fieldRowChildren,
           ),
         ],
       ),
@@ -1423,7 +1470,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
 
   Widget _buildPowerField() {
     return SizedBox(
-      width: _kMetaFieldWidth,
+      height: _kFieldHeight,
       child: TextFormField(
         initialValue: widget.site.powerMilliAmps.toStringAsFixed(2),
         decoration: const InputDecoration(
@@ -1449,7 +1496,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
 
   Widget _buildGroundTemperatureField() {
     return SizedBox(
-      width: _kMetaFieldWidth,
+      height: _kFieldHeight,
       child: TextFormField(
         initialValue: widget.site.groundTemperatureF.toStringAsFixed(1),
         decoration: const InputDecoration(
@@ -1489,6 +1536,10 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     final busy = state.isLoading;
 
     final hasFix = displayReading != null;
+    final coordinateLabel = hasFix
+        ? '${displayReading.latitude.toStringAsFixed(4)}, '
+            '${displayReading.longitude.toStringAsFixed(4)}'
+        : 'No fix';
     final statusText = _locationStatusText(
       hasFix: hasFix,
       busy: busy,
@@ -1502,10 +1553,12 @@ class _TablePanelState extends ConsumerState<TablePanel> {
       result: sessionResult,
     );
     final showClear = storedLocation != null && !busy;
-    final caption = hasFix
-        ? '${displayReading.latitude.toStringAsFixed(4)}, '
-            '${displayReading.longitude.toStringAsFixed(4)}'
-        : 'No fix';
+    final statusParts = <String>[
+      coordinateLabel,
+      if (statusText.isNotEmpty) statusText,
+    ];
+    final statusLabel =
+        statusParts.where((value) => value.trim().isNotEmpty).join(' • ');
 
     final buttonStyle = OutlinedButton.styleFrom(
       minimumSize: const Size(0, 32),
@@ -1515,7 +1568,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     );
 
     return SizedBox(
-      width: _kMetaFieldWidth + 52,
+      height: _kFieldHeight,
       child: InputDecorator(
         decoration: const InputDecoration(
           labelText: 'GPS',
@@ -1542,29 +1595,15 @@ class _TablePanelState extends ConsumerState<TablePanel> {
               label: const Text('GPS'),
             ),
             const SizedBox(width: kDenseGap),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    caption,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (statusText.isNotEmpty)
-                    Text(
-                      statusText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: statusColor,
-                      ),
-                    ),
-                ],
+            Expanded(
+              child: Text(
+                statusLabel.isEmpty ? coordinateLabel : statusLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: statusColor ?? theme.textTheme.labelSmall?.color,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
             if (showClear) ...[
@@ -1709,7 +1748,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
   }) {
     final theme = Theme.of(context);
     return SizedBox(
-      width: _kMetaFieldWidth,
+      height: _kFieldHeight,
       child: DropdownButtonFormField<SoilType>(
         initialValue: value,
         isExpanded: true,
@@ -1747,7 +1786,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
   }) {
     final theme = Theme.of(context);
     return SizedBox(
-      width: _kMetaFieldWidth,
+      height: _kFieldHeight,
       child: DropdownButtonFormField<MoistureLevel>(
         initialValue: value,
         isExpanded: true,
@@ -1778,30 +1817,32 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     );
   }
 
-  List<Widget> _buildStacksControls(BuildContext context) {
+  List<_MetadataField> _buildStacksControls(BuildContext context) {
     final stacksLocked = widget.site.stacks == widget.projectDefaultStacks;
     if (stacksLocked) {
       return const [];
     }
     return [
-      SizedBox(
-        width: _kMetaFieldWidth,
-        child: TextFormField(
-          initialValue: widget.site.stacks.toString(),
-          decoration: const InputDecoration(
-            labelText: 'Stacks',
-            isDense: true,
-            border: OutlineInputBorder(),
-            contentPadding: kDenseFieldPadding,
+      _MetadataField(
+        child: SizedBox(
+          height: _kFieldHeight,
+          child: TextFormField(
+            initialValue: widget.site.stacks.toString(),
+            decoration: const InputDecoration(
+              labelText: 'Stacks',
+              isDense: true,
+              border: OutlineInputBorder(),
+              contentPadding: kDenseFieldPadding,
+            ),
+            keyboardType: const TextInputType.numberWithOptions(signed: false),
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onFieldSubmitted: (value) {
+              final parsed = _parseMaybeInt(value);
+              if (parsed != null && parsed > 0) {
+                widget.onMetadataChanged(stacks: parsed);
+              }
+            },
           ),
-          keyboardType: const TextInputType.numberWithOptions(signed: false),
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          onFieldSubmitted: (value) {
-            final parsed = _parseMaybeInt(value);
-            if (parsed != null && parsed > 0) {
-              widget.onMetadataChanged(stacks: parsed);
-            }
-          },
         ),
       ),
     ];

@@ -186,20 +186,88 @@ class _PointsTableState extends ConsumerState<PointsTable> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minWidth: 720),
           child: DataTable(
-            headingTextStyle: theme.textTheme.labelMedium
-                ?.copyWith(fontWeight: FontWeight.bold),
+            headingRowHeight: 34,
+            columnSpacing: 24,
+            headingTextStyle: theme.textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+              height: 1.1,
+            ),
             dataRowMinHeight: 96,
             dataRowMaxHeight: 112,
             columns: [
-              const DataColumn(label: Text('#')),
-              const DataColumn(label: Text('Array')),
-              const DataColumn(label: Text('Direction')),
-              DataColumn(label: Text('a-spacing ($spacingLabel)')),
-              const DataColumn(label: Text('ρₐ (Ω·m)')),
-              const DataColumn(label: Text('R (Ω)')),
-              const DataColumn(label: Text('σρ (Ω·m)')),
-              const DataColumn(label: Text('QA')),
-              const DataColumn(label: Text('Note')),
+              const DataColumn(
+                label: Text(
+                  '#',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              ),
+              const DataColumn(
+                label: Text(
+                  'Array',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              ),
+              const DataColumn(
+                label: Text(
+                  'Direction',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  'a-spacing ($spacingLabel)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              ),
+              const DataColumn(
+                label: Text(
+                  'ρₐ (Ω·m)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              ),
+              const DataColumn(
+                label: Text(
+                  'R (Ω)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              ),
+              const DataColumn(
+                label: Text(
+                  'σρ (Ω·m)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              ),
+              const DataColumn(
+                label: Text(
+                  'QA',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              ),
+              const DataColumn(
+                label: Text(
+                  'Note',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                ),
+              ),
               const DataColumn(label: Text('')),
             ],
             rows: rows,
