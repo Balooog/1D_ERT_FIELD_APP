@@ -16,6 +16,7 @@ import '../../services/inversion.dart';
 import '../../services/storage_service.dart';
 import '../../services/templates_service.dart';
 import '../../utils/distance_unit.dart';
+import '../style/density.dart';
 import '../import/import_sheet.dart';
 import 'plots_panel.dart';
 import 'right_rail.dart';
@@ -153,6 +154,25 @@ class _ProjectShellState extends State<ProjectShell> {
     _queueInversionRefresh();
   }
 
+  void _showInlineUndo(String message) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          shape: const StadiumBorder(),
+          duration: const Duration(seconds: 5),
+          content: Text(message),
+          action: SnackBarAction(
+            label: 'Undo',
+            onPressed: _undo,
+          ),
+        ),
+      );
+  }
+
   void _handleReadingSubmitted(
     double spacingFt,
     OrientationKind orientation,
@@ -189,6 +209,12 @@ class _ProjectShellState extends State<ProjectShell> {
         });
       });
     });
+    final spacingRecord = site.spacings
+        .firstWhereOrNull((record) => record.spacingFeet == spacingFt);
+    final orientationLabel = spacingRecord?.historyFor(orientation).label ??
+        orientation.defaultLabel;
+    final spacingLabel = spacingFt.toStringAsFixed(1);
+    _showInlineUndo('Saved $spacingLabel ft • $orientationLabel');
   }
 
   void _handleBadToggle(
@@ -227,6 +253,8 @@ class _ProjectShellState extends State<ProjectShell> {
     SoilType? soil,
     MoistureLevel? moisture,
     double? groundTemperatureF,
+    SiteLocation? location,
+    bool? updateLocation,
   }) {
     final site = _selectedSite;
     if (site == null) {
@@ -240,6 +268,8 @@ class _ProjectShellState extends State<ProjectShell> {
           soil: soil,
           moisture: moisture,
           groundTemperatureF: groundTemperatureF,
+          location: location,
+          updateLocation: updateLocation ?? false,
         );
       });
     });
@@ -949,12 +979,12 @@ class _ProjectShellState extends State<ProjectShell> {
     final templateSelector = SizedBox(
       width: 240,
       child: DropdownButtonFormField<GhostTemplate?>(
-        value: _selectedTemplate,
+        initialValue: _selectedTemplate,
         decoration: const InputDecoration(
           labelText: 'Ghost template',
           isDense: true,
           border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          contentPadding: kDenseFieldPadding,
         ),
         items: [
           const DropdownMenuItem<GhostTemplate?>(
@@ -977,9 +1007,9 @@ class _ProjectShellState extends State<ProjectShell> {
 
     final isSaving = _saveIndicator.startsWith('Saving');
     final statusBadge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant,
+        color: theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
@@ -1012,8 +1042,8 @@ class _ProjectShellState extends State<ProjectShell> {
     );
 
     final statusGroup = Wrap(
-      spacing: 12,
-      runSpacing: 8,
+      spacing: kDenseGap,
+      runSpacing: kDenseGap,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         statusBadge,
@@ -1021,9 +1051,10 @@ class _ProjectShellState extends State<ProjectShell> {
       ],
     );
 
+    const chipDensity = VisualDensity(horizontal: -2, vertical: -2);
     final togglesGroup = Wrap(
-      spacing: 12,
-      runSpacing: 8,
+      spacing: kDenseGap,
+      runSpacing: kDenseGap,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         FilterChip(
@@ -1033,6 +1064,8 @@ class _ProjectShellState extends State<ProjectShell> {
           ),
           label: Text(_showOutliers ? 'Outliers shown' : 'Outliers hidden'),
           selected: _showOutliers,
+          visualDensity: chipDensity,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           onSelected: (_) => _toggleOutliers(),
         ),
         FilterChip(
@@ -1042,6 +1075,8 @@ class _ProjectShellState extends State<ProjectShell> {
           ),
           label: Text(_lockAxes ? 'Axes locked' : 'Axes auto'),
           selected: _lockAxes,
+          visualDensity: chipDensity,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           onSelected: (_) => _toggleLockAxes(),
         ),
         FilterChip(
@@ -1051,6 +1086,8 @@ class _ProjectShellState extends State<ProjectShell> {
           ),
           label: Text(_showAllSites ? 'All sites view' : 'Single site view'),
           selected: _showAllSites,
+          visualDensity: chipDensity,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
           onSelected: (_) => _toggleAllSitesView(),
         ),
       ],
@@ -1059,7 +1096,7 @@ class _ProjectShellState extends State<ProjectShell> {
     return Container(
       width: double.infinity,
       color: theme.colorScheme.surfaceContainerHigh,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 720;
@@ -1238,6 +1275,7 @@ class _ProjectShellState extends State<ProjectShell> {
     EdgeInsets margin = const EdgeInsets.all(12),
   }) {
     final theme = Theme.of(context);
+    final isSaving = _saveIndicator.startsWith('Saving');
     return Card(
       margin: margin,
       clipBehavior: Clip.antiAlias,
@@ -1253,6 +1291,8 @@ class _ProjectShellState extends State<ProjectShell> {
         onMetadataChanged: _handleMetadataChanged,
         onShowHistory: _showHistory,
         onFocusChanged: _recordFocus,
+        isSaving: isSaving,
+        saveStatusLabel: _saveIndicator,
       ),
     );
   }

@@ -17,6 +17,9 @@ class RightDetailPanel extends StatefulWidget {
     int? stacks,
     SoilType? soil,
     MoistureLevel? moisture,
+    double? groundTemperatureF,
+    SiteLocation? location,
+    bool? updateLocation,
   }) onMetadataChanged;
 
   @override

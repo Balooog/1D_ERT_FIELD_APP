@@ -3,47 +3,27 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/calc.dart';
 import '../../models/direction_reading.dart';
 import '../../models/site.dart';
-import '../../utils/format.dart';
+import '../../services/location_service.dart';
 import '../../state/prefs.dart';
+import '../../state/providers.dart';
+import '../../utils/format.dart';
+import '../style/density.dart';
 
-const double _kTableHeaderHeight = 56;
-const double _kTableRowHeight = 56;
+const double _kTableHeaderHeight = 40;
+const double _kTableRowHeight = 48;
+const double _kMetaFieldWidth = 132;
+const double _kSpacingColumnWidth = 136;
+const double _kPinsColumnWidth = 136;
+const double _kResistanceColumnWidth = 176;
+const double _kGridGutter = 12;
+const double _kHeaderFieldGap = 4;
+const double _kFieldHeight = 40;
 
-Widget _headerCell(
-  BuildContext context,
-  String label, {
-  double minWidth = 120,
-  TextStyle? style,
-}) {
-  final textStyle = style ?? Theme.of(context).textTheme.titleSmall;
-  return Tooltip(
-    message: label,
-    child: ConstrainedBox(
-      constraints: BoxConstraints(
-        minWidth: minWidth,
-        maxHeight: _kTableHeaderHeight,
-      ),
-      child: SizedBox(
-        height: _kTableHeaderHeight,
-        child: Center(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: textStyle,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
-class TablePanel extends StatefulWidget {
+class TablePanel extends ConsumerStatefulWidget {
   const TablePanel({
     super.key,
     required this.site,
@@ -56,6 +36,8 @@ class TablePanel extends StatefulWidget {
     required this.onMetadataChanged,
     required this.onShowHistory,
     required this.onFocusChanged,
+    this.isSaving = false,
+    this.saveStatusLabel,
   });
 
   final SiteRecord site;
@@ -85,6 +67,8 @@ class TablePanel extends StatefulWidget {
     SoilType? soil,
     MoistureLevel? moisture,
     double? groundTemperatureF,
+    SiteLocation? location,
+    bool? updateLocation,
   }) onMetadataChanged;
   final Future<void> Function(
     double spacingFt,
@@ -92,15 +76,19 @@ class TablePanel extends StatefulWidget {
   ) onShowHistory;
   final void Function(double spacingFt, OrientationKind orientation)
       onFocusChanged;
+  final bool isSaving;
+  final String? saveStatusLabel;
 
   @visibleForTesting
   static const String sdPromptPattern = r'^[0-9]{0,2}(\.[0-9])?$';
 
   @override
-  State<TablePanel> createState() => _TablePanelState();
+  ConsumerState<TablePanel> createState() => _TablePanelState();
 }
 
 enum _FieldType { resistance }
+
+enum _AdvanceDirection { forward, backward, stay }
 
 class _FieldKey {
   _FieldKey({
@@ -165,10 +153,11 @@ class _RowConfig {
   final _FieldKey bResKey;
 }
 
-class _TablePanelState extends State<TablePanel> {
+class _TablePanelState extends ConsumerState<TablePanel> {
   final Map<_FieldKey, TextEditingController> _controllers = {};
   final Map<_FieldKey, FocusNode> _focusNodes = {};
   Map<_FieldKey, _FieldKey?> _tabOrder = {};
+  Map<_FieldKey, _FieldKey?> _reverseTabOrder = {};
   final Map<_FieldKey, double> _tabRanks = {};
   final ScrollController _tableController = ScrollController();
   final Map<_FieldKey, _RowConfig> _rowByField = {};
@@ -193,6 +182,8 @@ class _TablePanelState extends State<TablePanel> {
   TablePreferences? _prefs;
   bool _askForSd = true;
   List<_FieldKey> _tabSequence = const [];
+  bool _suppressNextSubmitted = false;
+  int? _hoveredRowIndex;
 
   List<FocusNode> get tabOrderForTest {
     final nodes = <FocusNode>[];
@@ -373,126 +364,487 @@ class _TablePanelState extends State<TablePanel> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final maxHeight = constraints.hasBoundedHeight
-            ? math.min(constraints.maxHeight, 460.0)
-            : 460.0;
+            ? math.min(constraints.maxHeight, 520.0)
+            : 520.0;
         final minWidth =
             constraints.hasBoundedWidth ? constraints.maxWidth : 520.0;
-        final headingStyle = theme.textTheme.labelSmall?.copyWith(
+        final isCompact = constraints.maxWidth < 920;
+        final headerStyle = theme.textTheme.labelSmall?.copyWith(
           fontWeight: FontWeight.w600,
           fontSize: 12,
           height: 1.1,
+          letterSpacing: 0.2,
           fontFeatures: const [FontFeature.tabularFigures()],
+          color: theme.colorScheme.onSurfaceVariant,
         );
-        final dataStyle = theme.textTheme.bodySmall?.copyWith(
-          fontSize: 11,
-          height: 1.1,
-          fontFeatures: const [FontFeature.tabularFigures()],
-        );
+
+        final tableContent = isCompact
+            ? _buildCompactTableContent(
+                context,
+                theme,
+                rows,
+                orientationALabel,
+                orientationBLabel,
+                headerStyle,
+                maxHeight,
+              )
+            : _buildWideTableContent(
+                context,
+                theme,
+                rows,
+                orientationALabel,
+                orientationBLabel,
+                headerStyle,
+                minWidth,
+                maxHeight,
+              );
+
         return Align(
           alignment: Alignment.topLeft,
           child: SizedBox(
             height: maxHeight,
-            child: Scrollbar(
-              controller: _tableController,
-              thumbVisibility: true,
-              child: SingleChildScrollView(
-                controller: _tableController,
-                primary: false,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minWidth: minWidth),
-                    child: FocusTraversalGroup(
-                      policy: OrderedTraversalPolicy(),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            child: _buildTableHeader(
-                              context,
-                              headingStyle,
-                              orientationALabel,
-                              orientationBLabel,
-                            ),
-                          ),
-                          const Divider(height: 1),
-                          DataTable(
-                            headingTextStyle: headingStyle,
-                            dataTextStyle: dataStyle,
-                            dataRowMinHeight: 104,
-                            dataRowMaxHeight: 120,
-                            headingRowHeight: 0,
-                            columnSpacing: 12,
-                            horizontalMargin: 12,
-                            columns: const [
-                              DataColumn(label: SizedBox.shrink()),
-                              DataColumn(label: SizedBox.shrink()),
-                              DataColumn(label: SizedBox.shrink()),
-                              DataColumn(label: SizedBox.shrink()),
-                            ],
-                            rows: rows
-                                .map(
-                                    (row) => _buildDataRow(context, theme, row))
-                                .toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            child: tableContent,
           ),
         );
       },
     );
   }
 
-  Widget _buildTableHeader(
+  Widget _buildWideTableContent(
+    BuildContext context,
+    ThemeData theme,
+    List<_RowConfig> rows,
+    String orientationALabel,
+    String orientationBLabel,
+    TextStyle? headerStyle,
+    double minWidth,
+    double maxHeight,
+  ) {
+    final scrollView = CustomScrollView(
+      controller: _tableController,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          sliver: SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickyHeaderDelegate(
+              minExtent: _kTableHeaderHeight + _kHeaderFieldGap + 1,
+              maxExtent: _kTableHeaderHeight + _kHeaderFieldGap + 1,
+              builder: (context, overlaps) {
+                return _StickyHeaderContainer(
+                  overlaps: overlaps,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildWideHeaderRow(
+                        context,
+                        headerStyle,
+                        orientationALabel,
+                        orientationBLabel,
+                      ),
+                      const SizedBox(height: _kHeaderFieldGap),
+                      const Divider(height: 1),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final row = rows[index];
+                final isLast = index == rows.length - 1;
+                return Padding(
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+                  child: _buildWideRow(theme, row, index),
+                );
+              },
+              childCount: rows.length,
+            ),
+          ),
+        ),
+        const SliverPadding(
+          padding: EdgeInsets.only(bottom: 8),
+        ),
+      ],
+    );
+
+    final vertical = Scrollbar(
+      controller: _tableController,
+      thumbVisibility: true,
+      child: scrollView,
+    );
+
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: minWidth),
+          child: SizedBox(
+            height: maxHeight,
+            child: vertical,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactTableContent(
+    BuildContext context,
+    ThemeData theme,
+    List<_RowConfig> rows,
+    String orientationALabel,
+    String orientationBLabel,
+    TextStyle? headerStyle,
+    double maxHeight,
+  ) {
+    final scrollView = CustomScrollView(
+      controller: _tableController,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+          sliver: SliverPersistentHeader(
+            pinned: true,
+            delegate: _StickyHeaderDelegate(
+              minExtent: (_kTableHeaderHeight * 2) + (_kHeaderFieldGap * 2) + 1,
+              maxExtent: (_kTableHeaderHeight * 2) + (_kHeaderFieldGap * 2) + 1,
+              builder: (context, overlaps) {
+                return _StickyHeaderContainer(
+                  overlaps: overlaps,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildCompactHeaderRow(
+                        context,
+                        headerStyle,
+                        orientationALabel,
+                        orientationBLabel,
+                      ),
+                      const SizedBox(height: _kHeaderFieldGap),
+                      const Divider(height: 1),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+          sliver: SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final row = rows[index];
+                final isLast = index == rows.length - 1;
+                return Padding(
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+                  child: _buildCompactRow(theme, row, index),
+                );
+              },
+              childCount: rows.length,
+            ),
+          ),
+        ),
+        const SliverPadding(
+          padding: EdgeInsets.only(bottom: 8),
+        ),
+      ],
+    );
+
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: SizedBox(
+        height: maxHeight,
+        child: Scrollbar(
+          controller: _tableController,
+          thumbVisibility: true,
+          child: scrollView,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWideHeaderRow(
     BuildContext context,
     TextStyle? style,
     String orientationALabel,
     String orientationBLabel,
   ) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          _headerCell(
+          _headerLabel(
             context,
             'a-spacing (ft)',
-            minWidth: 130,
+            width: _kSpacingColumnWidth,
             style: style,
+            tooltip: 'Source electrode spacing, feet',
           ),
-          const SizedBox(width: 12),
-          _headerCell(
+          const SizedBox(width: _kGridGutter),
+          _headerLabel(
             context,
             'Pins at (ft)',
-            minWidth: 120,
+            width: _kPinsColumnWidth,
             style: style,
+            tooltip:
+                'Inside/outside electrode positions derived from spacing (feet)',
           ),
-          const SizedBox(width: 12),
-          _headerCell(
+          const SizedBox(width: _kGridGutter),
+          _headerLabel(
             context,
             'Res $orientationALabel (Ω)',
-            minWidth: 150,
+            width: _kResistanceColumnWidth,
             style: style,
+            tooltip: 'Apparent resistance for $orientationALabel orientation',
           ),
-          const SizedBox(width: 12),
-          _headerCell(
+          const SizedBox(width: _kGridGutter),
+          _headerLabel(
             context,
             'Res $orientationBLabel (Ω)',
-            minWidth: 150,
+            width: _kResistanceColumnWidth,
             style: style,
+            tooltip: 'Apparent resistance for $orientationBLabel orientation',
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompactHeaderRow(
+    BuildContext context,
+    TextStyle? style,
+    String orientationALabel,
+    String orientationBLabel,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _headerLabel(
+                context,
+                'a-spacing (ft)',
+                width: _kSpacingColumnWidth,
+                style: style,
+                tooltip: 'Source electrode spacing, feet',
+              ),
+              const SizedBox(width: _kGridGutter),
+              _headerLabel(
+                context,
+                'Pins at (ft)',
+                width: _kPinsColumnWidth,
+                style: style,
+                tooltip:
+                    'Inside/outside electrode positions derived from spacing (feet)',
+              ),
+            ],
+          ),
+          const SizedBox(height: _kHeaderFieldGap),
+          Row(
+            children: [
+              _headerLabel(
+                context,
+                'Res $orientationALabel (Ω)',
+                width: _kResistanceColumnWidth,
+                style: style,
+                tooltip:
+                    'Apparent resistance for $orientationALabel orientation',
+              ),
+              const SizedBox(width: _kGridGutter),
+              _headerLabel(
+                context,
+                'Res $orientationBLabel (Ω)',
+                width: _kResistanceColumnWidth,
+                style: style,
+                tooltip:
+                    'Apparent resistance for $orientationBLabel orientation',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWideRow(ThemeData theme, _RowConfig row, int index) {
+    final highlight = _hoveredRowIndex == index;
+    final background = highlight
+        ? theme.colorScheme.surfaceTint.withValues(alpha: 0.08)
+        : Colors.transparent;
+    final borderColor =
+        highlight ? theme.colorScheme.primary.withValues(alpha: 0.24) : null;
+
+    return MouseRegion(
+      onEnter: (_) {
+        setState(() {
+          _hoveredRowIndex = index;
+        });
+      },
+      onExit: (_) {
+        setState(() {
+          _hoveredRowIndex = null;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(12),
+          border: borderColor == null
+              ? null
+              : Border.all(color: borderColor, width: 1),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: _kSpacingColumnWidth,
+              child: _buildSpacingCell(theme, row),
+            ),
+            const SizedBox(width: _kGridGutter),
+            SizedBox(
+              width: _kPinsColumnWidth,
+              child: _buildPinsCell(theme, row),
+            ),
+            const SizedBox(width: _kGridGutter),
+            SizedBox(
+              width: _kResistanceColumnWidth,
+              child: _buildResistanceCell(
+                theme,
+                row,
+                row.aResKey,
+                row.aSample,
+                OrientationKind.a,
+                row.hideA,
+              ),
+            ),
+            const SizedBox(width: _kGridGutter),
+            SizedBox(
+              width: _kResistanceColumnWidth,
+              child: _buildResistanceCell(
+                theme,
+                row,
+                row.bResKey,
+                row.bSample,
+                OrientationKind.b,
+                row.hideB,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactRow(ThemeData theme, _RowConfig row, int index) {
+    final highlight = _hoveredRowIndex == index;
+    final background = highlight
+        ? theme.colorScheme.surfaceTint.withValues(alpha: 0.08)
+        : Colors.transparent;
+    final borderColor =
+        highlight ? theme.colorScheme.primary.withValues(alpha: 0.24) : null;
+
+    return MouseRegion(
+      onEnter: (_) {
+        setState(() {
+          _hoveredRowIndex = index;
+        });
+      },
+      onExit: (_) {
+        setState(() {
+          _hoveredRowIndex = null;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(12),
+          border: borderColor == null
+              ? null
+              : Border.all(color: borderColor, width: 1),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSpacingCell(theme, row),
+                ),
+                const SizedBox(width: _kGridGutter),
+                Expanded(
+                  child: _buildPinsCell(theme, row),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildResistanceCell(
+                    theme,
+                    row,
+                    row.aResKey,
+                    row.aSample,
+                    OrientationKind.a,
+                    row.hideA,
+                  ),
+                ),
+                const SizedBox(width: _kGridGutter),
+                Expanded(
+                  child: _buildResistanceCell(
+                    theme,
+                    row,
+                    row.bResKey,
+                    row.bSample,
+                    OrientationKind.b,
+                    row.hideB,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _headerLabel(
+    BuildContext context,
+    String label, {
+    required double width,
+    TextStyle? style,
+    String? tooltip,
+  }) {
+    final text = Text(
+      label,
+      textAlign: TextAlign.center,
+      style: style,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+    return SizedBox(
+      width: width,
+      height: _kTableHeaderHeight,
+      child: Center(
+        child: Tooltip(
+          message: tooltip ?? label,
+          waitDuration: const Duration(milliseconds: 400),
+          child: text,
+        ),
       ),
     );
   }
@@ -509,14 +861,18 @@ class _TablePanelState extends State<TablePanel> {
     for (final row in orientationBAsc) {
       orderedKeys.add(row.bResKey);
     }
-    final map = <_FieldKey, _FieldKey?>{};
+    final forward = <_FieldKey, _FieldKey?>{};
+    final reverse = <_FieldKey, _FieldKey?>{};
     _tabSequence = List.unmodifiable(orderedKeys);
     for (var i = 0; i < orderedKeys.length; i++) {
       final current = orderedKeys[i];
       final next = i + 1 < orderedKeys.length ? orderedKeys[i + 1] : null;
-      map[current] = next;
+      final previous = i - 1 >= 0 ? orderedKeys[i - 1] : null;
+      forward[current] = next;
+      reverse[current] = previous;
     }
-    return map;
+    _reverseTabOrder = reverse;
+    return forward;
   }
 
   Map<_FieldKey, double> _buildTabRanks(List<_RowConfig> rows) {
@@ -540,189 +896,70 @@ class _TablePanelState extends State<TablePanel> {
     return ranks;
   }
 
-  DataRow _buildDataRow(BuildContext context, ThemeData theme, _RowConfig row) {
-    final color = row.flags.outlier
-        ? WidgetStatePropertyAll(
-            theme.colorScheme.errorContainer
-                .withValues(alpha: (0.35 * 255).round().toDouble()),
-          )
-        : null;
-
-    return DataRow(
-      color: color,
-      cells: [
-        DataCell(_buildSpacingCell(theme, row)),
-        DataCell(_buildPinsCell(theme, row)),
-        DataCell(
-          _buildResistanceCell(
-            theme,
-            row,
-            row.aResKey,
-            row.aSample,
-            OrientationKind.a,
-            row.hideA,
-          ),
-        ),
-        DataCell(
-          _buildResistanceCell(
-            theme,
-            row,
-            row.bResKey,
-            row.bSample,
-            OrientationKind.b,
-            row.hideB,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _wrapTightCell({
-    required Widget child,
-    double? maxWidth,
-    double minWidth = 0,
-    double height = _kTableRowHeight,
-  }) {
-    final constraints = BoxConstraints(
-      minWidth: minWidth,
-      maxWidth: maxWidth ?? double.infinity,
-      minHeight: height,
-      maxHeight: height,
-    );
-    return ConstrainedBox(
-      constraints: constraints,
-      child: SizedBox(
-        height: height,
-        child: Center(child: child),
-      ),
-    );
-  }
-
   Widget _buildSpacingCell(ThemeData theme, _RowConfig row) {
     final spacingText = formatCompactValue(row.record.spacingFeet);
     final customNote = row.record.interpretation?.trim();
     final customNoteText = customNote ?? '';
     final autoNote = row.record.computeAutoInterpretation();
     final hasCustom = customNote != null && customNote.isNotEmpty;
-    final consistencyLabel = _consistencyLabel(autoNote);
-    final tooltip = hasCustom
-        ? customNoteText
-        : consistencyLabel != null
-            ? 'Consistency compares N–S vs W–E using SD-weighted difference. Lower is better (default threshold ${const QcConfig().sdThresholdPercent.toStringAsFixed(0)}%).'
-            : 'Tap to record interpretation notes';
-    return _wrapTightCell(
-      maxWidth: 130,
-      height: 68,
-      child: ClipRect(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Tooltip(
-              message:
-                  'Inside: ${formatCompactValue(row.insideFeet)} ft (${formatMetersTooltip(row.insideMeters)} m)\n'
-                  'Outside: ${formatCompactValue(row.outsideFeet)} ft (${formatMetersTooltip(row.outsideMeters)} m)',
-              child: Text(
-                '$spacingText ft',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Tooltip(
-              message: tooltip,
-              child: GestureDetector(
-                onTap: () => _editInterpretation(row),
-                behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
-                  child: hasCustom
-                      ? Text(
-                          customNoteText,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                          ),
-                        )
-                      : consistencyLabel != null
-                          ? Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    consistencyLabel,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: _consistencyColor(autoNote, theme),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.info_outline,
-                                  size: 14,
-                                  color: theme.colorScheme.outline,
-                                ),
-                              ],
-                            )
-                          : Text(
-                              'Add note',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: theme.colorScheme.secondary,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPinsCell(ThemeData theme, _RowConfig row) {
-    final inside = formatCompactValue(row.insideFeet);
-    final outside = formatCompactValue(row.outsideFeet);
     final tooltip =
-        'Inside electrodes at ${formatMetersTooltip(row.insideMeters)} m\n'
-        'Outside electrodes at ${formatMetersTooltip(row.outsideMeters)} m';
+        hasCustom ? customNoteText : 'Tap to record interpretation notes';
+    final spacingTooltip =
+        'Inside: ${formatCompactValue(row.insideFeet)} ft (${formatMetersTooltip(row.insideMeters)} m)\n'
+        'Outside: ${formatCompactValue(row.outsideFeet)} ft (${formatMetersTooltip(row.outsideMeters)} m)';
+    final consistencySummary = hasCustom ? null : _consistencySummary(row);
+    final subtitle =
+        hasCustom ? customNoteText : consistencySummary ?? 'Add note';
+    final subtitleStyle = hasCustom
+        ? theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.w600,
+          )
+        : consistencySummary != null
+            ? theme.textTheme.labelSmall?.copyWith(
+                color: _consistencyColor(autoNote, theme),
+                fontWeight: FontWeight.w600,
+              )
+            : theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.secondary,
+                fontStyle: FontStyle.italic,
+              );
 
-    return _wrapTightCell(
-      maxWidth: 120,
-      height: 68,
+    return SizedBox(
+      height: _kTableRowHeight,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Tooltip(
-            message: tooltip,
+            message: spacingTooltip,
+            waitDuration: const Duration(milliseconds: 400),
             child: Text(
-              '$inside / $outside',
+              spacingText,
               textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium,
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            '${formatCompactValue(row.insideMeters)} m · ${formatCompactValue(row.outsideMeters)} m',
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: theme.colorScheme.outline,
+          Tooltip(
+            message: tooltip,
+            waitDuration: const Duration(milliseconds: 400),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _editInterpretation(row),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: subtitleStyle,
+                ),
+              ),
             ),
           ),
         ],
@@ -730,20 +967,71 @@ class _TablePanelState extends State<TablePanel> {
     );
   }
 
-  String? _consistencyLabel(String? autoNote) {
+  Widget _buildPinsCell(ThemeData theme, _RowConfig row) {
+    final inside = formatCompactValue(row.insideFeet);
+    final outside = formatCompactValue(row.outsideFeet);
+    final value = '$inside / $outside';
+    final valid =
+        RegExp(r'^[0-9]+(?:\.[0-9]+)? \/ [0-9]+(?:\.[0-9]+)?$').hasMatch(value);
+    final tooltip =
+        'Inside electrodes at ${formatMetersTooltip(row.insideMeters)} m\n'
+        'Outside electrodes at ${formatMetersTooltip(row.outsideMeters)} m';
+
+    return SizedBox(
+      height: _kTableRowHeight,
+      child: Tooltip(
+        message: tooltip,
+        waitDuration: const Duration(milliseconds: 400),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                value,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+            if (!valid) ...[
+              const SizedBox(width: 4),
+              Icon(
+                Icons.warning_amber_rounded,
+                size: 16,
+                color: theme.colorScheme.error,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _consistencySummary(_RowConfig row) {
+    final autoNote = row.record.computeAutoInterpretation();
     if (autoNote == null) {
       return null;
     }
-    if (autoNote.startsWith('Good')) {
-      return 'Consistency: Good';
+    final sdCandidates = <double>[];
+    final a = row.sdValueA;
+    final b = row.sdValueB;
+    if (a != null) sdCandidates.add(a);
+    if (b != null) sdCandidates.add(b);
+    final worstSd = sdCandidates.isEmpty ? null : sdCandidates.reduce(math.max);
+    final label = autoNote.startsWith('Good')
+        ? 'Consistency: Good'
+        : autoNote.startsWith('Minor')
+            ? 'Consistency: Fair'
+            : 'Consistency: High SD';
+    if (worstSd == null) {
+      return label;
     }
-    if (autoNote.startsWith('Minor')) {
-      return 'Consistency: Fair';
-    }
-    if (autoNote.contains('High SD')) {
-      return 'Consistency: High SD';
-    }
-    return 'Consistency';
+    return '$label • SD ${_formatSd(worstSd)}%';
   }
 
   Color _consistencyColor(String? autoNote, ThemeData theme) {
@@ -788,139 +1076,198 @@ class _TablePanelState extends State<TablePanel> {
         ? theme.colorScheme.error
         : theme.textTheme.labelSmall?.color ??
             theme.colorScheme.onSurfaceVariant;
-    final buttonStyle = TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      minimumSize: const Size(0, 28),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: const VisualDensity(horizontal: -2, vertical: -4),
-    );
-    const controlDensity = VisualDensity(horizontal: -2, vertical: -4);
+
+    final invalidInput = !hide &&
+        controller.text.trim().isNotEmpty &&
+        _parseMaybeDouble(controller.text) == null;
 
     final decoration =
-        hide ? _hiddenResistanceDecoration : _resistanceDecoration;
+        (hide ? _hiddenResistanceDecoration : _resistanceDecoration).copyWith(
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      suffixIcon: invalidInput
+          ? Tooltip(
+              message: 'Enter a numeric value, e.g. 132 or 132.5',
+              waitDuration: const Duration(milliseconds: 400),
+              child: Icon(
+                Icons.error_outline,
+                size: 16,
+                color: theme.colorScheme.error,
+              ),
+            )
+          : null,
+    );
 
-    return Opacity(
-      opacity: hide ? 0.45 : 1.0,
-      child: _wrapTightCell(
-        maxWidth: 150,
-        minWidth: 140,
-        height: 104,
-        child: ClipRect(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 56,
-                child: FocusTraversalOrder(
-                  order: NumericFocusOrder(rank),
-                  child: TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    enabled: !hide,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    textInputAction: TextInputAction.next,
-                    textAlign: TextAlign.center,
-                    maxLengthEnforcement:
-                        MaxLengthEnforcement.truncateAfterCompositionEnds,
-                    inputFormatters: [
-                      LengthLimitingTextInputFormatter(6),
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'^[0-9]{0,4}(\.[0-9]{0,2})?$'),
-                      ),
-                    ],
-                    style: theme.textTheme.titleMedium?.copyWith(
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                          fontWeight: FontWeight.w700,
-                          height: 1.05,
-                        ) ??
-                        const TextStyle(
-                          fontSize: 20,
-                          fontFeatures: [FontFeature.tabularFigures()],
-                          fontWeight: FontWeight.w700,
-                        ),
-                    decoration: decoration,
-                    onChanged: (_) => setState(() {}),
-                    onSubmitted: (value) => _submitResistance(key, value),
-                    onEditingComplete: () =>
-                        _submitResistance(key, controller.text),
-                  ),
-                ),
+    focusNode.onKeyEvent =
+        (node, event) => _handleResistanceKeyEvent(key, controller, event);
+
+    final textField = FocusTraversalOrder(
+      order: NumericFocusOrder(rank),
+      child: Tooltip(
+        message: 'Apparent resistance, Ω',
+        waitDuration: const Duration(milliseconds: 400),
+        child: TextField(
+          controller: controller,
+          focusNode: focusNode,
+          enabled: !hide,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.next,
+          textAlign: TextAlign.center,
+          maxLengthEnforcement:
+              MaxLengthEnforcement.truncateAfterCompositionEnds,
+          inputFormatters: [
+            LengthLimitingTextInputFormatter(6),
+            FilteringTextInputFormatter.allow(
+              RegExp(r'^[0-9]{0,4}(\.[0-9]{0,2})?$'),
+            ),
+          ],
+          style: theme.textTheme.titleMedium?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+                fontWeight: FontWeight.w700,
+                height: 1.1,
+              ) ??
+              const TextStyle(
+                fontSize: 20,
+                fontFeatures: [FontFeature.tabularFigures()],
+                fontWeight: FontWeight.w700,
+                height: 1.1,
               ),
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 36,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: TextButton(
-                        onPressed: hide
-                            ? null
-                            : () => _handleSdPrompt(
-                                  key,
-                                  shouldMoveFocus: false,
-                                  forcePrompt: true,
-                                ),
-                        style: buttonStyle,
-                        child: Text(
-                          'SD $sdText',
-                          textAlign: TextAlign.center,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: sdColor,
-                            fontWeight:
-                                sdWarning ? FontWeight.w600 : FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton(
-                      iconSize: 18,
-                      visualDensity: controlDensity,
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints.tightFor(height: 28, width: 32),
-                      tooltip: isBad
-                          ? 'Marked bad — tap to clear flag'
-                          : 'Mark reading bad',
-                      onPressed: hide
-                          ? null
-                          : () => widget.onToggleBad(
-                                row.record.spacingFeet,
-                                orientation,
-                                !isBad,
-                              ),
-                      icon: Icon(
-                        isBad ? Icons.flag : Icons.outlined_flag,
-                        color: isBad
-                            ? theme.colorScheme.error
-                            : theme.colorScheme.outline,
-                      ),
-                    ),
-                    IconButton(
-                      iconSize: 18,
-                      visualDensity: controlDensity,
-                      padding: EdgeInsets.zero,
-                      constraints:
-                          const BoxConstraints.tightFor(height: 28, width: 32),
-                      tooltip: 'Show edit history',
-                      onPressed: () => widget.onShowHistory(
-                        row.record.spacingFeet,
-                        orientation,
-                      ),
-                      icon: const Icon(Icons.history),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          decoration: decoration,
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (value) {
+            if (_suppressNextSubmitted) {
+              _suppressNextSubmitted = false;
+              return;
+            }
+            _submitResistance(key, value);
+          },
         ),
       ),
     );
+
+    final textFieldContainer = SizedBox(
+      height: _kFieldHeight,
+      child: textField,
+    );
+
+    final buttonStyle = TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      minimumSize: const Size(0, _kFieldHeight),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      alignment: Alignment.center,
+    );
+
+    Widget buildIconButton({
+      required VoidCallback? onPressed,
+      required IconData icon,
+      required String tooltip,
+      Color? color,
+    }) {
+      return Tooltip(
+        message: tooltip,
+        waitDuration: const Duration(milliseconds: 400),
+        child: IconButton(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 18, color: color),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints.tightFor(width: 32, height: 40),
+          splashRadius: 22,
+        ),
+      );
+    }
+
+    return Opacity(
+      opacity: hide ? 0.45 : 1.0,
+      child: SizedBox(
+        height: _kTableRowHeight,
+        child: Row(
+          children: [
+            Expanded(child: textFieldContainer),
+            const SizedBox(width: 6),
+            SizedBox(
+              width: 64,
+              child: TextButton(
+                onPressed: hide
+                    ? null
+                    : () => _handleSdPrompt(
+                          key,
+                          direction: _AdvanceDirection.stay,
+                          forcePrompt: true,
+                        ),
+                style: buttonStyle,
+                child: Text(
+                  'SD $sdText',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: sdColor,
+                    fontWeight: sdWarning ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            buildIconButton(
+              onPressed: hide
+                  ? null
+                  : () => widget.onToggleBad(
+                        row.record.spacingFeet,
+                        orientation,
+                        !isBad,
+                      ),
+              icon: isBad ? Icons.flag : Icons.outlined_flag,
+              tooltip:
+                  isBad ? 'Marked bad — tap to clear flag' : 'Mark reading bad',
+              color:
+                  isBad ? theme.colorScheme.error : theme.colorScheme.outline,
+            ),
+            const SizedBox(width: 4),
+            buildIconButton(
+              onPressed: () => widget.onShowHistory(
+                row.record.spacingFeet,
+                orientation,
+              ),
+              icon: Icons.history,
+              tooltip: 'Show edit history',
+              color: theme.colorScheme.outline,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  KeyEventResult _handleResistanceKeyEvent(
+    _FieldKey key,
+    TextEditingController controller,
+    KeyEvent event,
+  ) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter) {
+      final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+      final isShiftPressed = pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+          pressed.contains(LogicalKeyboardKey.shiftRight);
+      _suppressNextSubmitted = true;
+      _submitResistance(
+        key,
+        controller.text,
+        direction: isShiftPressed
+            ? _AdvanceDirection.backward
+            : _AdvanceDirection.forward,
+      );
+      Timer(const Duration(milliseconds: 80), () {
+        _suppressNextSubmitted = false;
+      });
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      _focusNodes[key]?.unfocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   void _editInterpretation(_RowConfig row) async {
@@ -981,60 +1328,115 @@ class _TablePanelState extends State<TablePanel> {
   }
 
   Widget _buildMetadata(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final fieldControls = <Widget>[
-          _buildPowerField(),
-          _buildSoilDropdown(
-            context,
-            value: widget.site.soil,
-            onChanged: (soil) => widget.onMetadataChanged(soil: soil),
-          ),
-          _buildMoistureDropdown(
-            context,
-            value: widget.site.moisture,
-            onChanged: (level) => widget.onMetadataChanged(moisture: level),
-          ),
-          _buildGroundTemperatureField(),
-          ..._buildStacksControls(context),
-        ];
+    final theme = Theme.of(context);
+    final statusLabel =
+        widget.saveStatusLabel ?? (widget.isSaving ? 'Saving…' : 'Saved');
+    final statusChip = Tooltip(
+      message: statusLabel,
+      waitDuration: const Duration(milliseconds: 400),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.isSaving)
+              SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: theme.colorScheme.primary,
+                ),
+              )
+            else
+              Icon(
+                Icons.check_circle,
+                size: 16,
+                color: theme.colorScheme.primary,
+              ),
+            const SizedBox(width: 6),
+            Text(
+              statusLabel,
+              style: theme.textTheme.labelSmall
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
+          ],
+        ),
+      ),
+    );
 
-        final content = <Widget>[
-          Text(
-            widget.site.displayName,
-            style: Theme.of(context).textTheme.titleMedium,
+    final fieldControls = <Widget>[
+      _buildPowerField(),
+      _buildSoilDropdown(
+        context,
+        value: widget.site.soil,
+        onChanged: (soil) => widget.onMetadataChanged(soil: soil),
+      ),
+      _buildMoistureDropdown(
+        context,
+        value: widget.site.moisture,
+        onChanged: (level) => widget.onMetadataChanged(moisture: level),
+      ),
+      _buildGroundTemperatureField(),
+      _buildLocationCaptureField(context),
+      ..._buildStacksControls(context),
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  widget.site.displayName,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: kDenseGap),
+              statusChip,
+            ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: kDenseGap),
           Wrap(
-            spacing: 12,
-            runSpacing: 10,
+            spacing: kDenseGap,
+            runSpacing: kDenseGap,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: fieldControls,
           ),
-        ];
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: content,
-          ),
-        );
-      },
+        ],
+      ),
     );
   }
 
   Widget _buildPowerField() {
     return SizedBox(
-      width: 140,
+      width: _kMetaFieldWidth,
       child: TextFormField(
         initialValue: widget.site.powerMilliAmps.toStringAsFixed(2),
         decoration: const InputDecoration(
           labelText: 'Power (mA)',
           isDense: true,
           border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          contentPadding: kDenseFieldPadding,
         ),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textInputAction: TextInputAction.next,
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+        ],
         onFieldSubmitted: (value) {
           final parsed = double.tryParse(value);
           if (parsed != null) {
@@ -1047,17 +1449,20 @@ class _TablePanelState extends State<TablePanel> {
 
   Widget _buildGroundTemperatureField() {
     return SizedBox(
-      width: 140,
+      width: _kMetaFieldWidth,
       child: TextFormField(
         initialValue: widget.site.groundTemperatureF.toStringAsFixed(1),
         decoration: const InputDecoration(
-          labelText: 'Ground temp (°F)',
+          labelText: 'Ground T (°F)',
           isDense: true,
           border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          contentPadding: kDenseFieldPadding,
         ),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textInputAction: TextInputAction.next,
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+        ],
         onFieldSubmitted: (value) {
           final parsed = double.tryParse(value);
           if (parsed != null) {
@@ -1068,6 +1473,235 @@ class _TablePanelState extends State<TablePanel> {
     );
   }
 
+  Widget _buildLocationCaptureField(BuildContext context) {
+    final state = ref.watch(locationCaptureProvider);
+    final theme = Theme.of(context);
+    final sessionResult = state.latest;
+    final storedLocation = widget.site.location;
+    final storedReading =
+        storedLocation != null ? _readingFromLocation(storedLocation) : null;
+    final sessionReading = sessionResult != null &&
+            sessionResult.status == LocationStatus.success &&
+            sessionResult.reading != null
+        ? sessionResult.reading
+        : null;
+    final displayReading = sessionReading ?? storedReading;
+    final busy = state.isLoading;
+
+    final hasFix = displayReading != null;
+    final statusText = _locationStatusText(
+      hasFix: hasFix,
+      busy: busy,
+      result: sessionResult,
+      reading: displayReading,
+    );
+    final statusColor = _locationStatusColor(
+      theme,
+      hasFix: hasFix,
+      busy: busy,
+      result: sessionResult,
+    );
+    final showClear = storedLocation != null && !busy;
+    final caption = hasFix
+        ? '${displayReading.latitude.toStringAsFixed(4)}, '
+            '${displayReading.longitude.toStringAsFixed(4)}'
+        : 'No fix';
+
+    final buttonStyle = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 32),
+      padding: kDenseButtonPadding,
+      visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+      textStyle: theme.textTheme.labelSmall,
+    );
+
+    return SizedBox(
+      width: _kMetaFieldWidth + 52,
+      child: InputDecorator(
+        decoration: const InputDecoration(
+          labelText: 'GPS',
+          isDense: true,
+          contentPadding: kDenseFieldPadding,
+          border: OutlineInputBorder(),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              style: buttonStyle,
+              onPressed: busy ? null : () => _requestLocationCapture(context),
+              icon: busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      hasFix ? Icons.gps_fixed : Icons.gps_not_fixed,
+                      size: 18,
+                    ),
+              label: const Text('GPS'),
+            ),
+            const SizedBox(width: kDenseGap),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    caption,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  if (statusText.isNotEmpty)
+                    Text(
+                      statusText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: statusColor,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (showClear) ...[
+              const SizedBox(width: 4),
+              Tooltip(
+                message: 'Clear stored GPS fix',
+                waitDuration: const Duration(milliseconds: 400),
+                child: IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 30,
+                    height: 30,
+                  ),
+                  onPressed: () => _clearLocation(context),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _requestLocationCapture(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final theme = Theme.of(context);
+    final notifier = ref.read(locationCaptureProvider.notifier);
+    final result = await notifier.request();
+    if (!mounted) {
+      return;
+    }
+    final message = result.message;
+    if (result.status == LocationStatus.success) {
+      final reading = result.reading;
+      if (reading == null) {
+        return;
+      }
+      widget.onMetadataChanged(
+        location: SiteLocation(
+          latitude: reading.latitude,
+          longitude: reading.longitude,
+          altitudeMeters: reading.altitudeMeters,
+          accuracyMeters: reading.accuracyMeters,
+          capturedAt: reading.timestamp,
+        ),
+        updateLocation: true,
+      );
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'GPS fix captured '
+            '${reading.latitude.toStringAsFixed(5)}, '
+            '${reading.longitude.toStringAsFixed(5)}',
+          ),
+        ),
+      );
+    } else if (message != null && message.isNotEmpty) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: theme.colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  void _clearLocation(BuildContext context) {
+    widget.onMetadataChanged(location: null, updateLocation: true);
+    ref.read(locationCaptureProvider.notifier).reset();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('GPS fix cleared')),
+    );
+  }
+
+  LocationReading _readingFromLocation(SiteLocation location) {
+    return LocationReading(
+      latitude: location.latitude,
+      longitude: location.longitude,
+      altitudeMeters: location.altitudeMeters,
+      accuracyMeters: location.accuracyMeters,
+      timestamp: location.capturedAt,
+    );
+  }
+
+  String _locationStatusText({
+    required bool hasFix,
+    required bool busy,
+    required LocationResult? result,
+    required LocationReading? reading,
+  }) {
+    if (busy) {
+      return '';
+    }
+    if (result != null && result.status != LocationStatus.success) {
+      return result.message ?? _statusFallbackLabel(result.status);
+    }
+    return '';
+  }
+
+  Color? _locationStatusColor(
+    ThemeData theme, {
+    required bool hasFix,
+    required bool busy,
+    required LocationResult? result,
+  }) {
+    if (busy) {
+      return theme.colorScheme.primary;
+    }
+    if (result != null && result.status != LocationStatus.success) {
+      return theme.colorScheme.error;
+    }
+    if (hasFix) {
+      return theme.colorScheme.primary;
+    }
+    return theme.colorScheme.outline;
+  }
+
+  String _statusFallbackLabel(LocationStatus status) {
+    switch (status) {
+      case LocationStatus.permissionDenied:
+        return 'Permission denied';
+      case LocationStatus.permissionsUnknown:
+        return 'Permissions unavailable';
+      case LocationStatus.servicesDisabled:
+        return 'GPS disabled';
+      case LocationStatus.timeout:
+        return 'Timed out waiting for GPS';
+      case LocationStatus.unavailable:
+        return 'GPS unavailable';
+      case LocationStatus.error:
+        return 'GPS error';
+      case LocationStatus.success:
+        return 'GPS ready';
+    }
+  }
+
   Widget _buildSoilDropdown(
     BuildContext context, {
     required SoilType value,
@@ -1075,14 +1709,14 @@ class _TablePanelState extends State<TablePanel> {
   }) {
     final theme = Theme.of(context);
     return SizedBox(
-      width: 140,
+      width: _kMetaFieldWidth,
       child: DropdownButtonFormField<SoilType>(
         initialValue: value,
         isExpanded: true,
         decoration: const InputDecoration(
           labelText: 'Soil',
           isDense: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          contentPadding: kDenseFieldPadding,
           border: OutlineInputBorder(),
         ),
         iconSize: 18,
@@ -1113,14 +1747,14 @@ class _TablePanelState extends State<TablePanel> {
   }) {
     final theme = Theme.of(context);
     return SizedBox(
-      width: 140,
+      width: _kMetaFieldWidth,
       child: DropdownButtonFormField<MoistureLevel>(
         initialValue: value,
         isExpanded: true,
         decoration: const InputDecoration(
           labelText: 'Moisture',
           isDense: true,
-          contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          contentPadding: kDenseFieldPadding,
           border: OutlineInputBorder(),
         ),
         iconSize: 18,
@@ -1151,10 +1785,15 @@ class _TablePanelState extends State<TablePanel> {
     }
     return [
       SizedBox(
-        width: 96,
+        width: _kMetaFieldWidth,
         child: TextFormField(
           initialValue: widget.site.stacks.toString(),
-          decoration: const InputDecoration(labelText: 'Stacks'),
+          decoration: const InputDecoration(
+            labelText: 'Stacks',
+            isDense: true,
+            border: OutlineInputBorder(),
+            contentPadding: kDenseFieldPadding,
+          ),
           keyboardType: const TextInputType.numberWithOptions(signed: false),
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           onFieldSubmitted: (value) {
@@ -1206,7 +1845,11 @@ class _TablePanelState extends State<TablePanel> {
     return node;
   }
 
-  void _submitResistance(_FieldKey key, String value) {
+  void _submitResistance(
+    _FieldKey key,
+    String value, {
+    _AdvanceDirection direction = _AdvanceDirection.forward,
+  }) {
     final parsed = _clampResistance(_parseMaybeDouble(value));
     final orientation = key.orientation;
     if (orientation == null) {
@@ -1218,34 +1861,31 @@ class _TablePanelState extends State<TablePanel> {
       parsed,
       null,
     );
-    unawaited(_handleSdPrompt(key, shouldMoveFocus: true));
+    unawaited(_handleSdPrompt(
+      key,
+      direction: direction,
+    ));
   }
 
   Future<void> _handleSdPrompt(
     _FieldKey key, {
-    bool shouldMoveFocus = true,
+    _AdvanceDirection direction = _AdvanceDirection.forward,
     bool forcePrompt = false,
   }) async {
     if (!forcePrompt && !_askForSd) {
-      if (shouldMoveFocus) {
-        _moveFocus(key);
-      }
+      _advanceFocus(key, direction);
       return;
     }
 
     final row = _rowByField[key];
     if (row == null) {
-      if (shouldMoveFocus) {
-        _moveFocus(key);
-      }
+      _advanceFocus(key, direction);
       return;
     }
 
     final orientation = key.orientation;
     if (orientation == null) {
-      if (shouldMoveFocus) {
-        _moveFocus(key);
-      }
+      _advanceFocus(key, direction);
       return;
     }
     final sample = orientation == OrientationKind.a ? row.aSample : row.bSample;
@@ -1277,9 +1917,7 @@ class _TablePanelState extends State<TablePanel> {
       }
     }
 
-    if (shouldMoveFocus) {
-      _moveFocus(key);
-    }
+    _advanceFocus(key, direction);
   }
 
   Future<_SdPromptResult?> _showSdPrompt({
@@ -1371,7 +2009,20 @@ class _TablePanelState extends State<TablePanel> {
     }
   }
 
-  void _moveFocus(_FieldKey key) {
+  void _advanceFocus(_FieldKey key, _AdvanceDirection direction) {
+    switch (direction) {
+      case _AdvanceDirection.forward:
+        _moveFocusForward(key);
+        break;
+      case _AdvanceDirection.backward:
+        _moveFocusBackward(key);
+        break;
+      case _AdvanceDirection.stay:
+        break;
+    }
+  }
+
+  void _moveFocusForward(_FieldKey key) {
     final next = _tabOrder[key];
     if (next == null) {
       _focusNodes[key]?.unfocus();
@@ -1380,6 +2031,18 @@ class _TablePanelState extends State<TablePanel> {
     final nextNode = _focusNodes[next];
     if (nextNode != null) {
       FocusScope.of(context).requestFocus(nextNode);
+    }
+  }
+
+  void _moveFocusBackward(_FieldKey key) {
+    final previous = _reverseTabOrder[key];
+    if (previous == null) {
+      _focusNodes[key]?.unfocus();
+      return;
+    }
+    final previousNode = _focusNodes[previous];
+    if (previousNode != null) {
+      FocusScope.of(context).requestFocus(previousNode);
     }
   }
 
@@ -1492,22 +2155,29 @@ class TablePanelDebugFixture extends StatelessWidget {
       spacings: spacings,
     );
 
-    return TablePanel(
-      site: site,
-      projectDefaultStacks: 4,
-      showOutliers: true,
-      onResistanceChanged: (_, __, ___, ____) {},
-      onSdChanged: (_, __, ___) {},
-      onInterpretationChanged: (_, __) {},
-      onToggleBad: (_, __, ___) {},
-      onMetadataChanged: (
-          {double? power,
+    return ProviderScope(
+      child: TablePanel(
+        site: site,
+        projectDefaultStacks: 4,
+        showOutliers: true,
+        onResistanceChanged: (_, __, ___, ____) {},
+        onSdChanged: (_, __, ___) {},
+        onInterpretationChanged: (_, __) {},
+        onToggleBad: (_, __, ___) {},
+        onMetadataChanged: ({
+          double? power,
           int? stacks,
           SoilType? soil,
           MoistureLevel? moisture,
-          double? groundTemperatureF}) {},
-      onShowHistory: (_, __) async {},
-      onFocusChanged: (_, __) {},
+          double? groundTemperatureF,
+          SiteLocation? location,
+          bool? updateLocation,
+        }) {},
+        onShowHistory: (_, __) async {},
+        onFocusChanged: (_, __) {},
+        isSaving: false,
+        saveStatusLabel: 'Saved',
+      ),
     );
   }
 }
@@ -1524,5 +2194,63 @@ String _soilShortLabel(SoilType soil) {
       return 'Gravel';
     case SoilType.mixed:
       return 'Mixed';
+  }
+}
+
+class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _StickyHeaderDelegate({
+    required this.minExtent,
+    required this.maxExtent,
+    required this.builder,
+  });
+
+  @override
+  final double minExtent;
+
+  @override
+  final double maxExtent;
+
+  final Widget Function(BuildContext context, bool overlapsContent) builder;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return builder(context, overlapsContent);
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickyHeaderDelegate oldDelegate) => false;
+}
+
+class _StickyHeaderContainer extends StatelessWidget {
+  const _StickyHeaderContainer({
+    required this.child,
+    required this.overlaps,
+  });
+
+  final Widget child;
+  final bool overlaps;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        boxShadow: overlaps
+            ? [
+                BoxShadow(
+                  color: theme.shadowColor.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ]
+            : null,
+      ),
+      child: child,
+    );
   }
 }
