@@ -28,6 +28,9 @@ class RightRail extends StatefulWidget {
     int? stacks,
     SoilType? soil,
     MoistureLevel? moisture,
+    double? groundTemperatureF,
+    SiteLocation? location,
+    bool? updateLocation,
   }) onMetadataChanged;
   final TwoLayerInversionResult? inversionResult;
   final bool isInversionLoading;
@@ -41,6 +44,14 @@ class RightRail extends StatefulWidget {
 }
 
 class _RightRailState extends State<RightRail> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _openSiteSettings() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -65,190 +76,126 @@ class _RightRailState extends State<RightRail> {
     );
   }
 
+  void _handleMenuSelection(_RightRailMenuAction action) {
+    switch (action) {
+      case _RightRailMenuAction.exportCsv:
+        widget.onExportCsv?.call();
+        break;
+      case _RightRailMenuAction.exportSitePdf:
+        widget.onExportSitePdf?.call();
+        break;
+      case _RightRailMenuAction.exportAllSitesPdf:
+        widget.onExportAllSitesPdf?.call();
+        break;
+      case _RightRailMenuAction.settings:
+        _openSiteSettings();
+        break;
+    }
+  }
+
+  PopupMenuEntry<_RightRailMenuAction> _buildMenuItem(
+    _RightRailMenuAction action,
+    IconData icon,
+    String label,
+  ) {
+    return PopupMenuItem<_RightRailMenuAction>(
+      value: action,
+      child: Row(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverflowMenu(BuildContext context) {
+    final items = <PopupMenuEntry<_RightRailMenuAction>>[];
+    if (widget.onExportCsv != null) {
+      items.add(
+        _buildMenuItem(
+          _RightRailMenuAction.exportCsv,
+          Icons.file_download,
+          'Export CSV & DAT',
+        ),
+      );
+    }
+    if (widget.onExportSitePdf != null) {
+      items.add(
+        _buildMenuItem(
+          _RightRailMenuAction.exportSitePdf,
+          Icons.picture_as_pdf,
+          'Site PDF…',
+        ),
+      );
+    }
+    if (widget.onExportAllSitesPdf != null) {
+      items.add(
+        _buildMenuItem(
+          _RightRailMenuAction.exportAllSitesPdf,
+          Icons.print,
+          'All sites PDF',
+        ),
+      );
+    }
+    items.add(
+      _buildMenuItem(
+        _RightRailMenuAction.settings,
+        Icons.tune,
+        'Site settings',
+      ),
+    );
+    return PopupMenuButton<_RightRailMenuAction>(
+      tooltip: 'More actions',
+      icon: const Icon(Icons.more_horiz),
+      onSelected: _handleMenuSelection,
+      itemBuilder: (context) => items,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final safeResult = tryRenderSafe<TwoLayerInversionResult?>(
       widget.inversionResult,
       null,
     );
 
-    Widget? buildActions() {
-      if (widget.onExportCsv == null &&
-          widget.onExportSitePdf == null &&
-          widget.onExportAllSitesPdf == null) {
-        return null;
-      }
-      return Card(
-        clipBehavior: Clip.antiAlias,
-        color: theme.colorScheme.surfaceContainerHighest,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Quick actions',
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  if (widget.onExportCsv != null)
-                    FilledButton.icon(
-                      icon: const Icon(Icons.file_download),
-                      label: const Text('Export CSV & DAT'),
-                      onPressed: widget.onExportCsv,
-                    ),
-                  if (widget.onExportSitePdf != null)
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.picture_as_pdf),
-                      label: const Text('Site PDF…'),
-                      onPressed: widget.onExportSitePdf,
-                    ),
-                  if (widget.onExportAllSitesPdf != null)
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.print),
-                      label: const Text('All sites PDF'),
-                      onPressed: widget.onExportAllSitesPdf,
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    Widget buildSiteSummary() {
-      return Card(
-        color: theme.colorScheme.surfaceContainerHigh,
-        clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.site.displayName,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'ID ${widget.site.siteId}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.outline,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _openSiteSettings,
-                    icon: const Icon(Icons.tune),
-                    label: const Text('Site settings'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                children: [
-                  _SummaryChip(
-                    label: 'Power',
-                    value:
-                        '${widget.site.powerMilliAmps.toStringAsFixed(1)} mA',
-                    icon: Icons.bolt,
-                  ),
-                  _SummaryChip(
-                    label: 'Stacks',
-                    value: '${widget.site.stacks}',
-                    icon: Icons.repeat,
-                  ),
-                  _SummaryChip(
-                    label: 'Soil',
-                    value: widget.site.soil.label,
-                    icon: Icons.terrain,
-                  ),
-                  _SummaryChip(
-                    label: 'Moisture',
-                    value: widget.site.moisture.label,
-                    icon: Icons.water_drop,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final actions = buildActions();
+          final plotHeight = constraints.maxHeight.isFinite
+              ? (constraints.maxHeight - 140).clamp(260, 440).toDouble()
+              : 320.0;
+          final panel = InversionSummaryPanel(
+            site: widget.site,
+            result: safeResult,
+            isLoading: widget.isInversionLoading,
+            distanceUnit: widget.distanceUnit,
+            margin: EdgeInsets.zero,
+            plotHeight: plotHeight,
+            trailing: _buildOverflowMenu(context),
+          );
+
           if (!constraints.maxHeight.isFinite) {
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                buildSiteSummary(),
-                const SizedBox(height: 12),
-                InversionSummaryPanel(
-                  site: widget.site,
-                  result: safeResult,
-                  isLoading: widget.isInversionLoading,
-                  distanceUnit: widget.distanceUnit,
-                  margin: EdgeInsets.zero,
-                  plotHeight: 300,
-                ),
-                if (actions != null) ...[
-                  const SizedBox(height: 12),
-                  actions,
-                ],
-              ],
-            );
+            return panel;
           }
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              buildSiteSummary(),
-              const SizedBox(height: 12),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: InversionSummaryPanel(
-                    site: widget.site,
-                    result: safeResult,
-                    isLoading: widget.isInversionLoading,
-                    distanceUnit: widget.distanceUnit,
-                    margin: EdgeInsets.zero,
-                    plotHeight: (constraints.maxHeight - 220)
-                        .clamp(260, 420)
-                        .toDouble(),
-                  ),
-                ),
-              ),
-              if (actions != null) ...[
-                const SizedBox(height: 12),
-                actions,
-              ],
-            ],
+          return Scrollbar(
+            controller: _scrollController,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              padding: const EdgeInsets.only(bottom: 12),
+              child: panel,
+            ),
           );
         },
       ),
@@ -256,52 +203,9 @@ class _RightRailState extends State<RightRail> {
   }
 }
 
-class _SummaryChip extends StatelessWidget {
-  const _SummaryChip({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: theme.colorScheme.primary),
-          const SizedBox(width: 6),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-              Text(
-                value,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+enum _RightRailMenuAction {
+  exportCsv,
+  exportSitePdf,
+  exportAllSitesPdf,
+  settings,
 }
