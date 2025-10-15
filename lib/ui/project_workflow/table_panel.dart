@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../models/calc.dart';
 import '../../models/direction_reading.dart';
 import '../../models/site.dart';
@@ -11,16 +12,36 @@ import '../../services/location_service.dart';
 import '../../state/prefs.dart';
 import '../../state/providers.dart';
 import '../../utils/format.dart';
+import '../layout/grid_4.dart';
 import '../style/density.dart';
 
 const double _kTableHeaderHeight = 34;
-const double _kTableRowHeight = 48;
-const int _kSpacingColumnFlex = 12;
-const int _kPinsColumnFlex = 12;
-const int _kResistanceColumnFlex = 14;
-const double _kGridGutter = 10;
+const double _kTableRowHeight = 44;
 const double _kHeaderFieldGap = 2;
 const double _kFieldHeight = 40;
+const double _kColumnGutter = 12;
+const double _kAccessoryRailWidth = 96;
+const OutlineInputBorder _kResBorder = OutlineInputBorder(
+  borderSide: BorderSide(width: 1.0),
+);
+
+InputDecoration _resFieldDecoration({
+  String? hintText,
+  Widget? suffixIcon,
+}) {
+  return InputDecoration(
+    isDense: true,
+    hintText: hintText,
+    constraints: const BoxConstraints.tightFor(height: _kFieldHeight),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+    border: _kResBorder,
+    enabledBorder: _kResBorder,
+    disabledBorder: _kResBorder,
+    focusedBorder: _kResBorder,
+    suffixIcon: suffixIcon,
+    suffixIconConstraints: const BoxConstraints.tightFor(height: _kFieldHeight),
+  );
+}
 
 class TablePanel extends ConsumerStatefulWidget {
   const TablePanel({
@@ -168,23 +189,6 @@ class _TablePanelState extends ConsumerState<TablePanel> {
   final ScrollController _tableController = ScrollController();
   final Map<_FieldKey, _RowConfig> _rowByField = {};
   static final RegExp _sdPromptRegExp = RegExp(TablePanel.sdPromptPattern);
-  static const InputDecoration _resistanceDecoration = InputDecoration(
-    isDense: false,
-    contentPadding: EdgeInsets.symmetric(
-      vertical: 12,
-      horizontal: 12,
-    ),
-    border: OutlineInputBorder(),
-  );
-  static const InputDecoration _hiddenResistanceDecoration = InputDecoration(
-    isDense: false,
-    contentPadding: EdgeInsets.symmetric(
-      vertical: 12,
-      horizontal: 12,
-    ),
-    hintText: 'Hidden',
-    border: OutlineInputBorder(),
-  );
   TablePreferences? _prefs;
   bool _askForSd = true;
   List<_FieldKey> _tabSequence = const [];
@@ -491,7 +495,10 @@ class _TablePanelState extends ConsumerState<TablePanel> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: minWidth),
+          constraints: BoxConstraints(
+            minWidth: minWidth,
+            maxWidth: minWidth,
+          ),
           child: SizedBox(
             height: maxHeight,
             child: vertical,
@@ -518,8 +525,8 @@ class _TablePanelState extends ConsumerState<TablePanel> {
           sliver: SliverPersistentHeader(
             pinned: true,
             delegate: _StickyHeaderDelegate(
-              minExtent: (_kTableHeaderHeight * 2) + (_kHeaderFieldGap * 2) + 1,
-              maxExtent: (_kTableHeaderHeight * 2) + (_kHeaderFieldGap * 2) + 1,
+              minExtent: _kTableHeaderHeight + _kHeaderFieldGap + 1,
+              maxExtent: _kTableHeaderHeight + _kHeaderFieldGap + 1,
               builder: (context, overlaps) {
                 return _StickyHeaderContainer(
                   overlaps: overlaps,
@@ -583,57 +590,12 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     String orientationALabel,
     String orientationBLabel,
   ) {
-    return Padding(
+    return _buildHeaderGrid(
+      context: context,
+      style: style,
+      orientationALabel: orientationALabel,
+      orientationBLabel: orientationBLabel,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Flexible(
-            flex: _kSpacingColumnFlex,
-            fit: FlexFit.tight,
-            child: _headerLabel(
-              context,
-              'a-spacing (ft)',
-              style: style,
-              tooltip: 'Source electrode spacing, feet',
-            ),
-          ),
-          const SizedBox(width: _kGridGutter),
-          Flexible(
-            flex: _kPinsColumnFlex,
-            fit: FlexFit.tight,
-            child: _headerLabel(
-              context,
-              'Pins at (ft)',
-              style: style,
-              tooltip:
-                  'Inside/outside electrode positions derived from spacing (feet)',
-            ),
-          ),
-          const SizedBox(width: _kGridGutter),
-          Flexible(
-            flex: _kResistanceColumnFlex,
-            fit: FlexFit.tight,
-            child: _headerLabel(
-              context,
-              'Res $orientationALabel (Ω)',
-              style: style,
-              tooltip: 'Apparent resistance for $orientationALabel orientation',
-            ),
-          ),
-          const SizedBox(width: _kGridGutter),
-          Flexible(
-            flex: _kResistanceColumnFlex,
-            fit: FlexFit.tight,
-            child: _headerLabel(
-              context,
-              'Res $orientationBLabel (Ω)',
-              style: style,
-              tooltip: 'Apparent resistance for $orientationBLabel orientation',
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -643,63 +605,82 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     String orientationALabel,
     String orientationBLabel,
   ) {
-    return Padding(
+    return _buildHeaderGrid(
+      context: context,
+      style: style,
+      orientationALabel: orientationALabel,
+      orientationBLabel: orientationBLabel,
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                flex: _kSpacingColumnFlex,
-                child: _headerLabel(
-                  context,
-                  'a-spacing (ft)',
-                  style: style,
-                  tooltip: 'Source electrode spacing, feet',
-                ),
-              ),
-              const SizedBox(width: _kGridGutter),
-              Expanded(
-                flex: _kPinsColumnFlex,
-                child: _headerLabel(
-                  context,
-                  'Pins at (ft)',
-                  style: style,
-                  tooltip:
-                      'Inside/outside electrode positions derived from spacing (feet)',
-                ),
-              ),
-            ],
+    );
+  }
+
+  Widget _buildHeaderGrid({
+    required BuildContext context,
+    required TextStyle? style,
+    required String orientationALabel,
+    required String orientationBLabel,
+    required EdgeInsets padding,
+  }) {
+    return FourColLayout(
+      padding: padding,
+      gutter: _kColumnGutter,
+      builder: (ctx, spec) {
+        Widget buildCell({
+          required Key key,
+          required double width,
+          required String label,
+          String? subLabel,
+          String? tooltip,
+        }) {
+          return SizedBox(
+            key: key,
+            width: width,
+            child: _headerLabel(
+              context,
+              label,
+              style: style,
+              tooltip: tooltip ?? label,
+              subLabel: subLabel,
+            ),
+          );
+        }
+
+        final children = <Widget>[
+          buildCell(
+            key: const Key('hdr_c1'),
+            width: spec.c1,
+            label: 'a-spacing (ft)',
+            tooltip: 'Source electrode spacing, feet',
           ),
-          const SizedBox(height: _kHeaderFieldGap),
-          Row(
-            children: [
-              Expanded(
-                flex: _kResistanceColumnFlex,
-                child: _headerLabel(
-                  context,
-                  'Res $orientationALabel (Ω)',
-                  style: style,
-                  tooltip:
-                      'Apparent resistance for $orientationALabel orientation',
-                ),
-              ),
-              const SizedBox(width: _kGridGutter),
-              Expanded(
-                flex: _kResistanceColumnFlex,
-                child: _headerLabel(
-                  context,
-                  'Res $orientationBLabel (Ω)',
-                  style: style,
-                  tooltip:
-                      'Apparent resistance for $orientationBLabel orientation',
-                ),
-              ),
-            ],
+          if (spec.gutter > 0) SizedBox(width: spec.gutter),
+          buildCell(
+            key: const Key('hdr_c2'),
+            width: spec.c2,
+            label: 'Pins (ft)',
+            subLabel: 'in / out',
+            tooltip:
+                'Inside/outside electrode positions derived from spacing (feet)',
           ),
-        ],
-      ),
+          if (spec.gutter > 0) SizedBox(width: spec.gutter),
+          buildCell(
+            key: const Key('hdr_c3'),
+            width: spec.c3,
+            label: 'Res $orientationALabel',
+            tooltip:
+                'Apparent resistance for $orientationALabel orientation (ohms)',
+          ),
+          if (spec.gutter > 0) SizedBox(width: spec.gutter),
+          buildCell(
+            key: const Key('hdr_c4'),
+            width: spec.c4,
+            label: 'Res $orientationBLabel',
+            tooltip:
+                'Apparent resistance for $orientationBLabel orientation (ohms)',
+          ),
+        ];
+
+        return Row(children: children);
+      },
     );
   }
 
@@ -731,48 +712,56 @@ class _TablePanelState extends ConsumerState<TablePanel> {
               ? null
               : Border.all(color: borderColor, width: 1),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Flexible(
-              flex: _kSpacingColumnFlex,
-              fit: FlexFit.tight,
-              child: _buildSpacingCell(theme, row),
-            ),
-            const SizedBox(width: _kGridGutter),
-            Flexible(
-              flex: _kPinsColumnFlex,
-              fit: FlexFit.tight,
-              child: _buildPinsCell(theme, row),
-            ),
-            const SizedBox(width: _kGridGutter),
-            Flexible(
-              flex: _kResistanceColumnFlex,
-              fit: FlexFit.tight,
-              child: _buildResistanceCell(
-                theme,
-                row,
-                row.aResKey,
-                row.aSample,
-                OrientationKind.a,
-                row.hideA,
+        padding: EdgeInsets.zero,
+        child: FourColLayout(
+          gutter: _kColumnGutter,
+          builder: (ctx, spec) {
+            return SizedBox(
+              height: _kTableRowHeight,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _buildDataColumnCell(
+                    width: spec.c1,
+                    columnIndex: 1,
+                    rowIndex: index,
+                    child: _buildSpacingCell(theme, row),
+                  ),
+                  if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                  _buildDataColumnCell(
+                    width: spec.c2,
+                    columnIndex: 2,
+                    rowIndex: index,
+                    child: _buildPinsCell(theme, row),
+                  ),
+                  if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                  _buildCluster(
+                    theme: theme,
+                    row: row,
+                    key: row.aResKey,
+                    orientation: OrientationKind.a,
+                    hide: row.hideA,
+                    rowIndex: index,
+                    columnIndex: 3,
+                    width: spec.c3,
+                    showAccessories: true,
+                  ),
+                  if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                  _buildCluster(
+                    theme: theme,
+                    row: row,
+                    key: row.bResKey,
+                    orientation: OrientationKind.b,
+                    hide: row.hideB,
+                    rowIndex: index,
+                    columnIndex: 4,
+                    width: spec.c4,
+                    showAccessories: true,
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: _kGridGutter),
-            Flexible(
-              flex: _kResistanceColumnFlex,
-              fit: FlexFit.tight,
-              child: _buildResistanceCell(
-                theme,
-                row,
-                row.bResKey,
-                row.bSample,
-                OrientationKind.b,
-                row.hideB,
-              ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -806,48 +795,535 @@ class _TablePanelState extends ConsumerState<TablePanel> {
               ? null
               : Border.all(color: borderColor, width: 1),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          children: [
-            Row(
+        padding: EdgeInsets.zero,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 1250;
+            final isNarrow = constraints.maxWidth < 920;
+            return FourColLayout(
+              gutter: _kColumnGutter,
+              builder: (ctx, spec) {
+                if (!isNarrow) {
+                  final children = <Widget>[
+                    _buildDataColumnCell(
+                      width: spec.c1,
+                      columnIndex: 1,
+                      rowIndex: index,
+                      child: _buildSpacingCell(theme, row),
+                    ),
+                    if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                    _buildDataColumnCell(
+                      width: spec.c2,
+                      columnIndex: 2,
+                      rowIndex: index,
+                      child: _buildPinsCell(theme, row),
+                    ),
+                    if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                    _buildCluster(
+                      theme: theme,
+                      row: row,
+                      key: row.aResKey,
+                      orientation: OrientationKind.a,
+                      hide: row.hideA,
+                      rowIndex: index,
+                      columnIndex: 3,
+                      width: spec.c3,
+                      showAccessories: isDesktop,
+                    ),
+                    if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                    _buildCluster(
+                      theme: theme,
+                      row: row,
+                      key: row.bResKey,
+                      orientation: OrientationKind.b,
+                      hide: row.hideB,
+                      rowIndex: index,
+                      columnIndex: 4,
+                      width: spec.c4,
+                      showAccessories: isDesktop,
+                    ),
+                  ];
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: children,
+                  );
+                }
+
+                final gutter = spec.gutter;
+                final offsetWidth = spec.c1 + spec.c2 + spec.c3 + (gutter * 3);
+
+                final lineA = SizedBox(
+                  height: _kTableRowHeight,
+                  child: Row(
+                    children: [
+                      _buildDataColumnCell(
+                        width: spec.c1,
+                        columnIndex: 1,
+                        rowIndex: index,
+                        child: _buildSpacingCell(theme, row),
+                      ),
+                      if (gutter > 0) SizedBox(width: gutter),
+                      _buildDataColumnCell(
+                        width: spec.c2,
+                        columnIndex: 2,
+                        rowIndex: index,
+                        child: _buildPinsCell(theme, row),
+                      ),
+                      if (gutter > 0) SizedBox(width: gutter),
+                      _buildCluster(
+                        theme: theme,
+                        row: row,
+                        key: row.aResKey,
+                        orientation: OrientationKind.a,
+                        hide: row.hideA,
+                        rowIndex: index,
+                        columnIndex: 3,
+                        width: spec.c3,
+                        showAccessories: false,
+                      ),
+                      if (gutter > 0) SizedBox(width: gutter),
+                      SizedBox(width: spec.c4),
+                    ],
+                  ),
+                );
+
+                final lineB = SizedBox(
+                  height: _kTableRowHeight,
+                  child: Row(
+                    children: [
+                      SizedBox(width: offsetWidth),
+                      _buildCluster(
+                        theme: theme,
+                        row: row,
+                        key: row.bResKey,
+                        orientation: OrientationKind.b,
+                        hide: row.hideB,
+                        rowIndex: index,
+                        columnIndex: 4,
+                        width: spec.c4,
+                        showAccessories: false,
+                      ),
+                    ],
+                  ),
+                );
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    lineA,
+                    const SizedBox(height: 6),
+                    lineB,
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataColumnCell({
+    required double width,
+    required int columnIndex,
+    required int rowIndex,
+    required Widget child,
+  }) {
+    return SizedBox(
+      key: Key('row${rowIndex}_c$columnIndex'),
+      width: width,
+      child: child,
+    );
+  }
+
+  Widget _buildCluster({
+    required ThemeData theme,
+    required _RowConfig row,
+    required _FieldKey key,
+    required OrientationKind orientation,
+    required bool hide,
+    required int rowIndex,
+    required int columnIndex,
+    required double width,
+    required bool showAccessories,
+  }) {
+    final sample = orientation == OrientationKind.a ? row.aSample : row.bSample;
+    final sdValue =
+        orientation == OrientationKind.a ? row.sdValueA : row.sdValueB;
+    final sdWarning =
+        orientation == OrientationKind.a ? row.sdWarningA : row.sdWarningB;
+    final isFlagged = sample?.isBad ?? false;
+
+    if (!showAccessories) {
+      return SizedBox(
+        key: Key('row${rowIndex}_c$columnIndex'),
+        width: width,
+        child: Opacity(
+          opacity: hide ? 0.45 : 1,
+          child: SizedBox(
+            height: _kTableRowHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
-                  child: _buildSpacingCell(theme, row),
+                  child: _buildResistanceField(
+                    theme: theme,
+                    row: row,
+                    key: key,
+                    sample: sample,
+                    orientation: orientation,
+                    hide: hide,
+                    rowIndex: rowIndex,
+                    columnIndex: columnIndex,
+                  ),
                 ),
-                const SizedBox(width: _kGridGutter),
-                Expanded(
-                  child: _buildPinsCell(theme, row),
+                IconButton(
+                  key: Key('row${rowIndex}_c${columnIndex}_menu'),
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  splashRadius: 22,
+                  onPressed: hide
+                      ? null
+                      : () => _showClusterActions(
+                            row: row,
+                            key: key,
+                            orientation: orientation,
+                          ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildResistanceCell(
-                    theme,
-                    row,
-                    row.aResKey,
-                    row.aSample,
-                    OrientationKind.a,
-                    row.hideA,
-                  ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      key: Key('row${rowIndex}_c$columnIndex'),
+      width: width,
+      child: Opacity(
+        opacity: hide ? 0.45 : 1,
+        child: SizedBox(
+          height: _kTableRowHeight,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: _buildResistanceField(
+                  theme: theme,
+                  row: row,
+                  key: key,
+                  sample: sample,
+                  orientation: orientation,
+                  hide: hide,
+                  rowIndex: rowIndex,
+                  columnIndex: columnIndex,
                 ),
-                const SizedBox(width: _kGridGutter),
-                Expanded(
-                  child: _buildResistanceCell(
-                    theme,
-                    row,
-                    row.bResKey,
-                    row.bSample,
-                    OrientationKind.b,
-                    row.hideB,
-                  ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: _kAccessoryRailWidth,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildAccessoryIcon(
+                      theme: theme,
+                      key: Key('row${rowIndex}_c${columnIndex}_sd_icon'),
+                      icon: Icons.percent,
+                      tooltip: 'Standard deviation',
+                      selected: sdValue != null,
+                      warning: sdWarning,
+                      onPressed:
+                          hide ? null : () => _editStandardDeviation(key),
+                    ),
+                    _buildAccessoryIcon(
+                      theme: theme,
+                      key: Key('row${rowIndex}_c${columnIndex}_flag_icon'),
+                      icon: isFlagged ? Icons.flag : Icons.flag_outlined,
+                      tooltip: isFlagged ? 'Clear flag' : 'Mark reading bad',
+                      selected: isFlagged,
+                      onPressed: hide
+                          ? null
+                          : () => widget.onToggleBad(
+                                row.record.spacingFeet,
+                                orientation,
+                                !isFlagged,
+                              ),
+                    ),
+                    _buildAccessoryIcon(
+                      theme: theme,
+                      key: Key('row${rowIndex}_c${columnIndex}_history_icon'),
+                      icon: Icons.history,
+                      tooltip: 'Show edit history',
+                      onPressed: hide
+                          ? null
+                          : () => _showHistoryOverlay(row, orientation),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showClusterActions({
+    required _RowConfig row,
+    required _FieldKey key,
+    required OrientationKind orientation,
+  }) async {
+    final hide = orientation == OrientationKind.a ? row.hideA : row.hideB;
+    if (hide) return;
+    final sample = orientation == OrientationKind.a ? row.aSample : row.bSample;
+    final isFlagged = sample?.isBad ?? false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.percent),
+                title: const Text('Edit SD'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _editStandardDeviation(key);
+                },
+              ),
+              ListTile(
+                leading: Icon(isFlagged ? Icons.flag : Icons.flag_outlined),
+                title: Text(isFlagged ? 'Clear flag' : 'Mark reading bad'),
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onToggleBad(
+                    row.record.spacingFeet,
+                    orientation,
+                    !isFlagged,
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.history),
+                title: const Text('History'),
+                onTap: () {
+                  Navigator.pop(context);
+                  unawaited(_showHistoryOverlay(row, orientation));
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _editStandardDeviation(_FieldKey key) async {
+    await _handleSdPrompt(
+      key,
+      direction: _AdvanceDirection.stay,
+      forcePrompt: true,
+    );
+  }
+
+  Widget _buildResistanceField({
+    required ThemeData theme,
+    required _RowConfig row,
+    required _FieldKey key,
+    required DirectionReadingSample? sample,
+    required OrientationKind orientation,
+    required bool hide,
+    required int rowIndex,
+    required int columnIndex,
+  }) {
+    final controller = _controllers[key];
+    final focusNode = _focusNodes[key];
+    if (controller == null || focusNode == null) {
+      return const SizedBox.shrink();
+    }
+
+    final rank = _tabRanks[key] ?? 0;
+
+    final invalidInput = !hide &&
+        controller.text.trim().isNotEmpty &&
+        _parseMaybeDouble(controller.text) == null;
+
+    final decoration = _resFieldDecoration(
+      hintText: hide ? 'Hidden' : null,
+      suffixIcon: invalidInput
+          ? Tooltip(
+              message: 'Enter a numeric value, e.g. 132 or 132.5',
+              waitDuration: const Duration(milliseconds: 400),
+              child: Icon(
+                Icons.error_outline,
+                size: 16,
+                color: theme.colorScheme.error,
+              ),
+            )
+          : null,
+    );
+
+    focusNode.onKeyEvent =
+        (node, event) => _handleResistanceKeyEvent(key, controller, event);
+
+    final textField = FocusTraversalOrder(
+      order: NumericFocusOrder(rank),
+      child: Tooltip(
+        message:
+            'Apparent resistance ${orientation == OrientationKind.a ? "(N-S)" : "(W-E)"}',
+        waitDuration: const Duration(milliseconds: 400),
+        child: TextField(
+          key: Key('row${rowIndex}_c${columnIndex}_primary'),
+          controller: controller,
+          focusNode: focusNode,
+          enabled: !hide,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.next,
+          textAlign: TextAlign.center,
+          textAlignVertical: TextAlignVertical.center,
+          minLines: 1,
+          maxLines: 1,
+          maxLengthEnforcement:
+              MaxLengthEnforcement.truncateAfterCompositionEnds,
+          inputFormatters: [
+            LengthLimitingTextInputFormatter(6),
+            FilteringTextInputFormatter.allow(
+              RegExp(r'^[0-9]{0,4}(\.[0-9]{0,2})?$'),
             ),
           ],
+          style: theme.textTheme.titleMedium?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+                fontWeight: FontWeight.w700,
+                height: 1.1,
+              ) ??
+              const TextStyle(
+                fontSize: 20,
+                fontFeatures: [FontFeature.tabularFigures()],
+                fontWeight: FontWeight.w700,
+                height: 1.1,
+              ),
+          decoration: decoration,
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (value) {
+            if (_suppressNextSubmitted) {
+              _suppressNextSubmitted = false;
+              return;
+            }
+            _submitResistance(key, value);
+          },
         ),
+      ),
+    );
+
+    return SizedBox(
+      height: _kFieldHeight,
+      child: textField,
+    );
+  }
+
+  Widget _buildAccessoryIcon({
+    required ThemeData theme,
+    required Key key,
+    required IconData icon,
+    required String tooltip,
+    bool selected = false,
+    bool warning = false,
+    required VoidCallback? onPressed,
+  }) {
+    final colorScheme = theme.colorScheme;
+    Color iconColor;
+    if (warning) {
+      iconColor = colorScheme.error;
+    } else if (selected) {
+      iconColor = colorScheme.primary;
+    } else {
+      iconColor = colorScheme.onSurfaceVariant;
+    }
+    return Tooltip(
+      message: tooltip,
+      waitDuration: const Duration(milliseconds: 400),
+      child: SizedBox.square(
+        dimension: 28,
+        child: Material(
+          key: key,
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(6),
+            child: Center(
+              child: Icon(icon, size: 18, color: iconColor),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showHistoryOverlay(
+    _RowConfig row,
+    OrientationKind orientation,
+  ) async {
+    final history = orientation == OrientationKind.a
+        ? row.record.orientationA.samples
+        : row.record.orientationB.samples;
+    final orientationLabel = orientation == OrientationKind.a
+        ? row.record.orientationA.label
+        : row.record.orientationB.label;
+    final dateFormat = DateFormat('MMM d, HH:mm');
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            'History — ${formatCompactValue(row.record.spacingFeet)} ft $orientationLabel',
+          ),
+          content: SizedBox(
+            width: 320,
+            child: history.isEmpty
+                ? const Text('No prior measurements recorded.')
+                : ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 280),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: history.length,
+                      separatorBuilder: (_, __) => const Divider(height: 12),
+                      itemBuilder: (context, index) {
+                        final sample = history[index];
+                        final timestamp = dateFormat.format(
+                          sample.timestamp.toLocal(),
+                        );
+                        final resistance = sample.resistanceOhm;
+                        final formattedResistance = resistance == null
+                            ? '—'
+                            : '${formatCompactValue(resistance)} Ω';
+                        final sd = sample.standardDeviationPercent;
+                        final sdText = sd == null
+                            ? 'SD —'
+                            : 'SD ${formatCompactValue(sd, maxDecimals: 1)}%';
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(timestamp),
+                          subtitle: Text('$formattedResistance · $sdText'),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+    unawaited(
+      widget.onShowHistory(
+        row.record.spacingFeet,
+        orientation,
       ),
     );
   }
@@ -857,14 +1333,30 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     String label, {
     TextStyle? style,
     String? tooltip,
+    String? subLabel,
   }) {
     final text = Text(
       label,
       textAlign: TextAlign.center,
       style: style,
       maxLines: 1,
+      softWrap: false,
       overflow: TextOverflow.ellipsis,
     );
+    final subText = subLabel == null
+        ? null
+        : Text(
+            subLabel,
+            textAlign: TextAlign.center,
+            style: style?.copyWith(
+              fontSize: (style.fontSize ?? 11) - 1,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+          );
+
     return SizedBox(
       height: _kTableHeaderHeight,
       child: Tooltip(
@@ -872,7 +1364,17 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         waitDuration: const Duration(milliseconds: 400),
         child: Align(
           alignment: Alignment.center,
-          child: text,
+          child: subText == null
+              ? text
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    text,
+                    const SizedBox(height: 2),
+                    subText,
+                  ],
+                ),
         ),
       ),
     );
@@ -969,6 +1471,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                 fontWeight: FontWeight.w700,
               ),
               maxLines: 1,
+              softWrap: false,
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -984,6 +1487,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                 child: Text(
                   subtitle,
                   maxLines: 1,
+                  softWrap: false,
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.center,
                   style: subtitleStyle,
@@ -1020,6 +1524,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                 value,
                 textAlign: TextAlign.center,
                 maxLines: 1,
+                softWrap: false,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.w600,
@@ -1074,196 +1579,6 @@ class _TablePanelState extends ConsumerState<TablePanel> {
       return theme.colorScheme.tertiary;
     }
     return theme.colorScheme.secondary;
-  }
-
-  Widget _buildResistanceCell(
-    ThemeData theme,
-    _RowConfig row,
-    _FieldKey key,
-    DirectionReadingSample? sample,
-    OrientationKind orientation,
-    bool hide,
-  ) {
-    final controller = _controllers[key];
-    final focusNode = _focusNodes[key];
-    if (controller == null || focusNode == null) {
-      return const SizedBox.shrink();
-    }
-
-    final isBad = sample?.isBad ?? false;
-    final rank = _tabRanks[key] ?? 0;
-    final sdValue =
-        orientation == OrientationKind.a ? row.sdValueA : row.sdValueB;
-    final sdWarning =
-        orientation == OrientationKind.a ? row.sdWarningA : row.sdWarningB;
-    final sdText = hide
-        ? 'Hidden'
-        : sdValue == null
-            ? '—'
-            : '${_formatSd(sdValue)}%';
-    final sdColor = sdWarning
-        ? theme.colorScheme.error
-        : theme.textTheme.labelSmall?.color ??
-            theme.colorScheme.onSurfaceVariant;
-
-    final invalidInput = !hide &&
-        controller.text.trim().isNotEmpty &&
-        _parseMaybeDouble(controller.text) == null;
-
-    final decoration =
-        (hide ? _hiddenResistanceDecoration : _resistanceDecoration).copyWith(
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      suffixIcon: invalidInput
-          ? Tooltip(
-              message: 'Enter a numeric value, e.g. 132 or 132.5',
-              waitDuration: const Duration(milliseconds: 400),
-              child: Icon(
-                Icons.error_outline,
-                size: 16,
-                color: theme.colorScheme.error,
-              ),
-            )
-          : null,
-    );
-
-    focusNode.onKeyEvent =
-        (node, event) => _handleResistanceKeyEvent(key, controller, event);
-
-    final textField = FocusTraversalOrder(
-      order: NumericFocusOrder(rank),
-      child: Tooltip(
-        message: 'Apparent resistance, Ω',
-        waitDuration: const Duration(milliseconds: 400),
-        child: TextField(
-          controller: controller,
-          focusNode: focusNode,
-          enabled: !hide,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          textInputAction: TextInputAction.next,
-          textAlign: TextAlign.center,
-          maxLengthEnforcement:
-              MaxLengthEnforcement.truncateAfterCompositionEnds,
-          inputFormatters: [
-            LengthLimitingTextInputFormatter(6),
-            FilteringTextInputFormatter.allow(
-              RegExp(r'^[0-9]{0,4}(\.[0-9]{0,2})?$'),
-            ),
-          ],
-          style: theme.textTheme.titleMedium?.copyWith(
-                fontFeatures: const [FontFeature.tabularFigures()],
-                fontWeight: FontWeight.w700,
-                height: 1.1,
-              ) ??
-              const TextStyle(
-                fontSize: 20,
-                fontFeatures: [FontFeature.tabularFigures()],
-                fontWeight: FontWeight.w700,
-                height: 1.1,
-              ),
-          decoration: decoration,
-          onChanged: (_) => setState(() {}),
-          onSubmitted: (value) {
-            if (_suppressNextSubmitted) {
-              _suppressNextSubmitted = false;
-              return;
-            }
-            _submitResistance(key, value);
-          },
-        ),
-      ),
-    );
-
-    final textFieldContainer = SizedBox(
-      height: _kFieldHeight,
-      child: textField,
-    );
-
-    final buttonStyle = TextButton.styleFrom(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      minimumSize: const Size(0, _kFieldHeight),
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      alignment: Alignment.center,
-    );
-
-    Widget buildIconButton({
-      required VoidCallback? onPressed,
-      required IconData icon,
-      required String tooltip,
-      Color? color,
-    }) {
-      return Tooltip(
-        message: tooltip,
-        waitDuration: const Duration(milliseconds: 400),
-        child: IconButton(
-          onPressed: onPressed,
-          icon: Icon(icon, size: 18, color: color),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints.tightFor(width: 32, height: 40),
-          splashRadius: 22,
-        ),
-      );
-    }
-
-    return Opacity(
-      opacity: hide ? 0.45 : 1.0,
-      child: SizedBox(
-        height: _kTableRowHeight,
-        child: Row(
-          children: [
-            Expanded(child: textFieldContainer),
-            const SizedBox(width: 6),
-            SizedBox(
-              width: 64,
-              child: TextButton(
-                onPressed: hide
-                    ? null
-                    : () => _handleSdPrompt(
-                          key,
-                          direction: _AdvanceDirection.stay,
-                          forcePrompt: true,
-                        ),
-                style: buttonStyle,
-                child: Text(
-                  'SD $sdText',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: sdColor,
-                    fontWeight: sdWarning ? FontWeight.w600 : FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 4),
-            buildIconButton(
-              onPressed: hide
-                  ? null
-                  : () => widget.onToggleBad(
-                        row.record.spacingFeet,
-                        orientation,
-                        !isBad,
-                      ),
-              icon: isBad ? Icons.flag : Icons.outlined_flag,
-              tooltip:
-                  isBad ? 'Marked bad — tap to clear flag' : 'Mark reading bad',
-              color:
-                  isBad ? theme.colorScheme.error : theme.colorScheme.outline,
-            ),
-            const SizedBox(width: 4),
-            buildIconButton(
-              onPressed: () => widget.onShowHistory(
-                row.record.spacingFeet,
-                orientation,
-              ),
-              icon: Icons.history,
-              tooltip: 'Show edit history',
-              color: theme.colorScheme.outline,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   KeyEventResult _handleResistanceKeyEvent(
@@ -1877,7 +2192,6 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     ].join('-');
     node.addListener(() {
       if (!mounted) return;
-      setState(() {});
       final orientation = key.orientation;
       if (node.hasFocus && orientation != null) {
         widget.onFocusChanged(key.spacingFeet, orientation);
@@ -1972,82 +2286,78 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     );
     var parsed = _clampSd(initialValue);
     var dontAskAgain = !_askForSd;
-    try {
-      return await showDialog<_SdPromptResult>(
-        context: context,
-        barrierDismissible: allowSkip,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setState) {
-              return AlertDialog(
-                title: Text(
-                  'Enter SD (%) for ${formatCompactValue(spacingFeet)} ft $orientationLabel',
-                ),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: controller,
-                      autofocus: true,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(_sdPromptRegExp),
-                        LengthLimitingTextInputFormatter(4),
-                      ],
-                      decoration: const InputDecoration(
-                        hintText: 'Optional',
-                      ),
-                      onChanged: (value) {
-                        parsed = _clampSd(_parseMaybeDouble(value));
-                        setState(() {});
-                      },
+    return showDialog<_SdPromptResult>(
+      context: context,
+      barrierDismissible: allowSkip,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(
+                'Enter SD (%) for ${formatCompactValue(spacingFeet)} ft $orientationLabel',
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(_sdPromptRegExp),
+                      LengthLimitingTextInputFormatter(4),
+                    ],
+                    decoration: const InputDecoration(
+                      hintText: 'Optional',
                     ),
-                    CheckboxListTile(
-                      value: dontAskAgain,
-                      onChanged: (value) {
-                        setState(() {
-                          dontAskAgain = value ?? false;
-                        });
-                      },
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: const Text("Don't ask again"),
-                    ),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(null),
-                    child: const Text('Cancel'),
+                    onChanged: (value) {
+                      parsed = _clampSd(_parseMaybeDouble(value));
+                      setState(() {});
+                    },
                   ),
-                  if (allowSkip)
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(
-                        _SdPromptResult(sd: null, askAgain: !dontAskAgain),
-                      ),
-                      child: const Text('Skip'),
-                    ),
-                  TextButton(
-                    onPressed: parsed != null
-                        ? () => Navigator.of(context).pop(
-                              _SdPromptResult(
-                                sd: parsed,
-                                askAgain: !dontAskAgain,
-                              ),
-                            )
-                        : null,
-                    child: const Text('Save'),
+                  CheckboxListTile(
+                    value: dontAskAgain,
+                    onChanged: (value) {
+                      setState(() {
+                        dontAskAgain = value ?? false;
+                      });
+                    },
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: const Text("Don't ask again"),
                   ),
                 ],
-              );
-            },
-          );
-        },
-      );
-    } finally {
-      controller.dispose();
-    }
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(null),
+                  child: const Text('Cancel'),
+                ),
+                if (allowSkip)
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(
+                      _SdPromptResult(sd: null, askAgain: !dontAskAgain),
+                    ),
+                    child: const Text('Skip'),
+                  ),
+                TextButton(
+                  onPressed: parsed != null
+                      ? () => Navigator.of(context).pop(
+                            _SdPromptResult(
+                              sd: parsed,
+                              askAgain: !dontAskAgain,
+                            ),
+                          )
+                      : null,
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _advanceFocus(_FieldKey key, _AdvanceDirection direction) {

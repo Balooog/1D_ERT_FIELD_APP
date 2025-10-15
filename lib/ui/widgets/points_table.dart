@@ -85,6 +85,19 @@ class _PointsTableState extends ConsumerState<PointsTable> {
     }
   }
 
+  Text _cellText(
+    String text, {
+    TextAlign textAlign = TextAlign.start,
+  }) {
+    return Text(
+      text,
+      textAlign: textAlign,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.points.isEmpty) {
@@ -126,15 +139,15 @@ class _PointsTableState extends ConsumerState<PointsTable> {
                   .withValues(alpha: 0.4))
               : null,
           cells: [
-            DataCell(Text('${i + 1}')),
-            DataCell(Text(point.arrayType.name)),
-            DataCell(Text(point.direction.label)),
-            DataCell(
-                Text(widget.distanceUnit.formatSpacing(point.spacingMeters))),
-            DataCell(Text(rhoText)),
-            DataCell(Text(
+            DataCell(_cellText('${i + 1}', textAlign: TextAlign.center)),
+            DataCell(_cellText(point.arrayType.name)),
+            DataCell(_cellText(point.direction.label)),
+            DataCell(_cellText(
+                widget.distanceUnit.formatSpacing(point.spacingMeters))),
+            DataCell(_cellText(rhoText)),
+            DataCell(_cellText(
                 resistance.isFinite ? resistance.toStringAsFixed(2) : '—')),
-            DataCell(Text(sigma != null ? sigma.toStringAsFixed(2) : '—')),
+            DataCell(_cellText(sigma != null ? sigma.toStringAsFixed(2) : '—')),
             DataCell(Center(
               child: Container(
                 width: 12,
@@ -159,6 +172,9 @@ class _PointsTableState extends ConsumerState<PointsTable> {
                     hintText: 'Add note',
                   ),
                   textInputAction: TextInputAction.done,
+                  textAlignVertical: TextAlignVertical.center,
+                  minLines: 1,
+                  maxLines: 1,
                   onSubmitted: (value) => _commitNote(point.id, value),
                   onEditingComplete: () =>
                       _commitNote(point.id, controller.text),
