@@ -6,6 +6,8 @@ import '../../models/spacing_point.dart';
 import '../../services/qc_rules.dart';
 import '../../state/providers.dart';
 import '../../utils/distance_unit.dart';
+import '../layout/sizing.dart';
+import 'res_cluster.dart' show tinyIconButton;
 
 class PointsTable extends ConsumerStatefulWidget {
   const PointsTable({
@@ -163,6 +165,7 @@ class _PointsTableState extends ConsumerState<PointsTable> {
             DataCell(
               SizedBox(
                 width: 180,
+                height: kRowH,
                 child: TextField(
                   controller: controller,
                   focusNode: focusNode,
@@ -182,12 +185,16 @@ class _PointsTableState extends ConsumerState<PointsTable> {
               ),
             ),
             DataCell(
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 20),
-                tooltip: 'Delete point',
-                onPressed: () => ref
-                    .read(spacingPointsProvider.notifier)
-                    .removePoint(point.id),
+              Tooltip(
+                message: 'Delete point',
+                waitDuration: const Duration(milliseconds: 400),
+                child: tinyIconButton(
+                  icon: Icons.delete_outline,
+                  onPressed: () => ref
+                      .read(spacingPointsProvider.notifier)
+                      .removePoint(point.id),
+                  color: theme.colorScheme.error,
+                ),
               ),
             ),
           ],
@@ -202,15 +209,15 @@ class _PointsTableState extends ConsumerState<PointsTable> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(minWidth: 720),
           child: DataTable(
-            headingRowHeight: 34,
-            columnSpacing: 24,
+            headingRowHeight: kRowH,
+            columnSpacing: kGutter,
             headingTextStyle: theme.textTheme.labelSmall?.copyWith(
               fontWeight: FontWeight.w600,
               fontSize: 11,
               height: 1.1,
             ),
-            dataRowMinHeight: 96,
-            dataRowMaxHeight: 112,
+            dataRowMinHeight: kRowH,
+            dataRowMaxHeight: kRowH,
             columns: [
               const DataColumn(
                 label: Text(

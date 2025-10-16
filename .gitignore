@@ -19,3 +19,4 @@ ios/.symlinks/
 ios/Flutter/
 web/wasm/
 buildlogs/*.png
+logs/

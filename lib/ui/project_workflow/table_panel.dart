@@ -12,36 +12,18 @@ import '../../services/location_service.dart';
 import '../../state/prefs.dart';
 import '../../state/providers.dart';
 import '../../utils/format.dart';
+import '../dev/baseline_overlay.dart';
 import '../layout/grid_4.dart';
+import '../layout/inputs.dart';
+import '../layout/sizing.dart';
 import '../style/density.dart';
+import '../widgets/res_cluster.dart';
 
 const double _kTableHeaderHeight = 34;
-const double _kTableRowHeight = 44;
 const double _kHeaderFieldGap = 2;
-const double _kFieldHeight = 40;
-const double _kColumnGutter = 12;
-const double _kAccessoryRailWidth = 96;
-const OutlineInputBorder _kResBorder = OutlineInputBorder(
-  borderSide: BorderSide(width: 1.0),
-);
-
-InputDecoration _resFieldDecoration({
-  String? hintText,
-  Widget? suffixIcon,
-}) {
-  return InputDecoration(
-    isDense: true,
-    hintText: hintText,
-    constraints: const BoxConstraints.tightFor(height: _kFieldHeight),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-    border: _kResBorder,
-    enabledBorder: _kResBorder,
-    disabledBorder: _kResBorder,
-    focusedBorder: _kResBorder,
-    suffixIcon: suffixIcon,
-    suffixIconConstraints: const BoxConstraints.tightFor(height: _kFieldHeight),
-  );
-}
+const double _kCompactWrapBreakpoint = 640;
+const double _kAccessoryExpandedBreakpoint = 1500;
+const double _kResInlineMinWidth = 170;
 
 class TablePanel extends ConsumerStatefulWidget {
   const TablePanel({
@@ -102,6 +84,10 @@ class TablePanel extends ConsumerStatefulWidget {
   @visibleForTesting
   static const String sdPromptPattern = r'^[0-9]{0,2}(\.[0-9])?$';
 
+  @visibleForTesting
+  static const double accessoryExpandedBreakpoint =
+      _kAccessoryExpandedBreakpoint;
+
   @override
   ConsumerState<TablePanel> createState() => _TablePanelState();
 }
@@ -109,6 +95,8 @@ class TablePanel extends ConsumerStatefulWidget {
 enum _FieldType { resistance }
 
 enum _AdvanceDirection { forward, backward, stay }
+
+enum _ClusterMenuAction { editSd, toggleFlag, history }
 
 class _FieldKey {
   _FieldKey({
@@ -188,6 +176,12 @@ class _TablePanelState extends ConsumerState<TablePanel> {
   final Map<_FieldKey, double> _tabRanks = {};
   final ScrollController _tableController = ScrollController();
   final Map<_FieldKey, _RowConfig> _rowByField = {};
+  final Map<int, GlobalKey> _guideKeys = {
+    2: GlobalKey(debugLabel: 'row0_c2'),
+    3: GlobalKey(debugLabel: 'row0_c3'),
+    4: GlobalKey(debugLabel: 'row0_c4'),
+  };
+  bool _layoutDumpScheduled = false;
   static final RegExp _sdPromptRegExp = RegExp(TablePanel.sdPromptPattern);
   TablePreferences? _prefs;
   bool _askForSd = true;
@@ -430,6 +424,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     double minWidth,
     double maxHeight,
   ) {
+    final showAccessories = minWidth >= _kAccessoryExpandedBreakpoint;
     final scrollView = CustomScrollView(
       controller: _tableController,
       slivers: [
@@ -471,7 +466,12 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                 final isLast = index == rows.length - 1;
                 return Padding(
                   padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
-                  child: _buildWideRow(theme, row, index),
+                  child: _buildWideRow(
+                    theme,
+                    row,
+                    index,
+                    showAccessories: showAccessories,
+                  ),
                 );
               },
               childCount: rows.length,
@@ -623,7 +623,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
   }) {
     return FourColLayout(
       padding: padding,
-      gutter: _kColumnGutter,
+      gutter: kGutter,
       builder: (ctx, spec) {
         Widget buildCell({
           required Key key,
@@ -684,7 +684,12 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     );
   }
 
-  Widget _buildWideRow(ThemeData theme, _RowConfig row, int index) {
+  Widget _buildWideRow(
+    ThemeData theme,
+    _RowConfig row,
+    int index, {
+    required bool showAccessories,
+  }) {
     final highlight = _hoveredRowIndex == index;
     final background = highlight
         ? theme.colorScheme.surfaceTint.withValues(alpha: 0.08)
@@ -714,52 +719,62 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         ),
         padding: EdgeInsets.zero,
         child: FourColLayout(
-          gutter: _kColumnGutter,
+          gutter: kGutter,
           builder: (ctx, spec) {
+            final rowChild = Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildDataColumnCell(
+                  width: spec.c1,
+                  columnIndex: 1,
+                  rowIndex: index,
+                  child: _buildSpacingCell(theme, row),
+                ),
+                if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                _buildDataColumnCell(
+                  width: spec.c2,
+                  columnIndex: 2,
+                  rowIndex: index,
+                  child: _buildPinsCell(theme, row),
+                ),
+                if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                _buildCluster(
+                  theme: theme,
+                  row: row,
+                  key: row.aResKey,
+                  orientation: OrientationKind.a,
+                  hide: row.hideA,
+                  rowIndex: index,
+                  columnIndex: 3,
+                  width: spec.c3,
+                  showAccessories: showAccessories,
+                ),
+                if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                _buildCluster(
+                  theme: theme,
+                  row: row,
+                  key: row.bResKey,
+                  orientation: OrientationKind.b,
+                  hide: row.hideB,
+                  rowIndex: index,
+                  columnIndex: 4,
+                  width: spec.c4,
+                  showAccessories: showAccessories,
+                ),
+              ],
+            );
             return SizedBox(
-              height: _kTableRowHeight,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _buildDataColumnCell(
-                    width: spec.c1,
-                    columnIndex: 1,
-                    rowIndex: index,
-                    child: _buildSpacingCell(theme, row),
-                  ),
-                  if (spec.gutter > 0) SizedBox(width: spec.gutter),
-                  _buildDataColumnCell(
-                    width: spec.c2,
-                    columnIndex: 2,
-                    rowIndex: index,
-                    child: _buildPinsCell(theme, row),
-                  ),
-                  if (spec.gutter > 0) SizedBox(width: spec.gutter),
-                  _buildCluster(
-                    theme: theme,
-                    row: row,
-                    key: row.aResKey,
-                    orientation: OrientationKind.a,
-                    hide: row.hideA,
-                    rowIndex: index,
-                    columnIndex: 3,
-                    width: spec.c3,
-                    showAccessories: true,
-                  ),
-                  if (spec.gutter > 0) SizedBox(width: spec.gutter),
-                  _buildCluster(
-                    theme: theme,
-                    row: row,
-                    key: row.bResKey,
-                    orientation: OrientationKind.b,
-                    hide: row.hideB,
-                    rowIndex: index,
-                    columnIndex: 4,
-                    width: spec.c4,
-                    showAccessories: true,
-                  ),
-                ],
-              ),
+              height: kRowH,
+              child: kShowLayoutGuides
+                  ? Stack(
+                      children: [
+                        rowChild,
+                        const Positioned.fill(
+                          child: BaselineOverlay(),
+                        ),
+                      ],
+                    )
+                  : rowChild,
             );
           },
         ),
@@ -798,12 +813,20 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         padding: EdgeInsets.zero,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final isDesktop = constraints.maxWidth >= 1250;
-            final isNarrow = constraints.maxWidth < 920;
+            final maxWidth = constraints.hasBoundedWidth
+                ? constraints.maxWidth
+                : MediaQuery.of(context).size.width;
+            final showAccessories = maxWidth >= _kAccessoryExpandedBreakpoint;
+
             return FourColLayout(
-              gutter: _kColumnGutter,
+              gutter: kGutter,
               builder: (ctx, spec) {
-                if (!isNarrow) {
+                final gutter = spec.gutter > 0 ? spec.gutter : 0.0;
+                final collapseResColumns = maxWidth < _kCompactWrapBreakpoint ||
+                    spec.c3 < _kResInlineMinWidth ||
+                    spec.c4 < _kResInlineMinWidth;
+
+                if (!collapseResColumns) {
                   final children = <Widget>[
                     _buildDataColumnCell(
                       width: spec.c1,
@@ -811,14 +834,14 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                       rowIndex: index,
                       child: _buildSpacingCell(theme, row),
                     ),
-                    if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                    if (gutter > 0) SizedBox(width: gutter),
                     _buildDataColumnCell(
                       width: spec.c2,
                       columnIndex: 2,
                       rowIndex: index,
                       child: _buildPinsCell(theme, row),
                     ),
-                    if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                    if (gutter > 0) SizedBox(width: gutter),
                     _buildCluster(
                       theme: theme,
                       row: row,
@@ -828,9 +851,9 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                       rowIndex: index,
                       columnIndex: 3,
                       width: spec.c3,
-                      showAccessories: isDesktop,
+                      showAccessories: showAccessories,
                     ),
-                    if (spec.gutter > 0) SizedBox(width: spec.gutter),
+                    if (gutter > 0) SizedBox(width: gutter),
                     _buildCluster(
                       theme: theme,
                       row: row,
@@ -840,20 +863,17 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                       rowIndex: index,
                       columnIndex: 4,
                       width: spec.c4,
-                      showAccessories: isDesktop,
+                      showAccessories: showAccessories,
                     ),
                   ];
                   return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: children,
                   );
                 }
 
-                final gutter = spec.gutter;
-                final offsetWidth = spec.c1 + spec.c2 + spec.c3 + (gutter * 3);
-
                 final lineA = SizedBox(
-                  height: _kTableRowHeight,
+                  height: kRowH,
                   child: Row(
                     children: [
                       _buildDataColumnCell(
@@ -869,7 +889,18 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                         rowIndex: index,
                         child: _buildPinsCell(theme, row),
                       ),
-                      if (gutter > 0) SizedBox(width: gutter),
+                    ],
+                  ),
+                );
+
+                final indent =
+                    spec.c1 + spec.c2 + (gutter > 0 ? gutter * 2 : 0);
+
+                final lineB = SizedBox(
+                  height: kRowH,
+                  child: Row(
+                    children: [
+                      if (indent > 0) SizedBox(width: indent),
                       _buildCluster(
                         theme: theme,
                         row: row,
@@ -882,16 +913,6 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                         showAccessories: false,
                       ),
                       if (gutter > 0) SizedBox(width: gutter),
-                      SizedBox(width: spec.c4),
-                    ],
-                  ),
-                );
-
-                final lineB = SizedBox(
-                  height: _kTableRowHeight,
-                  child: Row(
-                    children: [
-                      SizedBox(width: offsetWidth),
                       _buildCluster(
                         theme: theme,
                         row: row,
@@ -929,11 +950,46 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     required int rowIndex,
     required Widget child,
   }) {
+    Widget content = child;
+    if (kShowLayoutGuides && rowIndex == 0) {
+      final guideKey = _guideKeys[columnIndex];
+      if (guideKey != null) {
+        content = Container(key: guideKey, child: child);
+        _scheduleLayoutDump();
+      }
+    }
     return SizedBox(
       key: Key('row${rowIndex}_c$columnIndex'),
       width: width,
-      child: child,
+      child: content,
     );
+  }
+
+  void _scheduleLayoutDump() {
+    if (!kShowLayoutGuides || _layoutDumpScheduled) {
+      return;
+    }
+    _layoutDumpScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final entry in _guideKeys.entries) {
+        final context = entry.value.currentContext;
+        if (context == null) {
+          continue;
+        }
+        final renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox == null || !renderBox.hasSize) {
+          continue;
+        }
+        final origin = renderBox.localToGlobal(Offset.zero);
+        final size = renderBox.size;
+        debugPrint(
+          'layout rect row0_c${entry.key}: '
+          '(${origin.dx.toStringAsFixed(1)}, ${origin.dy.toStringAsFixed(1)}) '
+          '${size.width.toStringAsFixed(1)}×${size.height.toStringAsFixed(1)}',
+        );
+      }
+      _layoutDumpScheduled = false;
+    });
   }
 
   Widget _buildCluster({
@@ -954,169 +1010,119 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         orientation == OrientationKind.a ? row.sdWarningA : row.sdWarningB;
     final isFlagged = sample?.isBad ?? false;
 
-    if (!showAccessories) {
-      return SizedBox(
-        key: Key('row${rowIndex}_c$columnIndex'),
-        width: width,
-        child: Opacity(
-          opacity: hide ? 0.45 : 1,
-          child: SizedBox(
-            height: _kTableRowHeight,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: _buildResistanceField(
-                    theme: theme,
-                    row: row,
-                    key: key,
-                    sample: sample,
-                    orientation: orientation,
-                    hide: hide,
-                    rowIndex: rowIndex,
-                    columnIndex: columnIndex,
-                  ),
-                ),
-                IconButton(
-                  key: Key('row${rowIndex}_c${columnIndex}_menu'),
-                  icon: const Icon(Icons.more_vert, size: 20),
-                  splashRadius: 22,
-                  onPressed: hide
-                      ? null
-                      : () => _showClusterActions(
-                            row: row,
-                            key: key,
-                            orientation: orientation,
-                          ),
-                ),
-              ],
+    final accessories = showAccessories
+        ? <Widget>[
+            _buildAccessoryIcon(
+              theme: theme,
+              key: Key('row${rowIndex}_c${columnIndex}_sd_icon'),
+              icon: Icons.percent,
+              tooltip: 'Standard deviation',
+              selected: sdValue != null,
+              warning: sdWarning,
+              onPressed: hide ? null : () => _editStandardDeviation(key),
             ),
-          ),
+            _buildAccessoryIcon(
+              theme: theme,
+              key: Key('row${rowIndex}_c${columnIndex}_flag_icon'),
+              icon: isFlagged ? Icons.flag : Icons.flag_outlined,
+              tooltip: isFlagged ? 'Clear flag' : 'Mark reading bad',
+              selected: isFlagged,
+              onPressed: hide
+                  ? null
+                  : () => widget.onToggleBad(
+                        row.record.spacingFeet,
+                        orientation,
+                        !isFlagged,
+                      ),
+            ),
+            _buildAccessoryIcon(
+              theme: theme,
+              key: Key('row${rowIndex}_c${columnIndex}_history_icon'),
+              icon: Icons.history,
+              tooltip: 'Show edit history',
+              onPressed:
+                  hide ? null : () => _showHistoryOverlay(row, orientation),
+            ),
+          ]
+        : const <Widget>[];
+
+    final menuButton = compactMenuButton<_ClusterMenuAction>(
+      key: Key('row${rowIndex}_c${columnIndex}_menu'),
+      tooltip: 'More actions',
+      itemBuilder: (context) => <PopupMenuEntry<_ClusterMenuAction>>[
+        PopupMenuItem(
+          value: _ClusterMenuAction.editSd,
+          enabled: !hide,
+          child: const Text('Edit SD'),
         ),
-      );
-    }
+        PopupMenuItem(
+          value: _ClusterMenuAction.toggleFlag,
+          enabled: !hide,
+          child: Text(isFlagged ? 'Clear flag' : 'Mark reading bad'),
+        ),
+        PopupMenuItem(
+          value: _ClusterMenuAction.history,
+          enabled: !hide,
+          child: const Text('Show edit history'),
+        ),
+      ],
+      onSelected: (action) => _handleClusterMenuAction(
+        action: action,
+        row: row,
+        key: key,
+        orientation: orientation,
+        hide: hide,
+        isFlagged: isFlagged,
+      ),
+    );
 
     return SizedBox(
       key: Key('row${rowIndex}_c$columnIndex'),
       width: width,
       child: Opacity(
         opacity: hide ? 0.45 : 1,
-        child: SizedBox(
-          height: _kTableRowHeight,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: _buildResistanceField(
-                  theme: theme,
-                  row: row,
-                  key: key,
-                  sample: sample,
-                  orientation: orientation,
-                  hide: hide,
-                  rowIndex: rowIndex,
-                  columnIndex: columnIndex,
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: _kAccessoryRailWidth,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildAccessoryIcon(
-                      theme: theme,
-                      key: Key('row${rowIndex}_c${columnIndex}_sd_icon'),
-                      icon: Icons.percent,
-                      tooltip: 'Standard deviation',
-                      selected: sdValue != null,
-                      warning: sdWarning,
-                      onPressed:
-                          hide ? null : () => _editStandardDeviation(key),
-                    ),
-                    _buildAccessoryIcon(
-                      theme: theme,
-                      key: Key('row${rowIndex}_c${columnIndex}_flag_icon'),
-                      icon: isFlagged ? Icons.flag : Icons.flag_outlined,
-                      tooltip: isFlagged ? 'Clear flag' : 'Mark reading bad',
-                      selected: isFlagged,
-                      onPressed: hide
-                          ? null
-                          : () => widget.onToggleBad(
-                                row.record.spacingFeet,
-                                orientation,
-                                !isFlagged,
-                              ),
-                    ),
-                    _buildAccessoryIcon(
-                      theme: theme,
-                      key: Key('row${rowIndex}_c${columnIndex}_history_icon'),
-                      icon: Icons.history,
-                      tooltip: 'Show edit history',
-                      onPressed: hide
-                          ? null
-                          : () => _showHistoryOverlay(row, orientation),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+        child: ResCluster(
+          primary: _buildResistanceField(
+            theme: theme,
+            row: row,
+            key: key,
+            sample: sample,
+            orientation: orientation,
+            hide: hide,
+            rowIndex: rowIndex,
+            columnIndex: columnIndex,
           ),
+          accessories: accessories,
+          menu: menuButton,
         ),
       ),
     );
   }
 
-  Future<void> _showClusterActions({
+  void _handleClusterMenuAction({
+    required _ClusterMenuAction action,
     required _RowConfig row,
     required _FieldKey key,
     required OrientationKind orientation,
-  }) async {
-    final hide = orientation == OrientationKind.a ? row.hideA : row.hideB;
+    required bool hide,
+    required bool isFlagged,
+  }) {
     if (hide) return;
-    final sample = orientation == OrientationKind.a ? row.aSample : row.bSample;
-    final isFlagged = sample?.isBad ?? false;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.percent),
-                title: const Text('Edit SD'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await _editStandardDeviation(key);
-                },
-              ),
-              ListTile(
-                leading: Icon(isFlagged ? Icons.flag : Icons.flag_outlined),
-                title: Text(isFlagged ? 'Clear flag' : 'Mark reading bad'),
-                onTap: () {
-                  Navigator.pop(context);
-                  widget.onToggleBad(
-                    row.record.spacingFeet,
-                    orientation,
-                    !isFlagged,
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.history),
-                title: const Text('History'),
-                onTap: () {
-                  Navigator.pop(context);
-                  unawaited(_showHistoryOverlay(row, orientation));
-                },
-              ),
-            ],
-          ),
+    switch (action) {
+      case _ClusterMenuAction.editSd:
+        unawaited(_editStandardDeviation(key));
+        break;
+      case _ClusterMenuAction.toggleFlag:
+        widget.onToggleBad(
+          row.record.spacingFeet,
+          orientation,
+          !isFlagged,
         );
-      },
-    );
+        break;
+      case _ClusterMenuAction.history:
+        unawaited(_showHistoryOverlay(row, orientation));
+        break;
+    }
   }
 
   Future<void> _editStandardDeviation(_FieldKey key) async {
@@ -1149,7 +1155,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         controller.text.trim().isNotEmpty &&
         _parseMaybeDouble(controller.text) == null;
 
-    final decoration = _resFieldDecoration(
+    final decoration = resFieldDecoration().copyWith(
       hintText: hide ? 'Hidden' : null,
       suffixIcon: invalidInput
           ? Tooltip(
@@ -1217,7 +1223,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     );
 
     return SizedBox(
-      height: _kFieldHeight,
+      height: kFieldH,
       child: textField,
     );
   }
@@ -1243,19 +1249,11 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     return Tooltip(
       message: tooltip,
       waitDuration: const Duration(milliseconds: 400),
-      child: SizedBox.square(
-        dimension: 28,
-        child: Material(
-          key: key,
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(6),
-            child: Center(
-              child: Icon(icon, size: 18, color: iconColor),
-            ),
-          ),
-        ),
+      child: tinyIconButton(
+        key: key,
+        icon: icon,
+        onPressed: onPressed,
+        color: iconColor,
       ),
     );
   }
@@ -1457,7 +1455,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
               );
 
     return SizedBox(
-      height: _kTableRowHeight,
+      height: kRowH,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -1511,36 +1509,39 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         'Outside electrodes at ${formatMetersTooltip(row.outsideMeters)} m';
 
     return SizedBox(
-      height: _kTableRowHeight,
+      height: kRowH,
       child: Tooltip(
         message: tooltip,
         waitDuration: const Duration(milliseconds: 400),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: Text(
-                value,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
+        child: Align(
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  value,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
-            ),
-            if (!valid) ...[
-              const SizedBox(width: 4),
-              Icon(
-                Icons.warning_amber_rounded,
-                size: 16,
-                color: theme.colorScheme.error,
-              ),
+              if (!valid) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: theme.colorScheme.error,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -1785,7 +1786,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
 
   Widget _buildPowerField() {
     return SizedBox(
-      height: _kFieldHeight,
+      height: kFieldH,
       child: TextFormField(
         initialValue: widget.site.powerMilliAmps.toStringAsFixed(2),
         decoration: const InputDecoration(
@@ -1811,7 +1812,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
 
   Widget _buildGroundTemperatureField() {
     return SizedBox(
-      height: _kFieldHeight,
+      height: kFieldH,
       child: TextFormField(
         initialValue: widget.site.groundTemperatureF.toStringAsFixed(1),
         decoration: const InputDecoration(
@@ -1883,7 +1884,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     );
 
     return SizedBox(
-      height: _kFieldHeight,
+      height: kFieldH,
       child: InputDecorator(
         decoration: const InputDecoration(
           labelText: 'GPS',
@@ -2063,7 +2064,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
   }) {
     final theme = Theme.of(context);
     return SizedBox(
-      height: _kFieldHeight,
+      height: kFieldH,
       child: DropdownButtonFormField<SoilType>(
         initialValue: value,
         isExpanded: true,
@@ -2101,7 +2102,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
   }) {
     final theme = Theme.of(context);
     return SizedBox(
-      height: _kFieldHeight,
+      height: kFieldH,
       child: DropdownButtonFormField<MoistureLevel>(
         initialValue: value,
         isExpanded: true,
@@ -2140,7 +2141,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     return [
       _MetadataField(
         child: SizedBox(
-          height: _kFieldHeight,
+          height: kFieldH,
           child: TextFormField(
             initialValue: widget.site.stacks.toString(),
             decoration: const InputDecoration(

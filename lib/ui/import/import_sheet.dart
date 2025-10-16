@@ -440,28 +440,26 @@ class _ImportSheetState extends State<ImportSheet> {
     final isNewSite = _destination == _ImportDestination.newSite;
     final isMerge = _destination == _ImportDestination.merge;
 
-    return RadioGroup<_ImportDestination>(
-      groupValue: _destination,
-      onChanged: (value) {
-        if (value == null) {
-          return;
-        }
-        setState(() => _destination = value);
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Destination', style: theme.textTheme.titleSmall),
-          const SizedBox(height: 8),
-          RadioListTile<_ImportDestination>(
-            value: _ImportDestination.newSite,
-            selected: isNewSite,
-            title: const Text('Create a new site'),
-            subtitle: AnimatedOpacity(
-              duration: const Duration(milliseconds: 120),
-              opacity: isNewSite ? 1 : 0.55,
-              child: IgnorePointer(
-                ignoring: !isNewSite,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Destination', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 8),
+        RadioGroup<_ImportDestination>(
+          groupValue: _destination,
+          onChanged: (value) {
+            if (value == null) {
+              return;
+            }
+            setState(() => _destination = value);
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DestinationOption(
+                value: _ImportDestination.newSite,
+                selected: isNewSite,
+                title: const Text('Create a new site'),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -478,22 +476,16 @@ class _ImportSheetState extends State<ImportSheet> {
                   ],
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          RadioListTile<_ImportDestination>(
-            value: _ImportDestination.merge,
-            selected: isMerge,
-            title: const Text('Merge into existing site'),
-            subtitle: AnimatedOpacity(
-              duration: const Duration(milliseconds: 120),
-              opacity: isMerge ? 1 : 0.55,
-              child: IgnorePointer(
-                ignoring: !isMerge,
+              const SizedBox(height: 4),
+              _DestinationOption(
+                value: _ImportDestination.merge,
+                selected: isMerge,
+                title: const Text('Merge into existing site'),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DropdownButtonFormField<String>(
+                      key: ValueKey<String?>(_selectedMergeSiteId),
                       initialValue: _selectedMergeSiteId,
                       decoration:
                           const InputDecoration(labelText: 'Target site'),
@@ -504,28 +496,34 @@ class _ImportSheetState extends State<ImportSheet> {
                             child: Text(site.displayName),
                           ),
                       ],
-                      onChanged: isMerge
-                          ? (value) =>
-                              setState(() => _selectedMergeSiteId = value)
-                          : null,
+                      onChanged: (value) {
+                        if (!isMerge) {
+                          return;
+                        }
+                        setState(() => _selectedMergeSiteId = value);
+                      },
                     ),
                     CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
                       value: _overwrite,
-                      onChanged: isMerge
-                          ? (value) =>
-                              setState(() => _overwrite = value ?? false)
-                          : null,
+                      onChanged: (value) {
+                        if (!isMerge) {
+                          return;
+                        }
+                        setState(() => _overwrite = value ?? false);
+                      },
                       title: const Text(
-                          'Overwrite existing readings for matching spacings'),
+                        'Overwrite existing readings for matching spacings',
+                      ),
                       controlAffinity: ListTileControlAffinity.leading,
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -975,6 +973,52 @@ class _ImportSheetState extends State<ImportSheet> {
     );
     Navigator.of(context).pop(
       ImportSheetOutcome.merge(mergeIntoSiteId: targetId, site: merged),
+    );
+  }
+}
+
+/// Keeps form controls outside the tile so nested inputs don't trigger layout
+/// assertions when the bottom-sheet import dialog builds.
+class _DestinationOption extends StatelessWidget {
+  const _DestinationOption({
+    required this.value,
+    required this.selected,
+    required this.title,
+    required this.child,
+  });
+
+  final _ImportDestination value;
+  final bool selected;
+  final Widget title;
+  final Widget child;
+
+  static const _animationDuration = Duration(milliseconds: 120);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RadioListTile<_ImportDestination>(
+          value: value,
+          selected: selected,
+          title: title,
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+        ),
+        Padding(
+          padding:
+              const EdgeInsetsDirectional.only(start: 56, end: 12, bottom: 12),
+          child: IgnorePointer(
+            ignoring: !selected,
+            child: AnimatedOpacity(
+              duration: _animationDuration,
+              opacity: selected ? 1 : 0.55,
+              child: child,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
