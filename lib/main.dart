@@ -8,48 +8,49 @@ import 'core/hydration_gate.dart';
 import 'core/logging.dart';
 import 'services/logging_service.dart';
 import 'services/storage_service.dart';
+import 'ui/app_theme.dart';
 import 'ui/project_workflow/home_page.dart';
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await LOG.init();
+  await runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await LOG.init();
 
-  ErrorWidget.builder = (FlutterErrorDetails details) {
-    return Material(
-      color: Colors.black,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: SelectableText(
-                'UI render error:\n\n${details.exceptionAsString()}',
-                style: const TextStyle(color: Colors.redAccent),
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      return Material(
+        color: Colors.black,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SelectableText(
+                  'UI render error:\n\n${details.exceptionAsString()}',
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-  };
+      );
+    };
 
-  final previousFlutterError = FlutterError.onError;
-  FlutterError.onError = (FlutterErrorDetails details) {
-    LOG.error(
-      'flutter_error',
-      extra: {
-        'exception': details.exceptionAsString(),
-        'library': details.library,
-      },
-      error: details.exception,
-      stackTrace: details.stack,
-    );
-    previousFlutterError?.call(details);
-    FlutterError.presentError(details);
-  };
+    final previousFlutterError = FlutterError.onError;
+    FlutterError.onError = (FlutterErrorDetails details) {
+      LOG.error(
+        'flutter_error',
+        extra: {
+          'exception': details.exceptionAsString(),
+          'library': details.library,
+        },
+        error: details.exception,
+        stackTrace: details.stack,
+      );
+      previousFlutterError?.call(details);
+      FlutterError.presentError(details);
+    };
 
-  runZonedGuarded(() async {
     await LoggingService.instance.ensureInitialized();
     LOG.info('app_start', extra: {'platform': defaultTargetPlatform.name});
     runApp(const ProviderScope(child: ResiCheckApp()));
@@ -98,10 +99,7 @@ class _ResiCheckAppState extends State<ResiCheckApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'ResiCheck',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      theme: appTheme(),
       home: HydrationGateBuilder(
         gate: _hydrationGate,
         onWarmUp: _warmUp,
