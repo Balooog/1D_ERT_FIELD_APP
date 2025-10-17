@@ -6,7 +6,7 @@ InputDecoration resFieldDecoration([String hint = '']) => InputDecoration(
       isDense: true,
       hintText: hint,
       constraints: const BoxConstraints.tightFor(height: kFieldH),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      contentPadding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
       border: kFieldBorder,
       enabledBorder: kFieldBorder,
       focusedBorder: kFieldBorder,

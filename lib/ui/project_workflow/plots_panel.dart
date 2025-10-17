@@ -116,8 +116,9 @@ class PlotsPanel extends StatelessWidget {
     );
     final spacingTickLogs =
         _buildSpacingTicks(spacingSamples, axis.minX, axis.maxX);
-    final rhoTickLogs =
-        _buildResistivityTicks(rhoSamples, axis.minY, axis.maxY);
+    final rhoTicks = _buildResistivityTickSet(rhoSamples, axis.minY, axis.maxY);
+    final rhoMajorTickLogs = rhoTicks.major;
+    final rhoMinorTickLogs = rhoTicks.minor;
     final sortedGhost = List<GhostSeriesPoint>.of(averageGhost)
       ..sort((a, b) => a.spacingFt.compareTo(b.spacingFt));
     final ghostSpots = sortedGhost
@@ -158,6 +159,7 @@ class PlotsPanel extends StatelessWidget {
         maxY: axis.maxY,
         titlesData: FlTitlesData(
           bottomTitles: AxisTitles(
+            axisNameSize: 26,
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 48,
@@ -167,20 +169,21 @@ class PlotsPanel extends StatelessWidget {
                 }
                 final spacing = math.pow(10, value).toDouble();
                 final label = _formatSpacingLabel(spacing);
-                return Text('$label ft', style: theme.textTheme.labelSmall);
+                return Text(label, style: theme.textTheme.labelSmall);
               },
             ),
             axisNameWidget: const Padding(
-              padding: EdgeInsets.only(top: 8.0),
-              child: Text('Spacing a (ft)'),
+              padding: EdgeInsets.only(top: 4.0),
+              child: Text('a-spacing (ft)'),
             ),
           ),
           leftTitles: AxisTitles(
+            axisNameSize: 26,
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 60,
+              reservedSize: 46,
               getTitlesWidget: (value, meta) {
-                if (!_isNearTick(rhoTickLogs, value)) {
+                if (!_isNearTick(rhoMajorTickLogs, value)) {
                   return const SizedBox.shrink();
                 }
                 final rho = math.pow(10, value).toDouble();
@@ -191,8 +194,8 @@ class PlotsPanel extends StatelessWidget {
               },
             ),
             axisNameWidget: const Padding(
-              padding: EdgeInsets.only(right: 8.0),
-              child: Text('ρa (Ω·m)'),
+              padding: EdgeInsets.only(right: 2.0),
+              child: Text('App Res (Ω·m)'),
             ),
           ),
           rightTitles:
@@ -206,15 +209,23 @@ class PlotsPanel extends StatelessWidget {
           drawHorizontalLine: true,
           checkToShowVerticalLine: (value) =>
               _isNearTick(spacingTickLogs, value),
-          checkToShowHorizontalLine: (value) => _isNearTick(rhoTickLogs, value),
+          checkToShowHorizontalLine: (value) =>
+              _isNearTick(rhoMajorTickLogs, value) ||
+              _isNearTick(rhoMinorTickLogs, value),
           getDrawingVerticalLine: (value) => FlLine(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
             strokeWidth: 0.8,
           ),
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.35),
-            strokeWidth: 0.8,
-          ),
+          getDrawingHorizontalLine: (value) {
+            final isMajor = _isNearTick(rhoMajorTickLogs, value);
+            final lineColor = theme.colorScheme.outlineVariant.withValues(
+              alpha: isMajor ? 0.35 : 0.2,
+            );
+            return FlLine(
+              color: lineColor,
+              strokeWidth: isMajor ? 0.9 : 0.55,
+            );
+          },
         ),
         borderData: FlBorderData(show: true),
         lineBarsData: [
@@ -348,29 +359,162 @@ List<double> _buildSpacingTicks(
   return limited.map((value) => math.log(value) / math.ln10).toList();
 }
 
-List<double> _buildResistivityTicks(
+class _TickSet {
+  const _TickSet({required this.major, required this.minor});
+
+  final List<double> major;
+  final List<double> minor;
+}
+
+_TickSet _buildResistivityTickSet(
   List<double> rhoValues,
   double minLog,
   double maxLog, {
-  int maxCount = 8,
+  int targetMajorCount = 5,
 }) {
   final minValue = math.pow(10, minLog).toDouble();
   final maxValue = math.pow(10, maxLog).toDouble();
-  final tickSet = SplayTreeSet<double>();
-  for (final rho in rhoValues) {
-    if (!rho.isFinite || rho <= 0) {
+  if (!minValue.isFinite || !maxValue.isFinite || minValue <= 0) {
+    return const _TickSet(major: [], minor: []);
+  }
+
+  final samples = [
+    for (final value in rhoValues)
+      if (value.isFinite && value > 0) value,
+  ];
+  final dataMin = samples.isEmpty ? minValue : samples.reduce(math.min);
+  final dataMax = samples.isEmpty ? maxValue : samples.reduce(math.max);
+  final effectiveMin = math.min(minValue, dataMin);
+  final effectiveMax = math.max(maxValue, dataMax);
+
+  final span = effectiveMax - effectiveMin;
+  if (!span.isFinite || span <= 0) {
+    final center = math.sqrt(minValue * maxValue);
+    final tick = math.log(center) / math.ln10;
+    return _TickSet(major: [tick], minor: const []);
+  }
+
+  final effectiveTarget = targetMajorCount.clamp(3, 8).toInt();
+  final step = _niceStep(span / (effectiveTarget - 1));
+  final majorSet = SplayTreeSet<double>();
+  final firstTick = _roundDownToStep(effectiveMin, step);
+  for (var value = firstTick;
+      value <= effectiveMax + step * 0.5;
+      value += step) {
+    if (!value.isFinite || value <= 0) {
       continue;
     }
-    if (rho >= minValue * 0.9 && rho <= maxValue * 1.1) {
-      tickSet.add(rho);
+    if (value < minValue * 0.95 || value > maxValue * 1.05) {
+      continue;
+    }
+    majorSet.add(value);
+  }
+  majorSet
+    ..add(minValue)
+    ..add(maxValue);
+  if (majorSet.length < 3) {
+    majorSet.add(_snapToStep((minValue + maxValue) / 2, step));
+  }
+  while (majorSet.length < effectiveTarget) {
+    final last = majorSet.last;
+    final candidate = last + step;
+    if (candidate <= maxValue * 1.05) {
+      majorSet.add(candidate);
+      continue;
+    }
+    final first = majorSet.first;
+    final before = first - step;
+    if (before > minValue * 0.9) {
+      majorSet.add(before);
+      continue;
+    }
+    break;
+  }
+
+  final minorSet = SplayTreeSet<double>();
+  final minorStep = _minorStepForMajor(step);
+  if (minorStep != null && minorStep > 0) {
+    final firstMinor = _roundDownToStep(effectiveMin, minorStep);
+    for (var value = firstMinor;
+        value <= effectiveMax + minorStep * 0.5;
+        value += minorStep) {
+      if (!value.isFinite || value <= 0) {
+        continue;
+      }
+      if (value < minValue * 0.95 || value > maxValue * 1.05) {
+        continue;
+      }
+      final isMajor = majorSet.any(
+        (major) => (value - major).abs() <= minorStep * 0.05,
+      );
+      if (!isMajor) {
+        minorSet.add(value);
+      }
     }
   }
-  tickSet.addAll(_generateNiceTicks(minValue, maxValue));
-  if (tickSet.isEmpty) {
-    tickSet.addAll([minValue, maxValue]);
+
+  final majorLogs =
+      majorSet.map((value) => math.log(value) / math.ln10).toList();
+  final minorLogs =
+      minorSet.map((value) => math.log(value) / math.ln10).toList();
+
+  return _TickSet(major: majorLogs, minor: minorLogs);
+}
+
+double _niceStep(double rawStep) {
+  if (!rawStep.isFinite || rawStep <= 0) {
+    return 1;
   }
-  final limited = _limitTicks(tickSet.toList(), maxCount: maxCount);
-  return limited.map((value) => math.log(value) / math.ln10).toList();
+  final exponent = (math.log(rawStep) / math.ln10).floor();
+  final magnitude = math.pow(10.0, exponent).toDouble();
+  final fraction = rawStep / magnitude;
+  final niceFraction = fraction <= 1
+      ? 1
+      : fraction <= 2
+          ? 2
+          : fraction <= 5
+              ? 5
+              : 10;
+  return niceFraction * magnitude;
+}
+
+double? _minorStepForMajor(double majorStep) {
+  if (!majorStep.isFinite || majorStep <= 0) {
+    return null;
+  }
+  if (majorStep >= 50) {
+    return majorStep / 5;
+  }
+  if (majorStep >= 20) {
+    return 10;
+  }
+  if (majorStep >= 10) {
+    return 5;
+  }
+  if (majorStep >= 5) {
+    return 1;
+  }
+  if (majorStep >= 2) {
+    return 0.5;
+  }
+  if (majorStep >= 1) {
+    return 0.25;
+  }
+  return majorStep / 5;
+}
+
+double _roundDownToStep(double value, double step) {
+  if (!value.isFinite || !step.isFinite || step == 0) {
+    return value;
+  }
+  return (value / step).floor() * step;
+}
+
+double _snapToStep(double value, double step) {
+  if (!value.isFinite || !step.isFinite || step == 0) {
+    return value;
+  }
+  return (value / step).round() * step;
 }
 
 List<double> _limitTicks(List<double> ticks, {required int maxCount}) {
@@ -569,7 +713,7 @@ class InversionPlotPanel extends StatelessWidget {
     required this.isLoading,
     required this.distanceUnit,
     this.siteLabel,
-    this.chartHeight = 280,
+    this.chartHeight = 200,
   });
 
   final TwoLayerInversionResult? result;
@@ -606,7 +750,7 @@ class InversionPlotPanel extends StatelessWidget {
       return Card(
         margin: const EdgeInsets.all(12),
         child: SizedBox(
-          height: math.max(chartHeight * 0.6, 200),
+          height: math.max(chartHeight * 0.6, 160),
           child: Center(
             child: Text(
               'Record at least two valid spacings to compute inversion.',

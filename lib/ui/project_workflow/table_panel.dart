@@ -465,7 +465,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                 final row = rows[index];
                 final isLast = index == rows.length - 1;
                 return Padding(
-                  padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 4),
                   child: _buildWideRow(
                     theme,
                     row,
@@ -557,7 +557,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                 final row = rows[index];
                 final isLast = index == rows.length - 1;
                 return Padding(
-                  padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 4),
                   child: _buildCompactRow(theme, row, index),
                 );
               },
@@ -722,7 +722,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
           gutter: kGutter,
           builder: (ctx, spec) {
             final rowChild = Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildDataColumnCell(
                   width: spec.c1,
@@ -763,18 +763,37 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                 ),
               ],
             );
+            final footerWidth =
+                spec.c1 + (spec.gutter > 0 ? spec.gutter : 0) + spec.c2;
+            final content = Stack(
+              clipBehavior: Clip.none,
+              children: [
+                rowChild,
+                Positioned(
+                  left: 0,
+                  bottom: 2,
+                  width: footerWidth,
+                  child: _buildInterpretationFooter(
+                    theme,
+                    row,
+                    width: footerWidth,
+                  ),
+                ),
+              ],
+            );
             return SizedBox(
               height: kRowH,
               child: kShowLayoutGuides
                   ? Stack(
+                      clipBehavior: Clip.none,
                       children: [
-                        rowChild,
+                        content,
                         const Positioned.fill(
                           child: BaselineOverlay(),
                         ),
                       ],
                     )
-                  : rowChild,
+                  : content,
             );
           },
         ),
@@ -827,54 +846,8 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                     spec.c4 < _kResInlineMinWidth;
 
                 if (!collapseResColumns) {
-                  final children = <Widget>[
-                    _buildDataColumnCell(
-                      width: spec.c1,
-                      columnIndex: 1,
-                      rowIndex: index,
-                      child: _buildSpacingCell(theme, row),
-                    ),
-                    if (gutter > 0) SizedBox(width: gutter),
-                    _buildDataColumnCell(
-                      width: spec.c2,
-                      columnIndex: 2,
-                      rowIndex: index,
-                      child: _buildPinsCell(theme, row),
-                    ),
-                    if (gutter > 0) SizedBox(width: gutter),
-                    _buildCluster(
-                      theme: theme,
-                      row: row,
-                      key: row.aResKey,
-                      orientation: OrientationKind.a,
-                      hide: row.hideA,
-                      rowIndex: index,
-                      columnIndex: 3,
-                      width: spec.c3,
-                      showAccessories: showAccessories,
-                    ),
-                    if (gutter > 0) SizedBox(width: gutter),
-                    _buildCluster(
-                      theme: theme,
-                      row: row,
-                      key: row.bResKey,
-                      orientation: OrientationKind.b,
-                      hide: row.hideB,
-                      rowIndex: index,
-                      columnIndex: 4,
-                      width: spec.c4,
-                      showAccessories: showAccessories,
-                    ),
-                  ];
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: children,
-                  );
-                }
-
-                final lineA = SizedBox(
-                  height: kRowH,
-                  child: Row(
+                  final rowChild = Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildDataColumnCell(
                         width: spec.c1,
@@ -888,6 +861,92 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                         columnIndex: 2,
                         rowIndex: index,
                         child: _buildPinsCell(theme, row),
+                      ),
+                      if (gutter > 0) SizedBox(width: gutter),
+                      _buildCluster(
+                        theme: theme,
+                        row: row,
+                        key: row.aResKey,
+                        orientation: OrientationKind.a,
+                        hide: row.hideA,
+                        rowIndex: index,
+                        columnIndex: 3,
+                        width: spec.c3,
+                        showAccessories: showAccessories,
+                      ),
+                      if (gutter > 0) SizedBox(width: gutter),
+                      _buildCluster(
+                        theme: theme,
+                        row: row,
+                        key: row.bResKey,
+                        orientation: OrientationKind.b,
+                        hide: row.hideB,
+                        rowIndex: index,
+                        columnIndex: 4,
+                        width: spec.c4,
+                        showAccessories: showAccessories,
+                      ),
+                    ],
+                  );
+                  final footerWidth =
+                      spec.c1 + (gutter > 0 ? gutter : 0) + spec.c2;
+                  final content = Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      rowChild,
+                      Positioned(
+                        left: 0,
+                        bottom: 2,
+                        width: footerWidth,
+                        child: _buildInterpretationFooter(
+                          theme,
+                          row,
+                          width: footerWidth,
+                        ),
+                      ),
+                    ],
+                  );
+                  return SizedBox(
+                    height: kRowH,
+                    child: content,
+                  );
+                }
+
+                final staticWidth =
+                    spec.c1 + (gutter > 0 ? gutter : 0) + spec.c2;
+                final lineARow = Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDataColumnCell(
+                      width: spec.c1,
+                      columnIndex: 1,
+                      rowIndex: index,
+                      child: _buildSpacingCell(theme, row),
+                    ),
+                    if (gutter > 0) SizedBox(width: gutter),
+                    _buildDataColumnCell(
+                      width: spec.c2,
+                      columnIndex: 2,
+                      rowIndex: index,
+                      child: _buildPinsCell(theme, row),
+                    ),
+                  ],
+                );
+                final lineA = SizedBox(
+                  height: kRowH,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      lineARow,
+                      Positioned(
+                        left: 0,
+                        bottom: 2,
+                        width: staticWidth,
+                        child: _buildInterpretationFooter(
+                          theme,
+                          row,
+                          width: staticWidth,
+                        ),
                       ),
                     ],
                   ),
@@ -1187,7 +1246,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           textInputAction: TextInputAction.next,
           textAlign: TextAlign.center,
-          textAlignVertical: TextAlignVertical.center,
+          textAlignVertical: TextAlignVertical.top,
           minLines: 1,
           maxLines: 1,
           maxLengthEnforcement:
@@ -1427,15 +1486,46 @@ class _TablePanelState extends ConsumerState<TablePanel> {
 
   Widget _buildSpacingCell(ThemeData theme, _RowConfig row) {
     final spacingText = formatCompactValue(row.record.spacingFeet);
+    final spacingTooltip =
+        'Inside: ${formatCompactValue(row.insideFeet)} ft (${formatMetersTooltip(row.insideMeters)} m)\n'
+        'Outside: ${formatCompactValue(row.outsideFeet)} ft (${formatMetersTooltip(row.outsideMeters)} m)';
+
+    return SizedBox(
+      height: kRowH,
+      child: Tooltip(
+        message: spacingTooltip,
+        waitDuration: const Duration(milliseconds: 400),
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              spacingText,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInterpretationFooter(
+    ThemeData theme,
+    _RowConfig row, {
+    required double width,
+  }) {
     final customNote = row.record.interpretation?.trim();
     final customNoteText = customNote ?? '';
     final autoNote = row.record.computeAutoInterpretation();
     final hasCustom = customNote != null && customNote.isNotEmpty;
     final tooltip =
         hasCustom ? customNoteText : 'Tap to record interpretation notes';
-    final spacingTooltip =
-        'Inside: ${formatCompactValue(row.insideFeet)} ft (${formatMetersTooltip(row.insideMeters)} m)\n'
-        'Outside: ${formatCompactValue(row.outsideFeet)} ft (${formatMetersTooltip(row.outsideMeters)} m)';
     final consistencySummary = hasCustom ? null : _consistencySummary(row);
     final subtitle =
         hasCustom ? customNoteText : consistencySummary ?? 'Add note';
@@ -1455,45 +1545,25 @@ class _TablePanelState extends ConsumerState<TablePanel> {
               );
 
     return SizedBox(
-      height: kRowH,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Tooltip(
-            message: spacingTooltip,
-            waitDuration: const Duration(milliseconds: 400),
+      width: width,
+      child: Tooltip(
+        message: tooltip,
+        waitDuration: const Duration(milliseconds: 400),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => _editInterpretation(row),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
             child: Text(
-              spacingText,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              subtitle,
               maxLines: 1,
               softWrap: false,
               overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: subtitleStyle,
             ),
           ),
-          const SizedBox(height: 4),
-          Tooltip(
-            message: tooltip,
-            waitDuration: const Duration(milliseconds: 400),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => _editInterpretation(row),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Text(
-                  subtitle,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: subtitleStyle,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1514,33 +1584,36 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         message: tooltip,
         waitDuration: const Duration(milliseconds: 400),
         child: Align(
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  value,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.2,
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
                   ),
                 ),
-              ),
-              if (!valid) ...[
-                const SizedBox(width: 4),
-                Icon(
-                  Icons.warning_amber_rounded,
-                  size: 16,
-                  color: theme.colorScheme.error,
-                ),
+                if (!valid) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: theme.colorScheme.error,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
