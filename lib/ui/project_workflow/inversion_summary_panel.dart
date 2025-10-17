@@ -18,7 +18,7 @@ class InversionSummaryPanel extends StatelessWidget {
     required this.isLoading,
     required this.distanceUnit,
     this.margin = const EdgeInsets.all(12),
-    this.plotHeight = 280,
+    this.plotHeight = 160,
     this.trailing,
   });
 
