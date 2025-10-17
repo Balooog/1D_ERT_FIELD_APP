@@ -78,7 +78,7 @@ class ResCluster extends StatelessWidget {
         maxLines: 1,
         keyboardType: keyboardType,
         textAlign: textAlign,
-        textAlignVertical: TextAlignVertical.center,
+        textAlignVertical: TextAlignVertical.top,
         decoration: resFieldDecoration(hint),
       ),
       accessories: accessories,
@@ -94,9 +94,12 @@ class ResCluster extends StatelessWidget {
   Widget build(BuildContext context) {
     final children = <Widget>[
       Expanded(
-        child: SizedBox(
-          height: kFieldH,
-          child: primary,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: SizedBox(
+            height: kFieldH,
+            child: primary,
+          ),
         ),
       ),
     ];
@@ -108,10 +111,13 @@ class ResCluster extends StatelessWidget {
           SizedBox(
             height: kFieldH,
             width: kRailW,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: accessories,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: accessories,
+              ),
             ),
           ),
         );
@@ -123,9 +129,12 @@ class ResCluster extends StatelessWidget {
         ..add(
           SizedBox(
             height: kFieldH,
-            child: Align(
-              alignment: Alignment.center,
-              child: menu,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Align(
+                alignment: Alignment.center,
+                child: menu,
+              ),
             ),
           ),
         );
@@ -134,7 +143,7 @@ class ResCluster extends StatelessWidget {
     return SizedBox(
       height: kRowH,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: children,
       ),
     );
