@@ -713,7 +713,7 @@ class InversionPlotPanel extends StatelessWidget {
     required this.isLoading,
     required this.distanceUnit,
     this.siteLabel,
-    this.chartHeight = 200,
+    this.chartHeight = 140,
   });
 
   final TwoLayerInversionResult? result;
@@ -750,7 +750,7 @@ class InversionPlotPanel extends StatelessWidget {
       return Card(
         margin: const EdgeInsets.all(12),
         child: SizedBox(
-          height: math.max(chartHeight * 0.6, 160),
+          height: math.max(chartHeight * 0.75, 120),
           child: Center(
             child: Text(
               'Record at least two valid spacings to compute inversion.',

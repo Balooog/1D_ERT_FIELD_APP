@@ -172,9 +172,9 @@ class _RightRailState extends State<RightRail> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final availableHeight = constraints.maxHeight.isFinite
-              ? constraints.maxHeight - 140
-              : 320.0;
-          final plotHeight = availableHeight.clamp(280.0, 480.0).toDouble();
+              ? constraints.maxHeight - 120
+              : 260.0;
+          final plotHeight = availableHeight.clamp(160.0, 320.0).toDouble();
           final panel = InversionSummaryPanel(
             site: widget.site,
             result: safeResult,
