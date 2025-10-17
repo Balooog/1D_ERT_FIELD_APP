@@ -678,6 +678,164 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
     }
   }
 
+  Future<void> _promptExcelExport() async {
+    if (_project.sites.isEmpty) {
+      if (!mounted) return;
+      await _showExcelInfoDialog(
+        title: 'Nothing to export',
+        message: 'Add at least one site before exporting Excel.',
+      );
+      return;
+    }
+    final scope = await showDialog<_ExcelExportScope>(
+      context: context,
+      builder: (context) {
+        final site = _selectedSite;
+        final siteName = site?.displayName ?? 'Select a site';
+        return AlertDialog(
+          title: const Text('Export Excel (THG)'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.timeline),
+                title: const Text('Selected site'),
+                subtitle: Text(siteName),
+                enabled: site != null,
+                onTap: site == null
+                    ? null
+                    : () => Navigator.of(context)
+                        .pop<_ExcelExportScope>(_ExcelExportScope.site),
+              ),
+              ListTile(
+                leading: const Icon(Icons.library_books),
+                title: const Text('All project sites'),
+                subtitle:
+                    Text('${_project.sites.length} site(s) in this project'),
+                onTap: () => Navigator.of(context)
+                    .pop<_ExcelExportScope>(_ExcelExportScope.project),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+    if (!mounted || scope == null) {
+      return;
+    }
+    switch (scope) {
+      case _ExcelExportScope.site:
+        await _exportExcelSite();
+        break;
+      case _ExcelExportScope.project:
+        await _exportExcelProject();
+        break;
+    }
+  }
+
+  Future<void> _exportExcelSite() async {
+    final site = _selectedSite;
+    if (site == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a site to export.')),
+      );
+      return;
+    }
+    try {
+      final file = await _exportService.exportExcelForSite(_project, site);
+      if (!mounted) return;
+      await _showExcelConfirmation(file);
+    } catch (error) {
+      if (!mounted) return;
+      await _showExcelFailure(error);
+    }
+  }
+
+  Future<void> _exportExcelProject() async {
+    if (_project.sites.isEmpty) {
+      if (!mounted) return;
+      await _showExcelInfoDialog(
+        title: 'Nothing to export',
+        message: 'Add at least one site before exporting Excel.',
+      );
+      return;
+    }
+    try {
+      final file = await _exportService.exportExcelForProject(_project);
+      if (!mounted) return;
+      await _showExcelConfirmation(file);
+    } catch (error) {
+      if (!mounted) return;
+      await _showExcelFailure(error);
+    }
+  }
+
+  Future<void> _showExcelConfirmation(File file) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excel export saved'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Workbook saved to:'),
+            const SizedBox(height: 8),
+            SelectableText(file.path),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showExcelFailure(Object error) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excel export failed'),
+        content: Text('$error'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Dismiss'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showExcelInfoDialog({
+    required String title,
+    required String message,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showImportSheet() async {
     final outcome = await showModalBottomSheet<ImportSheetOutcome>(
       context: context,
@@ -881,6 +1039,9 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
                     case 'pdf_all':
                       unawaited(_exportAllSitesPdf());
                       break;
+                    case 'excel':
+                      unawaited(_promptExcelExport());
+                      break;
                   }
                 },
                 itemBuilder: (context) => const [
@@ -895,6 +1056,10 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
                   PopupMenuItem(
                     value: 'pdf_all',
                     child: Text('Save all sites to PDF'),
+                  ),
+                  PopupMenuItem(
+                    value: 'excel',
+                    child: Text('Export Excel (THG)…'),
                   ),
                 ],
               ),
@@ -1386,6 +1551,7 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
         onExportCsv: () => unawaited(_exportSite()),
         onExportSitePdf: () => unawaited(_exportSitePdf()),
         onExportAllSitesPdf: () => unawaited(_exportAllSitesPdf()),
+        onExportExcel: () => unawaited(_promptExcelExport()),
       ),
     );
   }
@@ -1416,6 +1582,8 @@ class _NewSiteConfig {
   final String orientationA;
   final String orientationB;
 }
+
+enum _ExcelExportScope { site, project }
 
 class SiteListPanel extends StatelessWidget {
   const SiteListPanel({

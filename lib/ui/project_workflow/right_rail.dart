@@ -19,6 +19,7 @@ class RightRail extends StatefulWidget {
     this.onExportCsv,
     this.onExportSitePdf,
     this.onExportAllSitesPdf,
+    this.onExportExcel,
   });
 
   final SiteRecord site;
@@ -38,6 +39,7 @@ class RightRail extends StatefulWidget {
   final VoidCallback? onExportCsv;
   final VoidCallback? onExportSitePdf;
   final VoidCallback? onExportAllSitesPdf;
+  final VoidCallback? onExportExcel;
 
   @override
   State<RightRail> createState() => _RightRailState();
@@ -87,6 +89,9 @@ class _RightRailState extends State<RightRail> {
       case _RightRailMenuAction.exportAllSitesPdf:
         widget.onExportAllSitesPdf?.call();
         break;
+      case _RightRailMenuAction.exportExcel:
+        widget.onExportExcel?.call();
+        break;
       case _RightRailMenuAction.settings:
         _openSiteSettings();
         break;
@@ -124,6 +129,15 @@ class _RightRailState extends State<RightRail> {
           _RightRailMenuAction.exportCsv,
           Icons.file_download,
           'Export CSV & DAT',
+        ),
+      );
+    }
+    if (widget.onExportExcel != null) {
+      items.add(
+        _buildMenuItem(
+          _RightRailMenuAction.exportExcel,
+          Icons.grid_on,
+          'Export Excel (THG)…',
         ),
       );
     }
@@ -206,6 +220,7 @@ class _RightRailState extends State<RightRail> {
 
 enum _RightRailMenuAction {
   exportCsv,
+  exportExcel,
   exportSitePdf,
   exportAllSitesPdf,
   settings,
