@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
@@ -12,6 +13,7 @@ import 'package:resicheck/models/site.dart';
 import 'package:resicheck/services/inversion.dart';
 import 'package:resicheck/services/storage_service.dart';
 import 'package:resicheck/utils/distance_unit.dart';
+import 'package:resicheck/utils/excel_writer.dart';
 import 'package:resicheck/utils/units.dart' as units;
 
 class InversionReportEntry {
@@ -134,6 +136,55 @@ class ExportService {
     ];
     await _writeExportLog(project, lines);
     return file;
+  }
+
+  Future<File> exportExcelForSite(
+    ProjectRecord project,
+    SiteRecord site, {
+    String? operatorName,
+  }) async {
+    final writer = ThgExcelWriter(
+      project: project,
+      sites: [site],
+      operatorName: operatorName,
+    );
+    final bytes = writer.build();
+    final siteSlug = _slug(site.siteId);
+    final target = await _ensureExcelFile(
+      project,
+      suffix: siteSlug.isEmpty ? null : siteSlug,
+    );
+    await target.writeAsBytes(bytes, flush: true);
+    await _writeExportLog(
+      project,
+      [
+        'Excel scope: site',
+        'Site: ${site.displayName} (${site.siteId})',
+        'Excel: ${target.path}',
+      ],
+    );
+    return target;
+  }
+
+  Future<File> exportExcelForProject(
+    ProjectRecord project, {
+    String? operatorName,
+  }) async {
+    final writer = ThgExcelWriter(
+      project: project,
+      sites: project.sites,
+      operatorName: operatorName,
+    );
+    final bytes = writer.build();
+    final target = await _ensureExcelFile(project);
+    await target.writeAsBytes(bytes, flush: true);
+    final lines = <String>[
+      'Excel scope: project',
+      'Sites exported: ${project.sites.length}',
+      'Excel: ${target.path}',
+    ];
+    await _writeExportLog(project, lines);
+    return target;
   }
 
   pw.Document _buildInversionDocument(
@@ -381,6 +432,23 @@ class ExportService {
       buffer.writeln(line);
     }
     await file.writeAsString(buffer.toString());
+  }
+
+  Future<File> _ensureExcelFile(
+    ProjectRecord project, {
+    String? suffix,
+  }) async {
+    final projectDir = await storageService.projectDirectory(project);
+    final exportsDir = Directory(p.join(projectDir.path, 'exports'));
+    if (!await exportsDir.exists()) {
+      await exportsDir.create(recursive: true);
+    }
+    final base = _slug(project.projectName);
+    final trimmedSuffix = suffix?.trim();
+    final fileName = (trimmedSuffix == null || trimmedSuffix.isEmpty)
+        ? '$base.xlsx'
+        : '${base}_$trimmedSuffix.xlsx';
+    return File(p.join(exportsDir.path, fileName));
   }
 
   List<dynamic> _rowForSpacing(
