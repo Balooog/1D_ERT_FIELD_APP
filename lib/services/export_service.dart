@@ -10,11 +10,14 @@ import 'package:resicheck/models/calc.dart' as calc;
 import 'package:resicheck/models/direction_reading.dart';
 import 'package:resicheck/models/project.dart';
 import 'package:resicheck/models/site.dart';
+import 'package:resicheck/services/export_excel_traditional.dart';
+import 'package:resicheck/services/export_excel_updated.dart';
 import 'package:resicheck/services/inversion.dart';
 import 'package:resicheck/services/storage_service.dart';
 import 'package:resicheck/utils/distance_unit.dart';
-import 'package:resicheck/utils/excel_writer.dart';
 import 'package:resicheck/utils/units.dart' as units;
+
+enum ExcelStyle { traditional, updated }
 
 class InversionReportEntry {
   InversionReportEntry({
@@ -142,49 +145,88 @@ class ExportService {
     ProjectRecord project,
     SiteRecord site, {
     String? operatorName,
+    ExcelStyle style = ExcelStyle.updated,
+    bool includeGps = false,
   }) async {
-    final writer = ThgExcelWriter(
-      project: project,
-      sites: [site],
-      operatorName: operatorName,
-    );
-    final bytes = writer.build();
-    final siteSlug = _slug(site.siteId);
-    final target = await _ensureExcelFile(
-      project,
-      suffix: siteSlug.isEmpty ? null : siteSlug,
-    );
-    await target.writeAsBytes(bytes, flush: true);
-    await _writeExportLog(
-      project,
-      [
-        'Excel scope: site',
-        'Site: ${site.displayName} (${site.siteId})',
-        'Excel: ${target.path}',
-      ],
-    );
-    return target;
+    final exportsDir = await _ensureExportsDirectory(project);
+    final generatedAt = DateTime.now();
+    final siteSlug =
+        _slug(site.displayName.isNotEmpty ? site.displayName : site.siteId);
+    final projectSlug = _slug(project.projectName);
+
+    late final File file;
+    switch (style) {
+      case ExcelStyle.traditional:
+        file = await writeTraditionalTable(
+          project: project,
+          site: site,
+          outDir: exportsDir,
+          includeGps: includeGps,
+          generatedAt: generatedAt,
+        );
+        break;
+      case ExcelStyle.updated:
+        final fileName = '${projectSlug}_${siteSlug}_THG_Updated.xlsx';
+        file = await writeUpdatedTable(
+          project: project,
+          sites: [site],
+          outDir: exportsDir,
+          fileName: fileName,
+          includeGps: includeGps,
+          operatorName: operatorName,
+          generatedAt: generatedAt,
+        );
+        break;
+    }
+
+    final logLines = <String>[
+      'Excel scope: site',
+      'Style: ${style.name}',
+      'Include GPS: $includeGps',
+      'Site: ${site.displayName} (${site.siteId})',
+      if (operatorName != null && operatorName.isNotEmpty)
+        'Operator: $operatorName',
+      'Excel: ${file.path}',
+    ];
+    await _writeExportLog(project, logLines);
+    return file;
   }
 
   Future<File> exportExcelForProject(
     ProjectRecord project, {
     String? operatorName,
+    ExcelStyle style = ExcelStyle.updated,
+    bool includeGps = false,
   }) async {
-    final writer = ThgExcelWriter(
+    if (style == ExcelStyle.traditional) {
+      throw UnsupportedError(
+        'Traditional table styling is available only for single-site exports.',
+      );
+    }
+    final exportsDir = await _ensureExportsDirectory(project);
+    final generatedAt = DateTime.now();
+    final projectSlug = _slug(project.projectName);
+    final fileName = '${projectSlug}_AllSites_THG_Updated.xlsx';
+    final file = await writeUpdatedTable(
       project: project,
       sites: project.sites,
+      outDir: exportsDir,
+      fileName: fileName,
+      includeGps: includeGps,
       operatorName: operatorName,
+      generatedAt: generatedAt,
     );
-    final bytes = writer.build();
-    final target = await _ensureExcelFile(project);
-    await target.writeAsBytes(bytes, flush: true);
     final lines = <String>[
       'Excel scope: project',
+      'Style: ${style.name}',
+      'Include GPS: $includeGps',
       'Sites exported: ${project.sites.length}',
-      'Excel: ${target.path}',
+      if (operatorName != null && operatorName.isNotEmpty)
+        'Operator: $operatorName',
+      'Excel: ${file.path}',
     ];
     await _writeExportLog(project, lines);
-    return target;
+    return file;
   }
 
   pw.Document _buildInversionDocument(
@@ -434,21 +476,13 @@ class ExportService {
     await file.writeAsString(buffer.toString());
   }
 
-  Future<File> _ensureExcelFile(
-    ProjectRecord project, {
-    String? suffix,
-  }) async {
+  Future<Directory> _ensureExportsDirectory(ProjectRecord project) async {
     final projectDir = await storageService.projectDirectory(project);
     final exportsDir = Directory(p.join(projectDir.path, 'exports'));
     if (!await exportsDir.exists()) {
       await exportsDir.create(recursive: true);
     }
-    final base = _slug(project.projectName);
-    final trimmedSuffix = suffix?.trim();
-    final fileName = (trimmedSuffix == null || trimmedSuffix.isEmpty)
-        ? '$base.xlsx'
-        : '${base}_$trimmedSuffix.xlsx';
-    return File(p.join(exportsDir.path, fileName));
+    return exportsDir;
   }
 
   List<dynamic> _rowForSpacing(

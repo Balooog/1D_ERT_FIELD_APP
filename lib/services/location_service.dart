@@ -195,8 +195,10 @@ LocationService geolocatorLocationService({
     }
 
     final position = await geolocator.Geolocator.getCurrentPosition(
-      desiredAccuracy: accuracy,
-      timeLimit: timeout,
+      locationSettings: geolocator.LocationSettings(
+        accuracy: accuracy,
+        timeLimit: timeout,
+      ),
     );
 
     final altitude = position.altitude.isFinite ? position.altitude : null;
