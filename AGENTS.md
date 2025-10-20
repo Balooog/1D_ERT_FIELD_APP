@@ -1,23 +1,25 @@
-# Agents Guide — 1D ERT Field App (VES QC)
+# Agents Guide — ResiCheck Automation
 
-This repository allows structured contributions from automation agents (e.g., GitHub Copilot, Codex, GPT assistants, or other bots).  
-The purpose of this guide is to define safe boundaries and conventions for automated edits so the project remains stable and auditable.
+ResiCheck (1D ERT Field App) welcomes structured contributions from automation agents (GitHub Copilot, Codex, GPT assistants, and similar bots).  
+This guide keeps those edits predictable, auditable, and aligned with the workflow used in the Codex CLI harness.
 
 ---
 
 ## Scope of Agent Changes
 
-✅ Agents are permitted to modify:
-- Dart/Flutter source (`lib/`, `test/`).
+✅ Agents may update:
+- Flutter source and tests under `lib/` and `test/`.
 - Flutter configuration (`pubspec.yaml`, `analysis_options.yaml`).
 - Android/iOS Gradle build scripts (`android/`, `ios/`).
-- Documentation (`README.md`, `AGENTS.md`, `docs/`).
+- Project documentation (`README.md`, `AGENTS.md`, `docs/`).
+- Automation notes or scripts under `scripts/ci/` **only when the task explicitly calls for it**.
 
 ❌ Agents must NOT:
-- Install Flutter, Android SDKs, or system-level dependencies.
-- Run `flutter doctor`, `flutter pub get`, or similar commands (these are handled locally).
-- Commit secrets, credentials, or API keys.
+- Install Flutter, Android SDKs, or other system-level dependencies.
+- Run `flutter doctor`, `flutter pub get`, or similar setup commands (handled outside the agent flow).
+- Commit secrets, credentials, API keys, or machine-specific files.
 - Modify GitHub Actions or CI workflows without explicit instruction.
+- Check in generated artifacts such as `.flutter-plugins-dependencies`, `.dart_tool/`, `buildlogs/last_test.txt`, or platform build outputs.
 
 ---
 
@@ -52,26 +54,38 @@ Each PR opened by an agent must:
 2. Contain a clear description:
    - What file(s) were changed.  
    - Why the change was made (include error output if relevant).  
-   - How the change was tested (if applicable).  
+   - How the change was tested (reference `run bash scripts/ci/test_wsl.sh` or the specific sanctioned command output).  
 3. Reference the commit message style from above.
+
+---
+
+## Analyzer/Test Loop
+
+- Preferred: `run bash scripts/ci/test_wsl.sh`  
+  - Formats via `dart format .`, runs `dart analyze --no-fatal-warnings`, and executes `flutter --no-version-check test -x widget_dialog`.  
+  - Writes analyzer/test output to `buildlogs/last_test.txt`; review and summarize key failures instead of pasting entire logs.  
+- Individual invocations of `dart format .`, `dart analyze`, or `flutter --no-version-check test -x widget_dialog` are also pre-approved via `.codex/config.toml`.  
+- Do not introduce alternative tooling or test runners unless requested.
 
 ---
 
 ## Example Workflow
 
-1. Developer pastes analyzer/build/test errors into the agent.  
-2. Agent proposes a fix and opens a branch `fix/<description>`.  
-3. Agent commits changes with a structured message.  
-4. Developer reviews the PR and merges when satisfied.  
+1. Developer provides the change request or analyzer/test failures.  
+2. Agent inspects the relevant code and proposes a minimal diff.  
+3. Run `run bash scripts/ci/test_wsl.sh` (or the approved commands) to format, analyze, and test; summarize results from `buildlogs/last_test.txt`.  
+4. Agent commits changes with a Conventional Commit message on a branch such as `fix/<description>`.  
+5. Developer reviews the PR and merges when satisfied.  
 
 ---
 
 ## Notes
 
-- This app is **offline-first** and field-facing. Stability is prioritized over feature creep.  
-- Defensive coding and clear test coverage are preferred over aggressive refactoring.  
-- Agents should leave explanatory comments in code when applying non-trivial fixes.  
-- Local automation helpers: `.codex/config.toml` keeps approvals on while whitelisting the test loop, and `scripts/ci/test_wsl.sh` is the approved formatter/analyzer/test runner (see `docs/CODEX_TEST_LOOP.md`).  
+- This app is **offline-first** and field-facing—stability over feature creep.  
+- Favor defensive fixes and targeted coverage over sweeping refactors.  
+- Leave brief explanatory comments when a code change is non-obvious.  
+- `.codex/config.toml` mirrors the approved command list; `docs/CODEX_TEST_LOOP.md` expands on the sanctioned WSL loop and expectations around summarizing analyzer/test output.  
+- Keep generated artifacts out of commits; re-run the loop after each patch until it exits cleanly.  
 
 ---
 

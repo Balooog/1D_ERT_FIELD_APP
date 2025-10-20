@@ -35,6 +35,7 @@ flutter:
     - assets/samples/Wenner1D.csv
     - assets/samples/Schlum1D.csv
     - assets/templates/
+    - assets/fonts/
 
 dev_dependencies:
   flutter_test:

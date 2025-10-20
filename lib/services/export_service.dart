@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:csv/csv.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:pdf/pdf.dart';
@@ -13,6 +15,7 @@ import 'package:resicheck/models/site.dart';
 import 'package:resicheck/services/export_excel_traditional.dart';
 import 'package:resicheck/services/export_excel_updated.dart';
 import 'package:resicheck/services/inversion.dart';
+import 'package:resicheck/services/inversion_figure_renderer.dart';
 import 'package:resicheck/services/storage_service.dart';
 import 'package:resicheck/utils/distance_unit.dart';
 import 'package:resicheck/utils/units.dart' as units;
@@ -35,6 +38,7 @@ class ExportService {
   ExportService(this.storageService);
 
   final ProjectStorageService storageService;
+  static pw.ThemeData? _cachedPdfTheme;
 
   Future<File> exportFieldCsv(ProjectRecord project, SiteRecord site) async {
     final rows = <List<dynamic>>[
@@ -97,19 +101,22 @@ class ExportService {
     ProjectRecord project,
     InversionReportEntry entry,
   ) async {
-    final document = _buildInversionDocument(project, [entry]);
+    final theme = await _loadPdfTheme();
+    final document = _buildInversionDocument(project, [entry], theme);
     final file = await storageService.ensureExportFile(
       project,
       '${project.projectId}_${_slug(project.projectName)}_${entry.site.siteId}_report',
       'pdf',
     );
     await file.writeAsBytes(await document.save());
+    final png = await _exportInversionPng(project, entry);
     await _writeExportLog(
       project,
       [
         'Site: ${entry.site.displayName} (${entry.site.siteId})',
         'RMS: ${entry.result.rms.toStringAsFixed(4)}',
         'PDF: ${file.path}',
+        if (png != null) 'PNG: ${png.path}',
       ],
     );
     return file;
@@ -124,7 +131,8 @@ class ExportService {
     }
     final sorted = [...entries]
       ..sort((a, b) => a.site.displayName.compareTo(b.site.displayName));
-    final document = _buildInversionDocument(project, sorted);
+    final theme = await _loadPdfTheme();
+    final document = _buildInversionDocument(project, sorted, theme);
     final file = await storageService.ensureExportFile(
       project,
       '${project.projectId}_${_slug(project.projectName)}_all_sites_report',
@@ -138,6 +146,9 @@ class ExportService {
       'PDF: ${file.path}',
     ];
     await _writeExportLog(project, lines);
+    for (final entry in sorted) {
+      await _exportInversionPng(project, entry);
+    }
     return file;
   }
 
@@ -232,8 +243,9 @@ class ExportService {
   pw.Document _buildInversionDocument(
     ProjectRecord project,
     List<InversionReportEntry> entries,
+    pw.ThemeData theme,
   ) {
-    final document = pw.Document();
+    final document = pw.Document(theme: theme);
     final generatedAt = DateTime.now();
     final dateFormat = DateFormat.yMMMMd();
     for (final entry in entries) {
@@ -245,7 +257,9 @@ class ExportService {
             _buildPdfHeader(project, entry.site, generatedAt, dateFormat),
             pw.SizedBox(height: 12),
             _buildPdfSummary(entry),
-            pw.SizedBox(height: 16),
+            pw.SizedBox(height: 14),
+            _buildPdfChart(entry),
+            pw.SizedBox(height: 14),
             _buildPdfSummaryFooter(entry),
             pw.SizedBox(height: 12),
             _buildPdfTable(entry),
@@ -430,6 +444,253 @@ class ExportService {
     );
   }
 
+  pw.Widget _buildPdfChart(InversionReportEntry entry) {
+    final result = entry.result;
+    final samplesAvailable = result.observedRho.any((value) => value > 0) ||
+        result.predictedRho.any((value) => value > 0);
+    if (!samplesAvailable) {
+      return pw.Container(
+        height: 160,
+        alignment: pw.Alignment.center,
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.grey400, width: 0.4),
+          borderRadius: pw.BorderRadius.circular(8),
+        ),
+        child: pw.Text(
+          'Not enough valid samples to render two-layer profile.',
+          style: const pw.TextStyle(fontSize: 10),
+        ),
+      );
+    }
+
+    final minRho = math.max(result.minRho * 0.8, 0.5);
+    final maxRho = math.max(result.maxRho * 1.2, minRho * 1.05);
+    final minLog = _log10(minRho);
+    final maxLog = _log10(maxRho);
+    final depthMeters = math.max(result.maxDepthMeters * 1.1, 0.5);
+    final depthTicks = _buildDepthTicks(depthMeters);
+    final resistivityTicks = _buildResistivityTicks(minLog, maxLog);
+
+    final measurementPoints = <pw.PointChartValue>[];
+    final predictedPoints = <pw.PointChartValue>[];
+    for (var i = 0; i < result.observedRho.length; i++) {
+      final observed = result.observedRho[i].toDouble();
+      if (!observed.isFinite || observed <= 0) {
+        continue;
+      }
+      final depth = i < result.measurementDepthsM.length
+          ? result.measurementDepthsM[i].toDouble()
+          : (result.measurementDepthsM.isEmpty
+              ? 0.0
+              : result.measurementDepthsM.last.toDouble());
+      measurementPoints.add(pw.PointChartValue(_log10(observed), -depth));
+
+      if (i < result.predictedRho.length) {
+        final predicted = result.predictedRho[i].toDouble();
+        if (predicted.isFinite && predicted > 0) {
+          predictedPoints.add(pw.PointChartValue(_log10(predicted), -depth));
+        }
+      }
+    }
+
+    final profilePoints = _buildProfilePoints(result, depthMeters);
+
+    final datasets = <pw.Dataset>[
+      if (profilePoints.length >= 2)
+        pw.LineDataSet<pw.PointChartValue>(
+          data: profilePoints,
+          legend: 'Layer model',
+          color: _pdfOrange,
+          lineWidth: 3,
+          drawPoints: false,
+          drawSurface: false,
+          isCurved: false,
+        ),
+      if (predictedPoints.isNotEmpty)
+        pw.LineDataSet<pw.PointChartValue>(
+          data: predictedPoints,
+          legend: 'Predicted ρ',
+          color: _pdfBlue,
+          lineWidth: 1.6,
+          drawPoints: false,
+          drawSurface: false,
+          isCurved: false,
+        ),
+      if (measurementPoints.isNotEmpty)
+        pw.PointDataSet<pw.PointChartValue>(
+          data: measurementPoints,
+          legend: 'Measured ρ',
+          color: PdfColors.grey700,
+          borderColor: PdfColors.white,
+          borderWidth: 0.8,
+          pointSize: 3.5,
+        ),
+    ];
+
+    if (datasets.isEmpty) {
+      return pw.Container(
+        height: 160,
+        alignment: pw.Alignment.center,
+        decoration: pw.BoxDecoration(
+          border: pw.Border.all(color: PdfColors.grey400, width: 0.4),
+          borderRadius: pw.BorderRadius.circular(8),
+        ),
+        child: pw.Text(
+          'Not enough valid samples to render two-layer profile.',
+          style: const pw.TextStyle(fontSize: 10),
+        ),
+      );
+    }
+
+    final xAxisTicks = [for (final tick in resistivityTicks) tick.toDouble()];
+    final yAxisTicks = [
+      for (final tick in depthTicks.reversed) -tick.toDouble()
+    ];
+
+    final chart = pw.Chart(
+      grid: pw.CartesianGrid(
+        xAxis: pw.FixedAxis<double>(
+          xAxisTicks,
+          format: (value) => _formatResistivityTick(value),
+          divisions: true,
+          divisionsColor: PdfColors.grey400,
+          divisionsDashed: true,
+          ticks: true,
+          textStyle: const pw.TextStyle(fontSize: 9),
+        ),
+        yAxis: pw.FixedAxis<double>(
+          yAxisTicks,
+          format: (value) {
+            final depth = -value.toDouble();
+            if (depth < 0) {
+              return '';
+            }
+            return entry.distanceUnit.formatSpacing(depth);
+          },
+          divisions: true,
+          divisionsColor: PdfColors.grey400,
+          ticks: true,
+          textStyle: const pw.TextStyle(fontSize: 9),
+        ),
+      ),
+      datasets: datasets,
+      overlay: pw.ChartLegend(
+        position: pw.Alignment.topRight,
+        direction: pw.Axis.vertical,
+        textStyle: const pw.TextStyle(fontSize: 9),
+        padding: const pw.EdgeInsets.all(6),
+        decoration: pw.BoxDecoration(
+          color: PdfColors.white,
+          borderRadius: pw.BorderRadius.circular(6),
+          border: pw.Border.all(color: PdfColors.grey400, width: 0.5),
+        ),
+      ),
+    );
+
+    final depthLabel = 'Depth (${_unitLabel(entry.distanceUnit)})';
+
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        borderRadius: pw.BorderRadius.circular(8),
+        border: pw.Border.all(color: PdfColors.grey400, width: 0.4),
+        color: _mixColors(PdfColors.white, PdfColors.blueGrey50, 0.12),
+      ),
+      padding: const pw.EdgeInsets.all(12),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        children: [
+          pw.Text(
+            'Two-layer resistivity profile',
+            style: pw.TextStyle(
+              fontSize: 12,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 12),
+          pw.SizedBox(
+            height: 180,
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Transform.rotate(
+                  angle: math.pi / 2,
+                  child: pw.Padding(
+                    padding: const pw.EdgeInsets.only(bottom: 6),
+                    child: pw.Text(
+                      depthLabel,
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 8),
+                pw.Expanded(child: chart),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 6),
+          pw.Center(
+            child: pw.Text(
+              'Resistivity (Ω·m)',
+              style: const pw.TextStyle(fontSize: 9),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<File?> _exportInversionPng(
+    ProjectRecord project,
+    InversionReportEntry entry,
+  ) async {
+    try {
+      final exportsDir = await _ensureExportsDirectory(project);
+      final figuresDir = Directory(p.join(exportsDir.path, 'figures'));
+      if (!await figuresDir.exists()) {
+        await figuresDir.create(recursive: true);
+      }
+      final projectSlug = _slug(project.projectName);
+      final siteLabel = entry.site.displayName.isNotEmpty
+          ? entry.site.displayName
+          : entry.site.siteId;
+      final siteSlug = _slug(siteLabel);
+      final fileName = '${projectSlug}_${siteSlug}_Inversion.png';
+      final bytes = await InversionFigureRenderer.render(
+        project: project,
+        site: entry.site,
+        result: entry.result,
+        distanceUnit: entry.distanceUnit,
+      );
+      final file = File(p.join(figuresDir.path, fileName));
+      await file.writeAsBytes(bytes, flush: true);
+      return file;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<pw.ThemeData> _loadPdfTheme() async {
+    if (_cachedPdfTheme != null) {
+      return _cachedPdfTheme!;
+    }
+    final regular =
+        pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
+    final bold =
+        pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Bold.ttf'));
+    final italic =
+        pw.Font.ttf(await rootBundle.load('assets/fonts/Roboto-Italic.ttf'));
+    final boldItalic = pw.Font.ttf(
+        await rootBundle.load('assets/fonts/Roboto-BoldItalic.ttf'));
+    _cachedPdfTheme = pw.ThemeData.withFont(
+      base: regular,
+      bold: bold,
+      italic: italic,
+      boldItalic: boldItalic,
+      fontFallback: [regular],
+    );
+    return _cachedPdfTheme!;
+  }
+
   String _formatSpacing(DistanceUnit unit, double meters) {
     final formatted = unit.formatSpacing(meters);
     return formatted;
@@ -533,3 +794,67 @@ class ExportService {
 const PdfColor _pdfBlue = PdfColor.fromInt(0xFF0072B2);
 const PdfColor _pdfOrange = PdfColor.fromInt(0xFFE69F00);
 const PdfColor _pdfVermillion = PdfColor.fromInt(0xFFD55E00);
+
+double _log10(double value) => math.log(value) / math.ln10;
+
+List<double> _buildDepthTicks(double maxDepth) {
+  if (maxDepth <= 0) {
+    return const [];
+  }
+  const tickCount = 4;
+  final step = maxDepth / tickCount;
+  return [
+    for (var i = 0; i <= tickCount; i++) i * step,
+  ];
+}
+
+List<int> _buildResistivityTicks(double minLog, double maxLog) {
+  final start = minLog.floor();
+  final end = maxLog.ceil();
+  return [for (var i = start; i <= end; i++) i];
+}
+
+List<pw.PointChartValue> _buildProfilePoints(
+  TwoLayerInversionResult summary,
+  double depthMeters,
+) {
+  final spots = <pw.PointChartValue>[];
+  final topLog = _log10(summary.rho1);
+  spots.add(pw.PointChartValue(topLog, 0));
+  final firstBoundary = summary.thicknessM ??
+      (summary.layerDepths.isNotEmpty
+          ? summary.layerDepths.first
+          : summary.maxDepthMeters / 2);
+  final cappedBoundary = math.min(firstBoundary, depthMeters);
+  spots.add(pw.PointChartValue(topLog, -cappedBoundary));
+  final secondLog = _log10(summary.rho2);
+  spots.add(pw.PointChartValue(secondLog, -cappedBoundary));
+  spots.add(pw.PointChartValue(secondLog, -depthMeters));
+  return spots;
+}
+
+String _formatResistivityTick(num logValue) {
+  final value = math.pow(10, logValue.toDouble()).toDouble();
+  if (!value.isFinite) {
+    return '';
+  }
+  final numeric = value;
+  String label;
+  if (numeric >= 1000) {
+    label = numeric.toStringAsFixed(0);
+  } else if (numeric >= 100) {
+    label = numeric.toStringAsFixed(0);
+  } else if (numeric >= 10) {
+    label = numeric.toStringAsFixed(1);
+  } else {
+    label = numeric.toStringAsFixed(2);
+  }
+  return _trimTrailingZeros(label);
+}
+
+String _trimTrailingZeros(String value) {
+  if (!value.contains('.')) {
+    return value;
+  }
+  return value.replaceFirst(RegExp(r'\.?0+$'), '');
+}

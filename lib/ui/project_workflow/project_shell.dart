@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:collection/collection.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -16,13 +15,12 @@ import '../../models/project.dart';
 import '../../models/site.dart';
 import '../../services/export_service.dart';
 import '../../services/inversion.dart';
-import '../../services/screenshot_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/templates_service.dart';
-import '../../state/settings_state.dart';
 import '../../utils/distance_unit.dart';
+import '../../utils/file_launcher.dart';
+import '../export/export_sheet.dart';
 import '../style/density.dart';
-import '../style/icons.dart';
 import '../import/import_sheet.dart';
 import 'plots_panel.dart';
 import 'right_rail.dart';
@@ -54,8 +52,6 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
   GhostTemplate? _selectedTemplate;
   final TemplatesService _templatesService = TemplatesService();
   List<GhostTemplate> _templates = const [];
-  final ScreenshotService _screenshotService = ScreenshotService();
-  bool _isCapturingScreenshot = false;
   late ProjectAutosaveController _autosave;
   late ExportService _exportService;
   String _saveIndicator = 'Saved';
@@ -106,9 +102,7 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
     }
   }
 
-  Widget _wrapWithScreenshot(ScreenshotRegion region, Widget child) {
-    return _screenshotService.wrapRegion(region: region, child: child);
-  }
+  Widget _wrapWithScreenshot(Widget child) => child;
 
   Future<void> _persistProject(ProjectRecord project) async {
     final saved = await widget.storageService.saveProject(
@@ -143,6 +137,23 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
   void _recordFocus(double spacingFt, OrientationKind orientation) {
     _focusedSpacing = spacingFt;
     _focusedOrientation = orientation;
+  }
+
+  Future<void> _logTroubleshooter(String entry) async {
+    final site = _selectedSite;
+    if (site == null) {
+      return;
+    }
+    final trimmed = entry.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    _applyProjectUpdate(
+      (project) => project.updateSite(
+        site.siteId,
+        (current) => current.appendLog(trimmed),
+      ),
+    );
   }
 
   void _pushHistory(ProjectRecord project) {
@@ -478,6 +489,7 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
             interpretation: spacing.interpretation,
           ),
       ],
+      logs: site.logs,
     );
     _applyProjectUpdate((project) => project.addSite(duplicate));
     setState(() {
@@ -687,89 +699,61 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
       );
       return;
     }
-    final scope = await showDialog<_ExcelExportScope>(
+    final result = await ExportSheet.show(
       context: context,
-      builder: (context) {
-        final site = _selectedSite;
-        final siteName = site?.displayName ?? 'Select a site';
-        return AlertDialog(
-          title: const Text('Export Excel (THG)'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.timeline),
-                title: const Text('Selected site'),
-                subtitle: Text(siteName),
-                enabled: site != null,
-                onTap: site == null
-                    ? null
-                    : () => Navigator.of(context)
-                        .pop<_ExcelExportScope>(_ExcelExportScope.site),
-              ),
-              ListTile(
-                leading: const Icon(Icons.library_books),
-                title: const Text('All project sites'),
-                subtitle:
-                    Text('${_project.sites.length} site(s) in this project'),
-                onTap: () => Navigator.of(context)
-                    .pop<_ExcelExportScope>(_ExcelExportScope.project),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-          ],
-        );
-      },
+      project: _project,
+      selectedSite: _selectedSite,
     );
-    if (!mounted || scope == null) {
+    if (!mounted || result == null) {
       return;
     }
-    switch (scope) {
-      case _ExcelExportScope.site:
-        await _exportExcelSite();
-        break;
-      case _ExcelExportScope.project:
-        await _exportExcelProject();
-        break;
-    }
+    await _exportExcel(result);
   }
 
-  Future<void> _exportExcelSite() async {
-    final site = _selectedSite;
-    if (site == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a site to export.')),
-      );
-      return;
-    }
+  Future<void> _exportExcel(ExportSheetResult result) async {
     try {
-      final file = await _exportService.exportExcelForSite(_project, site);
+      File file;
+      switch (result.scope) {
+        case ExcelExportScope.site:
+          final targetSite = _selectedSite ?? _project.sites.firstOrNull;
+          if (targetSite == null) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Select a site to export.')),
+            );
+            return;
+          }
+          file = await _exportService.exportExcelForSite(
+            _project,
+            targetSite,
+            style: result.style,
+            includeGps: result.includeGps,
+          );
+          break;
+        case ExcelExportScope.project:
+          file = await _exportService.exportExcelForProject(
+            _project,
+            style: result.style,
+            includeGps: result.includeGps,
+          );
+          break;
+      }
       if (!mounted) return;
-      await _showExcelConfirmation(file);
-    } catch (error) {
-      if (!mounted) return;
-      await _showExcelFailure(error);
-    }
-  }
-
-  Future<void> _exportExcelProject() async {
-    if (_project.sites.isEmpty) {
-      if (!mounted) return;
-      await _showExcelInfoDialog(
-        title: 'Nothing to export',
-        message: 'Add at least one site before exporting Excel.',
-      );
-      return;
-    }
-    try {
-      final file = await _exportService.exportExcelForProject(_project);
-      if (!mounted) return;
+      if (result.openWhenDone) {
+        final opened = await tryOpenFile(file.path);
+        if (!opened && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Workbook saved; open it manually if it did not launch.',
+              ),
+            ),
+          );
+        }
+      }
+      if (!mounted) {
+        return;
+      }
       await _showExcelConfirmation(file);
     } catch (error) {
       if (!mounted) return;
@@ -843,6 +827,7 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
       builder: (context) => ImportSheet(
         project: _project,
         initialSiteId: _selectedSite?.siteId,
+        onLogTroubleshooter: _logTroubleshooter,
       ),
     );
     if (outcome == null) {
@@ -989,9 +974,6 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
     final site = _selectedSite;
     final averageGhost = _computeSiteAverage(site);
     final templateOptions = _templates;
-    final settings = ref.watch(settingsProvider);
-    final devScreenshotEnabled = !kReleaseMode && settings.devScreenshotEnabled;
-
     return ProjectWorkflowShortcuts(
       onToggleOutliers: _toggleOutliers,
       onToggleAllSites: _toggleAllSitesView,
@@ -1006,7 +988,6 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
       onRedo: _redo,
       onMarkBad: _markFocusedBad,
       child: _wrapWithScreenshot(
-        ScreenshotRegion.workspace,
         Scaffold(
           appBar: AppBar(
             title: Text(_project.projectName),
@@ -1059,7 +1040,7 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
                   ),
                   PopupMenuItem(
                     value: 'excel',
-                    child: Text('Export Excel (THG)…'),
+                    child: Text('Export Excel…'),
                   ),
                 ],
               ),
@@ -1090,27 +1071,6 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
               const SizedBox(width: 8),
             ],
           ),
-          floatingActionButton: devScreenshotEnabled
-              ? FloatingActionButton.small(
-                  heroTag: 'project-shell-screenshot',
-                  tooltip: 'Capture workspace screenshot',
-                  onPressed: _isCapturingScreenshot
-                      ? null
-                      : _captureWorkspaceScreenshot,
-                  child: _isCapturingScreenshot
-                      ? SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Theme.of(context).colorScheme.onPrimary,
-                            ),
-                          ),
-                        )
-                      : const Icon(AppIcons.camera),
-                )
-              : null,
           body: site == null
               ? Center(
                   child: Column(
@@ -1159,7 +1119,6 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
     EdgeInsets margin = const EdgeInsets.all(12),
   }) {
     return _wrapWithScreenshot(
-      ScreenshotRegion.siteList,
       Card(
         margin: margin,
         clipBehavior: Clip.antiAlias,
@@ -1426,55 +1385,6 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
     );
   }
 
-  Future<void> _captureWorkspaceScreenshot() async {
-    if (_isCapturingScreenshot) {
-      return;
-    }
-    setState(() {
-      _isCapturingScreenshot = true;
-    });
-
-    final result = await _screenshotService.captureRegion(
-      region: ScreenshotRegion.workspace,
-      projectDirectory: widget.projectDirectory,
-      prefixOverride: ScreenshotRegion.workspace.filePrefix,
-    );
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _isCapturingScreenshot = false;
-    });
-
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    if (result.isSuccess && result.path != null) {
-      final displayPath = _formatScreenshotPath(result.path!);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Screenshot saved to $displayPath'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    } else {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Screenshot failed: ${result.error}'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
-  String _formatScreenshotPath(String absolutePath) {
-    try {
-      return p.relative(absolutePath);
-    } on ArgumentError {
-      return absolutePath;
-    }
-  }
-
   Widget _buildPlotsCard(
     BuildContext context,
     SiteRecord site,
@@ -1492,7 +1402,6 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
       averageGhost: averageGhost,
     );
     return _wrapWithScreenshot(
-      ScreenshotRegion.plotsPanel,
       Card(
         margin: margin,
         clipBehavior: Clip.antiAlias,
@@ -1515,12 +1424,12 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
     final theme = Theme.of(context);
     final isSaving = _saveIndicator.startsWith('Saving');
     return _wrapWithScreenshot(
-      ScreenshotRegion.tablePanel,
       Card(
         margin: margin,
         clipBehavior: Clip.antiAlias,
         color: theme.colorScheme.surfaceContainerHighest,
         child: TablePanel(
+          project: _project,
           site: site,
           projectDefaultStacks: _project.defaultStacks,
           showOutliers: _showOutliers,
@@ -1531,8 +1440,19 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
           onMetadataChanged: _handleMetadataChanged,
           onShowHistory: _showHistory,
           onFocusChanged: _recordFocus,
+          onLogTroubleshooter: _logTroubleshooter,
           isSaving: isSaving,
           saveStatusLabel: _saveIndicator,
+          diagramExportDirectoryBuilder: (project, siteRecord) async {
+            final projectDir =
+                await widget.storageService.projectDirectory(project);
+            final diagramsDir =
+                Directory(p.join(projectDir.path, 'exports', 'diagrams'));
+            if (!await diagramsDir.exists()) {
+              await diagramsDir.create(recursive: true);
+            }
+            return diagramsDir;
+          },
         ),
       ),
     );
@@ -1540,7 +1460,6 @@ class _ProjectShellState extends ConsumerState<ProjectShell> {
 
   Widget _buildRightRail(SiteRecord site) {
     return _wrapWithScreenshot(
-      ScreenshotRegion.rightRail,
       RightRail(
         site: site,
         projectDefaultStacks: _project.defaultStacks,
@@ -1582,8 +1501,6 @@ class _NewSiteConfig {
   final String orientationA;
   final String orientationB;
 }
-
-enum _ExcelExportScope { site, project }
 
 class SiteListPanel extends StatelessWidget {
   const SiteListPanel({

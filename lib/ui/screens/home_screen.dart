@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +14,6 @@ import '../../services/geometry_factors.dart' as geom;
 import '../../services/persistence.dart';
 import '../../state/providers.dart';
 import '../../state/project_controller.dart';
-import '../../state/settings_state.dart';
 import '../../utils/distance_unit.dart';
 import '../widgets/header_badges.dart';
 import '../widgets/points_table.dart';
@@ -1159,30 +1157,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _SettingsDialog extends ConsumerWidget {
+class _SettingsDialog extends StatelessWidget {
   const _SettingsDialog();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
-    final notifier = ref.read(settingsProvider.notifier);
-    const showDeveloperControls = !kReleaseMode;
-
+  Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Settings'),
-      content: SizedBox(
+      content: const SizedBox(
         width: 360,
-        child: showDeveloperControls
-            ? SwitchListTile.adaptive(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Enable Developer Screenshot Mode'),
-                subtitle: const Text(
-                  'Adds an in-app capture button for workspace QA.',
-                ),
-                value: settings.devScreenshotEnabled,
-                onChanged: (value) => notifier.setDevScreenshotEnabled(value),
-              )
-            : const Text('Settings are not available in this build.'),
+        child: Text('No configurable settings are available in this build.'),
       ),
       actions: [
         TextButton(

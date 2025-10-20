@@ -15,8 +15,8 @@ Future<Uint8List> _loadBytes(String relativePath) async {
 Uint8List _buildSampleWorkbook() {
   final workbook = Excel.createExcel();
   final sheet = workbook['Sheet1'];
-  sheet.appendRow(const ['Unit=feet']);
-  sheet.appendRow(const [
+  sheet.appendRow(_textRow(['Unit=feet']));
+  sheet.appendRow(_textRow([
     'a_spacing_ft',
     'pins_in_ft',
     'pins_out_ft',
@@ -24,16 +24,20 @@ Uint8List _buildSampleWorkbook() {
     'res_we_ohm',
     'sd_ns_pct',
     'sd_we_pct',
-  ]);
-  sheet.appendRow(const ['5', '10', '16', '230', '231', '2.5', '2.7']);
-  sheet.appendRow(const ['10', '20', '26', '410', '415', '3.0', '3.1']);
-  sheet.appendRow(const ['20', '30', '36', '690', '700', '3.4', '3.6']);
+  ]));
+  sheet.appendRow(_textRow(['5', '10', '16', '230', '231', '2.5', '2.7']));
+  sheet.appendRow(_textRow(['10', '20', '26', '410', '415', '3.0', '3.1']));
+  sheet.appendRow(_textRow(['20', '30', '36', '690', '700', '3.4', '3.6']));
 
   final encoded = workbook.encode();
   if (encoded == null) {
     throw StateError('Failed to encode sample workbook');
   }
   return Uint8List.fromList(encoded);
+}
+
+List<CellValue?> _textRow(List<String> values) {
+  return values.map((value) => TextCellValue(value)).toList();
 }
 
 void main() {

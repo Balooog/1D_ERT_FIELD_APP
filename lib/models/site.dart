@@ -301,7 +301,9 @@ class SiteRecord {
     this.groundTemperatureF = 68.0,
     this.location,
     List<SpacingRecord>? spacings,
-  }) : spacings = List.unmodifiable(spacings ?? const <SpacingRecord>[]);
+    List<String>? logs,
+  })  : spacings = List.unmodifiable(spacings ?? const <SpacingRecord>[]),
+        logs = List.unmodifiable(logs ?? const <String>[]);
 
   factory SiteRecord.fromJson(Map<String, dynamic> json) {
     return SiteRecord(
@@ -319,6 +321,9 @@ class SiteRecord {
       spacings: (json['spacings'] as List<dynamic>? ?? const [])
           .map((dynamic e) => SpacingRecord.fromJson(e as Map<String, dynamic>))
           .toList(),
+      logs: (json['logs'] as List<dynamic>? ?? const [])
+          .map((entry) => entry.toString())
+          .toList(),
     );
   }
 
@@ -331,6 +336,7 @@ class SiteRecord {
   final double groundTemperatureF;
   final SiteLocation? location;
   final List<SpacingRecord> spacings;
+  final List<String> logs;
 
   SpacingRecord? spacing(double spacingFeet) {
     return spacings
@@ -385,6 +391,7 @@ class SiteRecord {
       groundTemperatureF: groundTemperatureF ?? this.groundTemperatureF,
       location: updateLocation ? location : this.location,
       spacings: spacings,
+      logs: logs,
     );
   }
 
@@ -398,6 +405,7 @@ class SiteRecord {
         'ground_temp_f': groundTemperatureF,
         'location': location?.toJson(),
         'spacings': spacings.map((e) => e.toJson()).toList(),
+        'logs': logs,
       };
 
   @override
@@ -412,7 +420,8 @@ class SiteRecord {
         moisture == other.moisture &&
         groundTemperatureF == other.groundTemperatureF &&
         location == other.location &&
-        const ListEquality<SpacingRecord>().equals(spacings, other.spacings);
+        const ListEquality<SpacingRecord>().equals(spacings, other.spacings) &&
+        const ListEquality<String>().equals(logs, other.logs);
   }
 
   @override
@@ -426,6 +435,7 @@ class SiteRecord {
         groundTemperatureF,
         location,
         const ListEquality().hash(spacings),
+        const ListEquality().hash(logs),
       );
 
   SiteRecord copyWith({
@@ -437,6 +447,7 @@ class SiteRecord {
     MoistureLevel? moisture,
     double? groundTemperatureF,
     List<SpacingRecord>? spacings,
+    List<String>? logs,
     Object? location = _unset,
   }) {
     return SiteRecord(
@@ -451,7 +462,17 @@ class SiteRecord {
           ? this.location
           : location as SiteLocation?,
       spacings: spacings ?? this.spacings,
+      logs: logs ?? this.logs,
     );
+  }
+
+  SiteRecord appendLog(String entry) {
+    final trimmed = entry.trim();
+    if (trimmed.isEmpty) {
+      return this;
+    }
+    final updated = [...logs, trimmed];
+    return copyWith(logs: updated);
   }
 
   static const _unset = Object();

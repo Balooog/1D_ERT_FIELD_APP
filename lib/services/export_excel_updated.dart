@@ -1,17 +1,17 @@
-import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart';
 import 'package:collection/collection.dart';
-import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
+import 'package:syncfusion_flutter_xlsio/xlsio.dart';
 
 import '../models/direction_reading.dart';
 import '../models/enums.dart';
 import '../models/project.dart';
 import '../models/site.dart';
+import '../models/calc.dart' as calc;
 import '../utils/units.dart' as units;
 
 class UpdatedExcelWriter {
@@ -40,41 +40,47 @@ class UpdatedExcelWriter {
   final bool includeGps;
 
   Uint8List build() {
-    final workbook = Excel.createExcel();
-    const defaultSheet = 'Sheet1';
-    final summary = workbook[defaultSheet];
-    final data = workbook[_dataSheetName];
-    final notes = workbook[_notesSheetName];
+    final workbook = Workbook();
+    while (workbook.worksheets.count < 3) {
+      workbook.worksheets.add();
+    }
+    final siteTables = _buildSiteTables();
+    final summary = workbook.worksheets[0]..name = _summarySheetName;
+    final data = workbook.worksheets[1]..name = _dataSheetName;
+    final notes = workbook.worksheets[2]..name = _notesSheetName;
 
-    _clearSheet(summary);
-    _clearSheet(data);
-    _clearSheet(notes);
-
-    final dataRowCount = _buildDataSheet(data);
     _buildSummarySheet(summary);
-    _buildNotesSheet(notes, dataRowCount);
+    final dataRowCount = _buildDataSheet(data, siteTables);
+    _buildNotesSheet(notes, dataRowCount, siteTables.length);
+    _configureDataSheetLayout(data);
 
-    final encoded = workbook.encode() ?? const <int>[];
-    final bytes = Uint8List.fromList(encoded);
-    return _applySheetDecorations(bytes);
+    Worksheet? spacingSummarySheet;
+    if (sites.isNotEmpty) {
+      spacingSummarySheet = _buildSpacingSummarySheet(workbook);
+    }
+    if (siteTables.isNotEmpty && sites.length == 1) {
+      final startTableIndex = spacingSummarySheet == null ? 1 : 2;
+      _buildTableSheets(
+        workbook,
+        siteTables,
+        startTableIndex: startTableIndex,
+      );
+    }
+
+    final bytes = workbook.saveAsStream();
+    workbook.dispose();
+    return Uint8List.fromList(bytes);
   }
 
-  void _buildSummarySheet(Sheet summary) {
-    summary.merge(
-      CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0),
-      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: 0),
-    );
-
-    final banner =
-        summary.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0));
-    banner.value =
-        TextCellValue('THG Geophysics — Apparent Resistivity Summary');
-    banner.cellStyle = CellStyle(
-      bold: true,
-      fontSize: 16,
-      horizontalAlign: HorizontalAlign.Center,
-      verticalAlign: VerticalAlign.Center,
-    );
+  void _buildSummarySheet(Worksheet summary) {
+    final banner = summary.getRangeByIndex(1, 1, 1, 8);
+    banner.merge();
+    banner.setText('THG Geophysics — Apparent Resistivity Summary');
+    final bannerStyle = banner.cellStyle;
+    bannerStyle.bold = true;
+    bannerStyle.fontSize = 16;
+    bannerStyle.hAlign = HAlignType.center;
+    bannerStyle.vAlign = VAlignType.center;
 
     const labels = [
       'Project',
@@ -88,113 +94,89 @@ class UpdatedExcelWriter {
     ];
 
     for (var i = 0; i < labels.length; i++) {
-      final rowIndex = 2 + i;
-      final labelCell = summary
-          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex));
-      labelCell.value = TextCellValue(labels[i]);
-      labelCell.cellStyle = _labelStyle;
+      final rowIndex = 3 + i;
+      final labelCell = summary.getRangeByIndex(rowIndex, 1);
+      labelCell.setText(labels[i]);
+      _applyLabelStyle(labelCell);
     }
 
     final siteLabel = sites.length == 1 ? sites.first.displayName : 'All Sites';
-    _setText(summary, 1, 2, project.projectName, style: _valueStyle);
-    _setText(summary, 1, 3, siteLabel, style: _valueStyle);
-    _setText(summary, 1, 4, DateFormat('yyyy-MM-dd').format(generatedAt),
-        style: _valueStyle);
-    _setText(summary, 1, 5, (operatorName ?? '').trim(), style: _valueStyle);
-    _setText(summary, 1, 6, _arrayTypeLabel(project.arrayType),
-        style: _valueStyle);
-    _setText(summary, 1, 7, _unitLabel, style: _valueStyle);
+    _setText(summary, 3, 2, project.projectName);
+    _setText(summary, 4, 2, siteLabel);
+    _setText(summary, 5, 2, DateFormat('yyyy-MM-dd').format(generatedAt));
+    _setText(summary, 6, 2, (operatorName ?? '').trim());
+    _setText(summary, 7, 2, _arrayTypeLabel(project.arrayType));
+    _setText(summary, 8, 2, _unitLabel);
 
     if (includeGps) {
       final primaryLocation = sites.length == 1 ? sites.first.location : null;
       if (primaryLocation?.latitude != null) {
-        _setNumber(summary, 1, 8, primaryLocation!.latitude);
+        _setNumber(summary, 9, 2, primaryLocation!.latitude);
       }
       if (primaryLocation?.longitude != null) {
-        _setNumber(summary, 1, 9, primaryLocation!.longitude);
+        _setNumber(summary, 10, 2, primaryLocation!.longitude);
       }
     }
 
-    _setText(summary, 0, 11, 'σρ good ≤', style: _labelStyle);
-    _setNumber(summary, 1, 11, _sigmaGreenThreshold);
-    _setText(summary, 0, 12, 'σρ caution <', style: _labelStyle);
-    _setNumber(summary, 1, 12, _sigmaAmberThreshold);
+    _setText(summary, 12, 1, 'σρ good ≤');
+    _setNumber(summary, 12, 2, _sigmaGreenThreshold);
+    _setText(summary, 13, 1, 'σρ caution <');
+    _setNumber(summary, 13, 2, _sigmaAmberThreshold);
 
-    summary.setColumnWidth(0, 18);
-    summary.setColumnWidth(1, 36);
+    summary.setColumnWidthInPixels(1, 150);
+    summary.setColumnWidthInPixels(2, 240);
+    summary.setRowHeightInPixels(1, 32);
   }
 
-  int _buildDataSheet(Sheet data) {
+  int _buildDataSheet(Worksheet data, List<_SiteTableData> siteTables) {
     for (var column = 0; column < _dataHeaders.length; column++) {
-      final cell = data
-          .cell(CellIndex.indexByColumnRow(columnIndex: column, rowIndex: 0));
-      cell.value = TextCellValue(_dataHeaders[column]);
-      cell.cellStyle = _headerStyle;
-      data.setColumnWidth(column, _dataColumnWidths[column]);
+      final header = data.getRangeByIndex(1, column + 1);
+      header.setText(_dataHeaders[column]);
+      _applyHeaderStyle(header);
+      data.setColumnWidthInPixels(column + 1, _dataColumnWidths[column]);
     }
 
-    final rows = _buildRows();
-    var rowIndex = 1;
+    final rows = <_DirectionTableData>[
+      for (final siteEntry in siteTables)
+        for (final spacingEntry in siteEntry.spacings)
+          ...spacingEntry.directions,
+    ];
+    var rowIndex = 2;
     var sequence = 1;
 
-    for (final row in rows) {
-      final sequenceCell = data
-          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex));
-      sequenceCell.value = IntCellValue(sequence);
-      sequenceCell.cellStyle = _numberStyle;
+    for (final direction in rows) {
+      final row = direction.row;
+      direction.dataSheetRow = rowIndex;
+      final sequenceCell = data.getRangeByIndex(rowIndex, 1);
+      sequenceCell.setNumber(sequence.toDouble());
+      sequenceCell.numberFormat = '0';
+      _applyNumberStyle(sequenceCell);
 
-      if (row.aMeters != null) {
-        final cell = data.cell(
-          CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex),
-        );
-        cell.value = DoubleCellValue(row.aMeters!);
-        cell.cellStyle = _numberStyle;
-      }
-      if (row.aFeet != null) {
-        final cell = data.cell(
-          CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex),
-        );
-        cell.value = DoubleCellValue(row.aFeet!);
-        cell.cellStyle = _numberStyle;
-      }
-      if (row.lMeters != null) {
-        final cell = data.cell(
-          CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex),
-        );
-        cell.value = DoubleCellValue(row.lMeters!);
-        cell.cellStyle = _numberStyle;
-      }
-      if (row.resistanceOhm != null) {
-        final cell = data.cell(
-          CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex),
-        );
-        cell.value = DoubleCellValue(row.resistanceOhm!);
-        cell.cellStyle = _numberStyle;
-      }
+      _setOptionalNumber(data, rowIndex, 2, row.aMeters);
+      _setOptionalNumber(data, rowIndex, 3, row.aFeet);
+      _setOptionalNumber(data, rowIndex, 4, row.lMeters);
+      _setOptionalNumber(data, rowIndex, 5, row.resistanceOhm);
 
-      final rhoCell = data
-          .cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex));
-      rhoCell.setFormula(_rhoFormula(rowIndex + 1));
-      rhoCell.cellStyle = _numberStyle;
+      final rhoCell = data.getRangeByIndex(rowIndex, 8);
+      rhoCell.setFormula(_rhoFormula(rowIndex));
+      _applyNumberStyle(rhoCell);
 
-      final sigmaFormula = _sigmaFormula(rowIndex + 1, row.sdPercent);
-      final sigmaCell = data
-          .cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: rowIndex));
+      final sigmaCell = data.getRangeByIndex(rowIndex, 9);
+      final sigmaFormula = _sigmaFormula(rowIndex, row.sdPercent);
       if (sigmaFormula != null) {
         sigmaCell.setFormula(sigmaFormula);
-        sigmaCell.cellStyle = _numberStyle.copyWith(
-          backgroundColorHexVal:
-              ExcelColor.fromHexString(_sigmaColor(row.sdPercent ?? 0)),
-        );
+        _applyNumberStyle(sigmaCell);
+        sigmaCell.cellStyle.backColor = _sigmaColor(row.sdPercent ?? 0);
       } else {
-        sigmaCell.value = null;
-        sigmaCell.cellStyle = _numberStyle;
+        sigmaCell.setText('');
+        _applyNumberStyle(sigmaCell);
       }
 
-      _setText(data, 9, rowIndex, row.directionCode, style: _textCenterStyle);
-      _setText(data, 10, rowIndex, row.timestampIso ?? '', style: _textStyle);
-      _setText(data, 11, rowIndex, row.note ?? '', style: _wrappedTextStyle);
-      _setText(data, 12, rowIndex, row.warning, style: _wrappedTextStyle);
+      _setText(data, rowIndex, 10, row.directionCode, align: HAlignType.center);
+      _setText(data, rowIndex, 11, row.timestampIso ?? '');
+      _setText(data, rowIndex, 12, row.note ?? '',
+          wrap: true, verticalAlign: VAlignType.top);
+      _setText(data, rowIndex, 13, row.warning, wrap: true);
 
       rowIndex += 1;
       sequence += 1;
@@ -203,144 +185,722 @@ class UpdatedExcelWriter {
     return rows.length;
   }
 
-  void _buildNotesSheet(Sheet notes, int dataRowCount) {
-    _setText(notes, 0, 0, 'Notes',
-        style: _headerStyle.copyWith(fontSizeVal: 14));
-    _setText(
-      notes,
-      0,
-      1,
-      '• Summary rows 3–10 store metadata and QA thresholds (σρ <= ${_sigmaGreenThreshold.toStringAsFixed(2)} green, < ${_sigmaAmberThreshold.toStringAsFixed(2)} amber).\n'
-      '• Data sheet headers remain in row 1; long notes and warnings wrap automatically.\n'
-      '• Direction codes use ns / we / other.\n'
-      '• ρₐ and σρ formulas remain visible for transparency.\n'
-      '• Export generated ${DateFormat('yyyy-MM-dd').format(generatedAt)} with $dataRowCount data rows.',
-      style: _wrappedTextStyle,
-    );
-    notes.setColumnWidth(0, 80);
+  void _buildNotesSheet(
+      Worksheet notes, int dataRowCount, int renderedTableCount) {
+    final title = notes.getRangeByIndex(1, 1);
+    title.setText('Notes');
+    final titleStyle = title.cellStyle;
+    titleStyle.bold = true;
+    titleStyle.fontSize = 14;
+    titleStyle.hAlign = HAlignType.left;
+    titleStyle.vAlign = VAlignType.center;
+
+    final body = notes.getRangeByIndex(2, 1);
+    final bullets = <String>[
+      'Summary rows 3–10 store metadata and QA thresholds (σρ <= ${_sigmaGreenThreshold.toStringAsFixed(2)} green, < ${_sigmaAmberThreshold.toStringAsFixed(2)} amber).',
+      'Data sheet headers remain in row 1; long notes and warnings wrap automatically.',
+      if (renderedTableCount > 0)
+        'Table sheet${renderedTableCount == 1 ? '' : 's'} mirror the deliverable layout and reference Data sheet formulas.',
+      'Direction codes use ns / we / other.',
+      'ρₐ and σρ formulas remain visible for transparency.',
+      'Export generated ${DateFormat('yyyy-MM-dd').format(generatedAt)} with $dataRowCount data rows.',
+    ];
+    body.setText(bullets.map((line) => '• $line').join('\n'));
+    final bodyStyle = body.cellStyle;
+    bodyStyle.hAlign = HAlignType.left;
+    bodyStyle.vAlign = VAlignType.top;
+    bodyStyle.wrapText = true;
+
+    notes.setColumnWidthInPixels(1, 520);
+    notes.setRowHeightInPixels(2, 120);
   }
 
-  List<_ExcelDataRow> _buildRows() {
-    final entries = <_ExcelDataRow>[];
+  void _configureDataSheetLayout(Worksheet data) {
+    data.getRangeByIndex(2, 1).freezePanes();
+    data.pageSetup
+      ..fitToPagesWide = 1
+      ..fitToPagesTall = 0;
+  }
+
+  List<_SiteTableData> _buildSiteTables() {
+    final tables = <_SiteTableData>[];
+    for (final site in sites) {
+      final sortedSpacings = [...site.spacings]
+        ..sort((a, b) => a.spacingFeet.compareTo(b.spacingFeet));
+      final spacingData = <_SpacingTableData>[];
+      for (final spacing in sortedSpacings) {
+        final directionData = <_DirectionTableData>[];
+        final first = _ExcelDataRow.from(
+          site: site,
+          spacing: spacing,
+          history: spacing.orientationA,
+          arrayType: project.arrayType,
+        );
+        if (first.isRenderable) {
+          directionData.add(_DirectionTableData(row: first));
+        }
+        final second = _ExcelDataRow.from(
+          site: site,
+          spacing: spacing,
+          history: spacing.orientationB,
+          arrayType: project.arrayType,
+        );
+        if (second.isRenderable) {
+          directionData.add(_DirectionTableData(row: second));
+        }
+        if (directionData.isNotEmpty) {
+          spacingData.add(
+            _SpacingTableData(
+              spacingFeet: spacing.spacingFeet,
+              directions: directionData,
+            ),
+          );
+        }
+      }
+      if (spacingData.isNotEmpty) {
+        tables.add(_SiteTableData(site: site, spacings: spacingData));
+      }
+    }
+    return tables;
+  }
+
+  void _buildTableSheets(
+    Workbook workbook,
+    List<_SiteTableData> siteTables, {
+    required int startTableIndex,
+  }) {
+    for (var i = 0; i < siteTables.length; i++) {
+      final tableNumber = startTableIndex + i;
+      final sheet = workbook.worksheets.add();
+      sheet.name = _tableSheetName(siteTables[i].site.displayName, tableNumber);
+      _buildSiteTableSheet(sheet, siteTables[i], tableNumber);
+    }
+  }
+
+  Worksheet? _buildSpacingSummarySheet(Workbook workbook) {
+    final spacingSet = <double>{};
     for (final site in sites) {
       for (final spacing in site.spacings) {
-        entries.add(
-          _ExcelDataRow.from(
-            site: site,
-            spacing: spacing,
-            history: spacing.orientationA,
-            arrayType: project.arrayType,
-          ),
-        );
-        entries.add(
-          _ExcelDataRow.from(
-            site: site,
-            spacing: spacing,
-            history: spacing.orientationB,
-            arrayType: project.arrayType,
-          ),
-        );
+        spacingSet.add(spacing.spacingFeet);
       }
     }
-    return entries.where((row) => row.isRenderable).toList();
-  }
+    if (spacingSet.isEmpty) {
+      return null;
+    }
+    final sheet = workbook.worksheets.add()..name = _spacingSummarySheetName();
+    final spacings = spacingSet.toList()..sort();
+    final notesColumnIndex = 2 + spacings.length * 2;
+    final totalColumns = notesColumnIndex;
+    final title = 'Table 1 - ${project.projectName} Resistivity Data';
 
-  Uint8List _applySheetDecorations(Uint8List input) {
-    final archive = ZipDecoder().decodeBytes(input);
-    final updated = Archive();
-    for (final file in archive) {
-      if (file.name == 'xl/worksheets/$_dataSheetXml') {
-        final content = utf8.decode(file.content);
-        final modified = _decorateDataSheetXml(content);
-        updated.addFile(
-            ArchiveFile(file.name, modified.length, utf8.encode(modified))
-              ..isFile = true);
-      } else if (file.name == 'xl/workbook.xml') {
-        final content = utf8.decode(file.content);
-        var workbookXml =
-            content.replaceFirst('name="Sheet1"', 'name="$_summarySheetName"');
-        if (!workbookXml.contains('_xlnm.Print_Titles')) {
-          if (workbookXml.contains('<definedNames>')) {
-            workbookXml = workbookXml.replaceFirst(
-              '<definedNames>',
-              '<definedNames>$_printTitlesDefinedNameFragment',
-            );
-          } else {
-            workbookXml = workbookXml.replaceFirst(
-              '</workbook>',
-              '<definedNames>$_printTitlesDefinedNameFragment</definedNames></workbook>',
-            );
+    sheet.setColumnWidthInPixels(1, 200);
+    for (var i = 0; i < spacings.length; i++) {
+      final baseColumn = 2 + (i * 2);
+      sheet.setColumnWidthInPixels(baseColumn, 100);
+      sheet.setColumnWidthInPixels(baseColumn + 1, 120);
+    }
+    sheet.setColumnWidthInPixels(notesColumnIndex, 360);
+
+    final titleRange = sheet.getRangeByIndex(1, 1, 1, totalColumns);
+    titleRange.merge();
+    titleRange.setText(title);
+    final titleStyle = titleRange.cellStyle;
+    titleStyle
+      ..bold = true
+      ..fontSize = 16
+      ..hAlign = HAlignType.center
+      ..vAlign = VAlignType.center;
+
+    final metaRows = <List<String>>[
+      ['Project ID', project.projectId],
+      ['Project Name', project.projectName],
+      [
+        'Generated',
+        DateFormat('yyyy-MM-dd').format(generatedAt),
+      ],
+      ['Operator', (operatorName ?? '').trim()],
+      ['Array Type', _arrayTypeLabel(project.arrayType)],
+      ['Units', _unitLabel],
+      ['Sites Included', sites.length.toString()],
+    ];
+
+    var metaRowIndex = 3;
+    for (final entry in metaRows) {
+      final labelCell = sheet.getRangeByIndex(metaRowIndex, 1);
+      labelCell.setText(entry[0]);
+      _applyLabelStyle(labelCell);
+
+      final valueCell =
+          sheet.getRangeByIndex(metaRowIndex, 2, metaRowIndex, totalColumns);
+      valueCell.merge();
+      valueCell.setText(entry[1].isEmpty ? '—' : entry[1]);
+      final style = valueCell.cellStyle;
+      style.hAlign = HAlignType.left;
+      style.vAlign = VAlignType.center;
+      style.wrapText = true;
+      metaRowIndex += 1;
+    }
+
+    metaRowIndex += 1; // blank spacer row
+
+    final headerTopRow = metaRowIndex;
+    final spacingHeaderRow = headerTopRow + 1;
+    final valueHeaderRow = headerTopRow + 2;
+
+    final arrayHeader = sheet.getRangeByIndex(
+        headerTopRow, 2, headerTopRow, notesColumnIndex - 1);
+    arrayHeader.merge();
+    arrayHeader.setText('Array spacing (ft)');
+    _applySummaryHeaderStyle(arrayHeader);
+
+    final siteHeader =
+        sheet.getRangeByIndex(headerTopRow, 1, valueHeaderRow, 1);
+    siteHeader.merge();
+    siteHeader.setText('Site');
+    _applySummaryHeaderStyle(siteHeader);
+
+    for (var i = 0; i < spacings.length; i++) {
+      final baseColumn = 2 + (i * 2);
+      final spacingHeader = sheet.getRangeByIndex(
+          spacingHeaderRow, baseColumn, spacingHeaderRow, baseColumn + 1);
+      spacingHeader.merge();
+      spacingHeader
+          .setText(spacings[i].toStringAsFixed(spacings[i] % 1 == 0 ? 0 : 1));
+      _applySummarySubHeaderStyle(spacingHeader);
+
+      final resistanceHeader =
+          sheet.getRangeByIndex(valueHeaderRow, baseColumn);
+      resistanceHeader.setText('Resistance (Ω)');
+      _applySummarySubHeaderStyle(resistanceHeader);
+
+      final rhoHeader = sheet.getRangeByIndex(valueHeaderRow, baseColumn + 1);
+      rhoHeader.setText('Apparent Resistivity (Ω·m)');
+      _applySummarySubHeaderStyle(rhoHeader);
+    }
+
+    final notesHeader = sheet.getRangeByIndex(
+        spacingHeaderRow, notesColumnIndex, valueHeaderRow, notesColumnIndex);
+    notesHeader.merge();
+    notesHeader.setText('Notes');
+    _applySummarySubHeaderStyle(notesHeader);
+
+    final spacingResistanceTotals = [
+      for (var i = 0; i < spacings.length; i++) <double>[],
+    ];
+    final spacingResistivityTotals = [
+      for (var i = 0; i < spacings.length; i++) <double>[],
+    ];
+
+    var dataRow = valueHeaderRow + 1;
+    for (final site in sites) {
+      final label =
+          site.displayName.isNotEmpty ? site.displayName : site.siteId;
+      final siteCell = sheet.getRangeByIndex(dataRow, 1);
+      siteCell.setText(label);
+      _applySummaryDataStyle(siteCell, bold: true);
+
+      for (var i = 0; i < spacings.length; i++) {
+        final baseColumn = 2 + (i * 2);
+        final spacingFeet = spacings[i];
+        final record = site.spacing(spacingFeet);
+        final resistanceValues = <double>[];
+        if (record != null) {
+          final sampleA = record.orientationA.latest;
+          if (sampleA != null &&
+              sampleA.resistanceOhm != null &&
+              !sampleA.isBad) {
+            resistanceValues.add(sampleA.resistanceOhm!);
+          }
+          final sampleB = record.orientationB.latest;
+          if (sampleB != null &&
+              sampleB.resistanceOhm != null &&
+              !sampleB.isBad) {
+            resistanceValues.add(sampleB.resistanceOhm!);
           }
         }
-        updated.addFile(
-            ArchiveFile(file.name, workbookXml.length, utf8.encode(workbookXml))
-              ..isFile = true);
-      } else {
-        updated.addFile(file);
-      }
-    }
-    final output = ZipEncoder().encode(updated) ?? const <int>[];
-    return Uint8List.fromList(output);
-  }
 
-  String _decorateDataSheetXml(String xml) {
-    var processed = xml;
-    processed = processed.replaceFirst(
-      '<sheetView workbookViewId="0"/>',
-      '<sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView>',
-    );
-
-    if (!processed.contains('<headerFooter')) {
-      processed = processed.replaceFirst(
-        '</worksheet>',
-        '<headerFooter><oddHeader>&amp;LTHG Geophysics&amp;CResiCheck Field Export</oddHeader><oddFooter>&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter></worksheet>',
-      );
-    }
-
-    if (!processed.contains('<pageSetup')) {
-      if (!processed.contains('</pageMargins>')) {
-        processed = processed.replaceFirst(
-          '<sheetData>',
-          '<sheetData>',
+        double? averageResistance;
+        if (resistanceValues.isNotEmpty) {
+          final sum =
+              resistanceValues.reduce((value, element) => value + element);
+          averageResistance = sum / resistanceValues.length;
+        }
+        final averageRho = calc.averageApparentResistivity(
+          spacingFeet,
+          resistanceValues,
         );
+
+        final resistanceCell = sheet.getRangeByIndex(dataRow, baseColumn);
+        _setSigFigText(resistanceCell, averageResistance);
+        if (averageResistance != null && averageResistance.isFinite) {
+          spacingResistanceTotals[i].add(averageResistance);
+        }
+        _applySummaryDataStyle(resistanceCell);
+
+        final rhoCell = sheet.getRangeByIndex(dataRow, baseColumn + 1);
+        _setSigFigText(rhoCell, averageRho);
+        if (averageRho != null && averageRho.isFinite) {
+          spacingResistivityTotals[i].add(averageRho);
+        }
+        _applySummaryDataStyle(rhoCell);
       }
-      processed = processed.replaceFirst(
-        '</pageMargins>',
-        '</pageMargins><pageSetup orientation="portrait" fitToWidth="1" fitToHeight="0" usePrinterDefaults="0" paperSize="9"/>',
+
+      final noteCell = sheet.getRangeByIndex(dataRow, notesColumnIndex);
+      noteCell.setText(_buildSiteSummaryNote(site));
+      final noteStyle = noteCell.cellStyle;
+      noteStyle.hAlign = HAlignType.left;
+      noteStyle.vAlign = VAlignType.top;
+      noteStyle.wrapText = true;
+
+      sheet.getRangeByIndex(dataRow, 1, dataRow, totalColumns).autoFitRows();
+      dataRow += 1;
+    }
+
+    final averageRow = dataRow;
+    final averageLabel = sheet.getRangeByIndex(averageRow, 1);
+    averageLabel.setText('Average');
+    _applySummaryDataStyle(averageLabel, bold: true);
+
+    for (var i = 0; i < spacings.length; i++) {
+      final baseColumn = 2 + (i * 2);
+      final resistanceValues = spacingResistanceTotals[i];
+      final rhoValues = spacingResistivityTotals[i];
+      final resistanceCell = sheet.getRangeByIndex(averageRow, baseColumn);
+      _setSigFigText(
+        resistanceCell,
+        resistanceValues.isEmpty
+            ? null
+            : resistanceValues.reduce((a, b) => a + b) /
+                resistanceValues.length,
       );
+      _applySummaryDataStyle(resistanceCell, bold: true);
+
+      final rhoCell = sheet.getRangeByIndex(averageRow, baseColumn + 1);
+      _setSigFigText(
+        rhoCell,
+        rhoValues.isEmpty
+            ? null
+            : rhoValues.reduce((a, b) => a + b) / rhoValues.length,
+      );
+      _applySummaryDataStyle(rhoCell, bold: true);
     }
 
-    return processed;
+    final averageNote = sheet.getRangeByIndex(averageRow, notesColumnIndex);
+    averageNote.setText(
+      'Values rounded to four significant digits. Notes summarize site-level differences formerly captured on per-site tables.',
+    );
+    final averageNoteStyle = averageNote.cellStyle;
+    averageNoteStyle.hAlign = HAlignType.left;
+    averageNoteStyle.vAlign = VAlignType.top;
+    averageNoteStyle.wrapText = true;
+
+    sheet
+        .getRangeByIndex(averageRow, 1, averageRow, totalColumns)
+        .autoFitRows();
+
+    final outerStyle =
+        sheet.getRangeByIndex(1, 1, averageRow, totalColumns).cellStyle;
+    outerStyle.borders.all.lineStyle = LineStyle.thin;
+    return sheet;
   }
 
-  void _setText(
-    Sheet sheet,
-    int column,
-    int row,
-    String value, {
-    CellStyle? style,
+  void _buildSiteTableSheet(
+    Worksheet sheet,
+    _SiteTableData siteTable,
+    int index,
+  ) {
+    final headerRange = sheet.getRangeByIndex(1, 1, 1, 9);
+    headerRange.merge();
+    headerRange.setText('Table $index — Apparent Resistivity Data');
+    final headerStyle = headerRange.cellStyle;
+    headerStyle
+      ..bold = true
+      ..fontSize = 16
+      ..hAlign = HAlignType.center
+      ..vAlign = VAlignType.center;
+
+    final leftMeta = <List<String>>[
+      ['Project ID', project.projectId],
+      ['Project Name', project.projectName],
+      ['Site', siteTable.site.displayName],
+      ['Array Type', _arrayTypeLabel(project.arrayType)],
+      ['Generated', DateFormat('yyyy-MM-dd').format(generatedAt)],
+      ['Operator', (operatorName ?? '').trim()],
+    ];
+    final rightMeta = <List<String>>[
+      ['Current (mA)', siteTable.site.powerMilliAmps.toStringAsFixed(1)],
+      ['Stacks', siteTable.site.stacks.toString()],
+      [
+        'Ground Temp (°F)',
+        siteTable.site.groundTemperatureF.isFinite
+            ? siteTable.site.groundTemperatureF.toStringAsFixed(1)
+            : '—',
+      ],
+      ['Soil', siteTable.site.soil.label],
+      ['Moisture', siteTable.site.moisture.label],
+    ];
+    if (includeGps && siteTable.site.location != null) {
+      final location = siteTable.site.location!;
+      rightMeta
+        ..add(['Latitude', location.latitude.toStringAsFixed(4)])
+        ..add(['Longitude', location.longitude.toStringAsFixed(4)]);
+    }
+
+    var metaRow = 3;
+    for (final entry in leftMeta) {
+      _writeMetadataRow(
+        sheet: sheet,
+        row: metaRow,
+        labelColumn: 1,
+        valueStartColumn: 2,
+        valueEndColumn: 4,
+        label: entry[0],
+        value: entry[1],
+      );
+      metaRow += 1;
+    }
+
+    metaRow = 3;
+    for (final entry in rightMeta) {
+      _writeMetadataRow(
+        sheet: sheet,
+        row: metaRow,
+        labelColumn: 6,
+        valueStartColumn: 7,
+        valueEndColumn: 9,
+        label: entry[0],
+        value: entry[1],
+      );
+      metaRow += 1;
+    }
+
+    const headers = <String>[
+      'Spacing (ft)',
+      'Direction',
+      'Resistance (Ω)',
+      'ρₐ (Ω-m)',
+      'ρₐ (Ω-ft)',
+      'σρ (Ω-m)',
+      'σρ (Ω-ft)',
+      'Notes',
+      'Warnings',
+    ];
+    const headerRow = 12;
+    for (var col = 0; col < headers.length; col++) {
+      final headerCell = sheet.getRangeByIndex(headerRow, col + 1);
+      headerCell.setText(headers[col]);
+      _applyHeaderStyle(headerCell);
+    }
+    sheet
+        .getRangeByIndex(headerRow, 1, headerRow, headers.length)
+        .cellStyle
+        .borders
+        .all
+        .lineStyle = LineStyle.thin;
+    sheet.setRowHeightInPixels(headerRow, 28);
+    sheet.setColumnWidthInPixels(1, 90);
+    sheet.setColumnWidthInPixels(2, 120);
+    sheet.setColumnWidthInPixels(3, 110);
+    sheet.setColumnWidthInPixels(4, 130);
+    sheet.setColumnWidthInPixels(5, 130);
+    sheet.setColumnWidthInPixels(6, 130);
+    sheet.setColumnWidthInPixels(7, 130);
+    sheet.setColumnWidthInPixels(8, 220);
+    sheet.setColumnWidthInPixels(9, 160);
+
+    var currentRow = headerRow + 1;
+    for (final spacing in siteTable.spacings) {
+      for (var i = 0; i < spacing.directions.length; i++) {
+        final direction = spacing.directions[i];
+        final row = direction.row;
+        final rowRange =
+            sheet.getRangeByIndex(currentRow, 1, currentRow, headers.length);
+        rowRange.cellStyle.borders.all.lineStyle = LineStyle.thin;
+
+        final spacingCell = sheet.getRangeByIndex(currentRow, 1);
+        if (i == 0) {
+          spacingCell.setNumber(spacing.spacingFeet);
+          spacingCell.numberFormat = spacing.spacingFeet >= 100 ? '0' : '0.0##';
+          _applyNumberStyle(spacingCell);
+        } else {
+          spacingCell.setText('');
+        }
+
+        final directionCell = sheet.getRangeByIndex(currentRow, 2);
+        directionCell.setText(row.directionLabel);
+        final directionStyle = directionCell.cellStyle;
+        directionStyle.hAlign = HAlignType.left;
+        directionStyle.vAlign = VAlignType.center;
+
+        final resistanceCell = sheet.getRangeByIndex(currentRow, 3);
+        resistanceCell
+            .setFormula('=$_dataSheetName!E${direction.dataSheetRow}');
+        resistanceCell.numberFormat = '0.000';
+        _applyNumberStyle(resistanceCell);
+
+        final rhoMCell = sheet.getRangeByIndex(currentRow, 4);
+        rhoMCell.setFormula('=$_dataSheetName!H${direction.dataSheetRow}');
+        rhoMCell.numberFormat = '0.000';
+        _applyNumberStyle(rhoMCell);
+
+        final rhoFtCell = sheet.getRangeByIndex(currentRow, 5);
+        final rhoRef = '$_dataSheetName!H${direction.dataSheetRow}';
+        rhoFtCell.setFormula('=IF($rhoRef="","",$rhoRef*$_metersToFeet)');
+        rhoFtCell.numberFormat = '0.000';
+        _applyNumberStyle(rhoFtCell);
+
+        final sigmaMCell = sheet.getRangeByIndex(currentRow, 6);
+        sigmaMCell.setFormula('=$_dataSheetName!I${direction.dataSheetRow}');
+        sigmaMCell.numberFormat = '0.000';
+        _applyNumberStyle(sigmaMCell);
+
+        final sigmaFtCell = sheet.getRangeByIndex(currentRow, 7);
+        final sigmaRef = '$_dataSheetName!I${direction.dataSheetRow}';
+        sigmaFtCell.setFormula('=IF($sigmaRef="","",$sigmaRef*$_metersToFeet)');
+        sigmaFtCell.numberFormat = '0.000';
+        _applyNumberStyle(sigmaFtCell);
+
+        final notesCell = sheet.getRangeByIndex(currentRow, 8);
+        notesCell.setFormula('=$_dataSheetName!L${direction.dataSheetRow}');
+        final notesStyle = notesCell.cellStyle;
+        notesStyle
+          ..hAlign = HAlignType.left
+          ..vAlign = VAlignType.top
+          ..wrapText = true;
+
+        final warningCell = sheet.getRangeByIndex(currentRow, 9);
+        warningCell.setFormula('=$_dataSheetName!M${direction.dataSheetRow}');
+        final warningStyle = warningCell.cellStyle;
+        warningStyle
+          ..hAlign = HAlignType.left
+          ..vAlign = VAlignType.top
+          ..wrapText = true;
+
+        currentRow += 1;
+      }
+    }
+
+    if (currentRow == headerRow + 1) {
+      return;
+    }
+
+    final firstDataRow = headerRow + 1;
+    final lastDataRow = currentRow - 1;
+    final averagesRow = currentRow + 1;
+    final averageLabel = sheet.getRangeByIndex(averagesRow, 1, averagesRow, 2)
+      ..merge();
+    averageLabel.setText('Site averages');
+    final averageLabelStyle = averageLabel.cellStyle;
+    averageLabelStyle
+      ..bold = true
+      ..hAlign = HAlignType.left
+      ..vAlign = VAlignType.center;
+
+    final averageColumns = [4, 5, 6, 7];
+    for (final column in averageColumns) {
+      final range = sheet.getRangeByIndex(averagesRow, column);
+      range
+        ..setFormula(
+            '=AVERAGE(${_columnRange(column, firstDataRow, lastDataRow)})')
+        ..numberFormat = '0.000';
+      _applyNumberStyle(range);
+    }
+
+    final averageRange =
+        sheet.getRangeByIndex(averagesRow, 1, averagesRow, headers.length);
+    final averageStyle = averageRange.cellStyle;
+    averageStyle
+      ..backColor = '#E6EEF5'
+      ..bold = true;
+    averageStyle.borders.all.lineStyle = LineStyle.thin;
+
+    sheet.getRangeByIndex(firstDataRow, 1).freezePanes();
+    sheet.pageSetup
+      ..fitToPagesWide = 1
+      ..fitToPagesTall = 0;
+  }
+
+  void _setSigFigText(Range range, double? value, {int digits = 4}) {
+    if (value == null || value.isNaN || !value.isFinite) {
+      range.setText('');
+      return;
+    }
+    final formatted = _formatSigFig(value, digits: digits);
+    range.setText(formatted);
+  }
+
+  String _formatSigFig(double value, {int digits = 4}) {
+    if (value == 0) {
+      return '0.${'0' * digits}';
+    }
+    final absValue = value.abs();
+    final magnitude = math.log(absValue) / math.ln10;
+    final power = magnitude.floor();
+    final scale = digits - power - 1;
+    double rounded;
+    if (scale >= 0) {
+      final factor = math.pow(10, scale).toDouble();
+      rounded = (value * factor).round() / factor;
+      if (rounded == -0.0) {
+        rounded = 0;
+      }
+      return rounded.toStringAsFixed(scale);
+    } else {
+      final factor = math.pow(10, -scale).toDouble();
+      rounded = (value / factor).round() * factor;
+      return rounded.toStringAsFixed(0);
+    }
+  }
+
+  String _buildSiteSummaryNote(SiteRecord site) {
+    final totalSpacings = site.spacings.length;
+    var nsGood = 0;
+    var weGood = 0;
+    var flagged = 0;
+    var validReadings = 0;
+    for (final spacing in site.spacings) {
+      final sampleA = spacing.orientationA.latest;
+      if (sampleA != null) {
+        if (sampleA.isBad) {
+          flagged += 1;
+        } else if (sampleA.resistanceOhm != null) {
+          nsGood += 1;
+          validReadings += 1;
+        }
+      }
+      final sampleB = spacing.orientationB.latest;
+      if (sampleB != null) {
+        if (sampleB.isBad) {
+          flagged += 1;
+        } else if (sampleB.resistanceOhm != null) {
+          weGood += 1;
+          validReadings += 1;
+        }
+      }
+    }
+
+    final parts = <String>[];
+    if (site.powerMilliAmps.isFinite) {
+      parts.add('Current ${_formatSigFig(site.powerMilliAmps, digits: 4)} mA');
+    }
+    if (site.stacks > 0) {
+      parts.add('Stacks ${site.stacks}');
+    }
+    if (site.soil.label.isNotEmpty) {
+      parts.add('Soil ${site.soil.label}');
+    }
+    if (site.moisture.label.isNotEmpty) {
+      parts.add('Moisture ${site.moisture.label}');
+    }
+    if (totalSpacings > 0) {
+      parts.add(
+          'NS good $nsGood/$totalSpacings, WE good $weGood/$totalSpacings');
+    }
+    if (validReadings > 0) {
+      parts.add('Valid readings $validReadings');
+    }
+    if (flagged > 0) {
+      parts.add('Flagged readings $flagged');
+    }
+    parts.add('Averages include non-flagged readings only.');
+    return parts.join('; ');
+  }
+
+  void _writeMetadataRow({
+    required Worksheet sheet,
+    required int row,
+    required int labelColumn,
+    required int valueStartColumn,
+    required int valueEndColumn,
+    required String label,
+    required String value,
   }) {
-    final cell = sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: column, rowIndex: row));
-    cell.value = TextCellValue(value);
-    if (style != null) {
-      cell.cellStyle = style;
-    }
+    final labelRange = sheet.getRangeByIndex(row, labelColumn);
+    labelRange.setText(label);
+    final labelStyle = labelRange.cellStyle;
+    labelStyle
+      ..bold = true
+      ..hAlign = HAlignType.left
+      ..vAlign = VAlignType.center;
+
+    final valueRange =
+        sheet.getRangeByIndex(row, valueStartColumn, row, valueEndColumn);
+    valueRange.merge();
+    valueRange.setText(value);
+    final valueStyle = valueRange.cellStyle;
+    valueStyle
+      ..hAlign = HAlignType.left
+      ..vAlign = VAlignType.center;
   }
 
-  void _setNumber(Sheet sheet, int column, int row, num value) {
-    final cell = sheet
-        .cell(CellIndex.indexByColumnRow(columnIndex: column, rowIndex: row));
-    final cellValue =
-        value is int ? IntCellValue(value) : DoubleCellValue(value.toDouble());
-    cell.value = cellValue;
-    cell.cellStyle = _numberStyle;
+  String _columnRange(int column, int startRow, int endRow) {
+    final columnLetter = _columnLetter(column);
+    return '$columnLetter$startRow:$columnLetter$endRow';
   }
 
-  void _clearSheet(Sheet sheet) {
-    for (var row = sheet.maxRows - 1; row >= 0; row--) {
-      sheet.removeRow(row);
+  String _columnLetter(int column) {
+    var dividend = column;
+    var columnName = '';
+    while (dividend > 0) {
+      final modulo = (dividend - 1) % 26;
+      columnName = String.fromCharCode(65 + modulo) + columnName;
+      dividend = (dividend - modulo - 1) ~/ 26;
     }
+    return columnName;
+  }
+
+  String _tableSheetName(String displayName, int index) {
+    final sanitized = displayName
+        .replaceAll(RegExp(r'[\\/*?:\\[\\]]'), ' ')
+        .replaceAll(RegExp(r'\\s+'), ' ')
+        .trim();
+    final base = sanitized.isEmpty ? 'Site $index' : sanitized;
+    final prefix = 'Table $index - ';
+    var candidate = '$prefix$base';
+    if (candidate.length <= 31) {
+      return candidate;
+    }
+    final maxBaseLength = 31 - prefix.length;
+    var truncated = base.substring(0, maxBaseLength).trimRight();
+    if (truncated.isEmpty) {
+      truncated = 'Site $index';
+    }
+    candidate = '$prefix$truncated';
+    if (candidate.length <= 31) {
+      return candidate;
+    }
+    return 'Table $index';
+  }
+
+  String _spacingSummarySheetName() {
+    final sanitized = project.projectName
+        .replaceAll(RegExp(r'[\\/*?:\\[\\]]'), ' ')
+        .replaceAll(RegExp(r'\\s+'), ' ')
+        .trim();
+    const prefix = 'Table 1 - ';
+    const suffix = ' Resistivity Data';
+    const maxLength = 31;
+    final maxProjectLength = maxLength - prefix.length - suffix.length;
+    if (maxProjectLength <= 0) {
+      return 'Table 1';
+    }
+    var projectSegment =
+        sanitized.isEmpty ? project.projectId.trim() : sanitized;
+    if (projectSegment.isEmpty) {
+      projectSegment = 'Project';
+    }
+    if (projectSegment.length > maxProjectLength) {
+      projectSegment =
+          projectSegment.substring(0, maxProjectLength).trimRight();
+      if (projectSegment.isEmpty) {
+        projectSegment = 'Project';
+      }
+    }
+    final candidate = '$prefix$projectSegment$suffix';
+    if (candidate.length <= maxLength) {
+      return candidate;
+    }
+    return 'Table 1';
   }
 
   String _rhoFormula(int excelRow) {
@@ -360,13 +920,97 @@ class UpdatedExcelWriter {
   }
 
   String _sigmaColor(double sigmaPercent) {
-    if (sigmaPercent <= _sigmaGreenThreshold * 100) {
+    final percent = sigmaPercent;
+    if (percent <= _sigmaGreenThreshold * 100) {
       return _sigmaGreenHex;
     }
-    if (sigmaPercent <= _sigmaAmberThreshold * 100) {
+    if (percent <= _sigmaAmberThreshold * 100) {
       return _sigmaAmberHex;
     }
     return _sigmaRedHex;
+  }
+
+  void _setText(
+    Worksheet sheet,
+    int row,
+    int column,
+    String value, {
+    HAlignType align = HAlignType.left,
+    VAlignType verticalAlign = VAlignType.center,
+    bool wrap = false,
+  }) {
+    final range = sheet.getRangeByIndex(row, column);
+    range.setText(value);
+    final style = range.cellStyle;
+    style.hAlign = align;
+    style.vAlign = verticalAlign;
+    style.wrapText = wrap;
+  }
+
+  void _setNumber(Worksheet sheet, int row, int column, double value) {
+    final range = sheet.getRangeByIndex(row, column);
+    range.setNumber(value);
+    range.numberFormat = '0.0000';
+    _applyNumberStyle(range);
+  }
+
+  void _setOptionalNumber(Worksheet sheet, int row, int column, double? value) {
+    final range = sheet.getRangeByIndex(row, column);
+    if (value == null || value.isNaN || !value.isFinite) {
+      range.setText('');
+    } else {
+      range.setNumber(value);
+    }
+    _applyNumberStyle(range);
+  }
+
+  void _applyHeaderStyle(Range range) {
+    final style = range.cellStyle;
+    style.backColor = '#1F4E78';
+    style.fontColor = '#FFFFFF';
+    style.bold = true;
+    style.hAlign = HAlignType.center;
+    style.vAlign = VAlignType.center;
+    style.wrapText = true;
+  }
+
+  void _applySummaryHeaderStyle(Range range) {
+    final style = range.cellStyle;
+    style.bold = true;
+    style.hAlign = HAlignType.center;
+    style.vAlign = VAlignType.center;
+    style.wrapText = true;
+    style.backColor = '#D9E1F2';
+  }
+
+  void _applySummarySubHeaderStyle(Range range) {
+    final style = range.cellStyle;
+    style.bold = true;
+    style.hAlign = HAlignType.center;
+    style.vAlign = VAlignType.center;
+    style.wrapText = true;
+    style.backColor = '#EEF3FB';
+  }
+
+  void _applySummaryDataStyle(Range range, {bool bold = false}) {
+    final style = range.cellStyle;
+    style.hAlign = HAlignType.center;
+    style.vAlign = VAlignType.center;
+    style.wrapText = true;
+    style.bold = bold;
+  }
+
+  void _applyLabelStyle(Range range) {
+    final style = range.cellStyle;
+    style.bold = true;
+    style.hAlign = HAlignType.left;
+    style.vAlign = VAlignType.center;
+  }
+
+  void _applyNumberStyle(Range range) {
+    final style = range.cellStyle;
+    style.hAlign = HAlignType.right;
+    style.vAlign = VAlignType.center;
   }
 
   static int _compareStrings(
@@ -402,14 +1046,11 @@ class UpdatedExcelWriter {
   static const _notesSheetName = 'Notes';
   static const _sigmaGreenThreshold = 0.03;
   static const _sigmaAmberThreshold = 0.10;
-  static const _sigmaGreenHex = 'FFC6EFCE';
-  static const _sigmaAmberHex = 'FFFFEB9C';
-  static const _sigmaRedHex = 'FFF4C7C3';
+  static const _sigmaGreenHex = '#C6EFCE';
+  static const _sigmaAmberHex = '#FFEB9C';
+  static const _sigmaRedHex = '#F4C7C3';
   static const _unitLabel = 'ft / Ω·m';
-  static const _dataSheetXml = 'sheet2.xml';
-  static const _printTitlesDefinedNameFragment =
-      '<definedName name="_xlnm.Print_Titles" localSheetId="1">Data!\$1:\$1</definedName>';
-
+  static const double _metersToFeet = 3.280839895;
   static const _dataHeaders = <String>[
     'Row',
     'a_m',
@@ -426,66 +1067,28 @@ class UpdatedExcelWriter {
     'warnings',
   ];
 
-  static const _dataColumnWidths = <double>[
-    6,
-    10,
-    10,
-    18,
-    12,
-    10,
-    10,
-    18,
-    20,
-    12,
-    26,
-    40,
-    28,
+  static const _dataColumnWidths = <int>[
+    48,
+    80,
+    80,
+    110,
+    80,
+    70,
+    70,
+    120,
+    145,
+    90,
+    200,
+    320,
+    240,
   ];
-
-  static final _headerStyle = CellStyle(
-    bold: true,
-    fontColorHex: ExcelColor.fromHexString('FFFFFFFF'),
-    backgroundColorHex: ExcelColor.fromHexString('FF1F4E78'),
-    horizontalAlign: HorizontalAlign.Center,
-    verticalAlign: VerticalAlign.Center,
-  );
-
-  static final _labelStyle = CellStyle(
-    bold: true,
-    horizontalAlign: HorizontalAlign.Left,
-    verticalAlign: VerticalAlign.Center,
-  );
-
-  static final _valueStyle = CellStyle(
-    horizontalAlign: HorizontalAlign.Left,
-    verticalAlign: VerticalAlign.Center,
-  );
-
-  static final _numberStyle = CellStyle(
-    horizontalAlign: HorizontalAlign.Right,
-    verticalAlign: VerticalAlign.Center,
-  );
-
-  static final _textCenterStyle = CellStyle(
-    horizontalAlign: HorizontalAlign.Center,
-    verticalAlign: VerticalAlign.Center,
-  );
-
-  static final _textStyle = CellStyle(
-    horizontalAlign: HorizontalAlign.Left,
-    verticalAlign: VerticalAlign.Center,
-  );
-
-  static final _wrappedTextStyle = CellStyle(
-    horizontalAlign: HorizontalAlign.Left,
-    verticalAlign: VerticalAlign.Center,
-    textWrapping: TextWrapping.WrapText,
-  );
 }
 
 class _ExcelDataRow {
   _ExcelDataRow({
     required this.directionLabel,
+    required this.spacingFeet,
+    required this.orientation,
     required this.aFeet,
     required this.aMeters,
     required this.lMeters,
@@ -516,6 +1119,8 @@ class _ExcelDataRow {
 
     return _ExcelDataRow(
       directionLabel: history.label,
+      spacingFeet: spacingFeet,
+      orientation: history.orientation,
       aFeet: arrayType == ArrayType.schlumberger
           ? units.metersToFeet(aMetersValue)
           : spacingFeet,
@@ -530,6 +1135,8 @@ class _ExcelDataRow {
   }
 
   final String directionLabel;
+  final double spacingFeet;
+  final OrientationKind orientation;
   final double? aFeet;
   final double? aMeters;
   final double? lMeters;
@@ -553,6 +1160,33 @@ class _ExcelDataRow {
   }
 
   String get warning => isBad ? 'bad_reading' : '';
+}
+
+class _SiteTableData {
+  _SiteTableData({
+    required this.site,
+    required this.spacings,
+  });
+
+  final SiteRecord site;
+  final List<_SpacingTableData> spacings;
+}
+
+class _SpacingTableData {
+  _SpacingTableData({
+    required this.spacingFeet,
+    required this.directions,
+  });
+
+  final double spacingFeet;
+  final List<_DirectionTableData> directions;
+}
+
+class _DirectionTableData {
+  _DirectionTableData({required this.row});
+
+  final _ExcelDataRow row;
+  late final int dataSheetRow;
 }
 
 Future<File> writeUpdatedTable({

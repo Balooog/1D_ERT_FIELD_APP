@@ -5,56 +5,51 @@ import 'package:resicheck/models/direction_reading.dart';
 import 'package:resicheck/models/enums.dart';
 import 'package:resicheck/models/project.dart';
 import 'package:resicheck/models/site.dart';
-import 'package:resicheck/utils/excel_writer.dart';
+import 'package:resicheck/services/export_excel_updated.dart';
 
 void main() {
-  group('ThgExcelWriter', () {
+  group('UpdatedExcelWriter', () {
     test('builds summary/data sheets for Wenner export', () {
       final site = _buildSite();
       final project = _buildProject(
         arrayType: ArrayType.wenner,
         sites: [site],
       );
-      final writer = ThgExcelWriter(
+      final writer = UpdatedExcelWriter(
         project: project,
         sites: project.sites,
         generatedAt: DateTime.utc(2024, 5, 4),
         operatorName: 'Operator X',
+        includeGps: true,
       );
 
       final bytes = writer.build();
       final excel = Excel.decodeBytes(bytes);
 
-      expect(excel.tables.containsKey('Summary'), isTrue);
-      expect(excel.tables.containsKey('Data'), isTrue);
-      expect(excel.tables.containsKey('Notes'), isTrue);
-
       final summary = excel['Summary'];
-      expect(_stringValue(summary, 0, 0), 'Project');
-      expect(_stringValue(summary, 1, 0), 'Example Project');
-      expect(_stringValue(summary, 1, 1), equals(site.displayName));
-      expect(_stringValue(summary, 1, 4), 'Wenner');
-      expect(_stringValue(summary, 1, 5), 'ft / Ω·m');
+      expect(_stringValue(summary, 2, 0), 'Project');
+      expect(_stringValue(summary, 2, 1), 'Example Project');
+      expect(_stringValue(summary, 3, 1), site.displayName);
+      expect(_stringValue(summary, 6, 1), 'Wenner');
+      expect(_stringValue(summary, 7, 1), 'ft / Ω·m');
 
       final data = excel['Data'];
-      expect(_stringValue(data, 0, 3), 'a_ft');
-      expect(_stringValue(data, 1, 2), 'N–S');
-      expect(_numericValue(data, 1, 3), closeTo(10.0, 0.0001));
-      expect(_numericValue(data, 1, 4), closeTo(3.048, 0.0001));
+      expect(_stringValue(data, 0, 0), 'Row');
+      expect(_stringValue(data, 0, 2), 'a_ft');
+      expect(_numericValue(data, 1, 1), closeTo(3.048, 0.0001));
+      expect(_numericValue(data, 1, 2), closeTo(10.0, 0.0001));
+      expect(_stringValue(data, 1, 9), 'ns');
+      expect(_stringValue(data, 1, 10), '2024-01-01T00:00:00.000Z');
 
-      final rhoCell = data.cell(CellIndex.indexByColumnRow(
-        columnIndex: 9,
-        rowIndex: 1,
-      ));
-      expect(rhoCell.isFormula, isTrue);
-      expect(rhoCell.value.toString(), contains('2*PI()*'));
+      final rhoCell =
+          data.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: 1));
+      expect(rhoCell.value, isA<FormulaCellValue>());
+      expect(rhoCell.value.toString(), contains('2*PI()*B2*E2'));
 
-      final sigmaCell = data.cell(CellIndex.indexByColumnRow(
-        columnIndex: 10,
-        rowIndex: 1,
-      ));
-      expect(sigmaCell.isFormula, isTrue);
-      expect(sigmaCell.value.toString(), contains('/100)'));
+      final sigmaCell =
+          data.cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: 1));
+      expect(sigmaCell.value, isA<FormulaCellValue>());
+      expect(sigmaCell.value.toString(), contains('4.500'));
     });
 
     test('uses Schlumberger geometry columns and formulas', () {
@@ -63,28 +58,26 @@ void main() {
         arrayType: ArrayType.schlumberger,
         sites: [site],
       );
-      final writer = ThgExcelWriter(
+      final writer = UpdatedExcelWriter(
         project: project,
         sites: project.sites,
         generatedAt: DateTime.utc(2024, 6, 1),
+        includeGps: true,
       );
 
       final bytes = writer.build();
       final excel = Excel.decodeBytes(bytes);
       final data = excel['Data'];
 
-      expect(_stringValue(data, 0, 5), 'MN/2_ft');
-      expect(_numericValue(data, 1, 5), isNotNull);
-      expect(_numericValue(data, 1, 6), isNotNull);
+      expect(_stringValue(data, 0, 3), 'L_m (Schlumb)');
+      expect(_numericValue(data, 1, 1), closeTo(0.508, 0.0001));
+      expect(_numericValue(data, 1, 3), closeTo(3.048, 0.0001));
 
-      final rhoCell = data.cell(CellIndex.indexByColumnRow(
-        columnIndex: 9,
-        rowIndex: 1,
-      ));
-      expect(rhoCell.isFormula, isTrue);
+      final rhoCell =
+          data.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: 1));
       expect(
         rhoCell.value.toString(),
-        equals('=IF(OR(H2="", G2=""),"",PI()*(((E2)^2)-((G2)^2))/(G2*2)*H2)'),
+        contains('PI()*(((D2^2)-(B2^2))/(2*B2))*E2'),
       );
     });
   });
@@ -150,11 +143,7 @@ String? _stringValue(Sheet sheet, int row, int column) {
   final cell = sheet.cell(
     CellIndex.indexByColumnRow(columnIndex: column, rowIndex: row),
   );
-  final value = cell.value;
-  if (value == null) {
-    return null;
-  }
-  return value.toString();
+  return _cellAsString(cell.value);
 }
 
 double? _numericValue(Sheet sheet, int row, int column) {
@@ -162,11 +151,42 @@ double? _numericValue(Sheet sheet, int row, int column) {
     CellIndex.indexByColumnRow(columnIndex: column, rowIndex: row),
   );
   final value = cell.value;
-  if (value is num) {
-    return value.toDouble();
+  if (value is IntCellValue) {
+    return value.value.toDouble();
   }
+  if (value is DoubleCellValue) {
+    return value.value;
+  }
+  if (value is TextCellValue) {
+    return double.tryParse(value.value.toString());
+  }
+  return double.tryParse(_cellAsString(value) ?? '');
+}
+
+String? _cellAsString(CellValue? value) {
   if (value == null) {
     return null;
   }
-  return double.tryParse(value.toString());
+  if (value is TextCellValue) {
+    return value.value.toString();
+  }
+  if (value is IntCellValue) {
+    return value.value.toString();
+  }
+  if (value is DoubleCellValue) {
+    return value.value.toString();
+  }
+  if (value is FormulaCellValue) {
+    return value.formula;
+  }
+  if (value is BoolCellValue) {
+    return value.value.toString();
+  }
+  if (value is DateCellValue) {
+    return value.toString();
+  }
+  if (value is DateTimeCellValue) {
+    return value.toString();
+  }
+  return value.toString();
 }

@@ -1,23 +1,29 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:io' show Directory;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+
 import '../../models/calc.dart';
 import '../../models/direction_reading.dart';
+import '../../models/project.dart';
 import '../../models/site.dart';
 import '../../services/location_service.dart';
+import '../../services/troubleshoot_ohmega.dart';
 import '../../state/prefs.dart';
 import '../../state/providers.dart';
 import '../../utils/format.dart';
 import '../dev/baseline_overlay.dart';
+import '../diagrams/show_electrode_dialog.dart';
 import '../layout/grid_4.dart';
 import '../layout/inputs.dart';
 import '../layout/sizing.dart';
 import '../style/density.dart';
 import '../widgets/res_cluster.dart';
+import '../widgets/troubleshooter_banner.dart';
 
 const double _kTableHeaderHeight = 34;
 const double _kHeaderFieldGap = 2;
@@ -28,6 +34,7 @@ const double _kResInlineMinWidth = 170;
 class TablePanel extends ConsumerStatefulWidget {
   const TablePanel({
     super.key,
+    required this.project,
     required this.site,
     required this.projectDefaultStacks,
     required this.showOutliers,
@@ -38,10 +45,13 @@ class TablePanel extends ConsumerStatefulWidget {
     required this.onMetadataChanged,
     required this.onShowHistory,
     required this.onFocusChanged,
+    required this.onLogTroubleshooter,
     this.isSaving = false,
     this.saveStatusLabel,
+    this.diagramExportDirectoryBuilder,
   });
 
+  final ProjectRecord project;
   final SiteRecord site;
   final int projectDefaultStacks;
   final bool showOutliers;
@@ -78,8 +88,11 @@ class TablePanel extends ConsumerStatefulWidget {
   ) onShowHistory;
   final void Function(double spacingFt, OrientationKind orientation)
       onFocusChanged;
+  final Future<void> Function(String note) onLogTroubleshooter;
   final bool isSaving;
   final String? saveStatusLabel;
+  final Future<Directory> Function(ProjectRecord project, SiteRecord site)?
+      diagramExportDirectoryBuilder;
 
   @visibleForTesting
   static const String sdPromptPattern = r'^[0-9]{0,2}(\.[0-9])?$';
@@ -199,6 +212,8 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     }
     return nodes;
   }
+
+  String? _lastTroubleshooterCode;
 
   @override
   void initState() {
@@ -1585,38 +1600,69 @@ class _TablePanelState extends ConsumerState<TablePanel> {
         waitDuration: const Duration(milliseconds: 400),
         child: Align(
           alignment: Alignment.topCenter,
-          child: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.2,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => unawaited(_showElectrodeDiagram(row)),
+            onLongPress: () => unawaited(_showElectrodeDiagram(row)),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 2, left: 6, right: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Text(
+                      value,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
                     ),
                   ),
-                ),
-                if (!valid) ...[
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
                   Icon(
-                    Icons.warning_amber_rounded,
+                    Icons.image_outlined,
                     size: 16,
-                    color: theme.colorScheme.error,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
+                  if (!valid) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 16,
+                      color: theme.colorScheme.error,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _showElectrodeDiagram(_RowConfig row) {
+    final siteName = widget.site.displayName.isNotEmpty
+        ? widget.site.displayName
+        : widget.site.siteId;
+    DiagramExportDirectoryBuilder? builder;
+    final resolver = widget.diagramExportDirectoryBuilder;
+    if (resolver != null) {
+      builder = () => resolver(widget.project, widget.site);
+    }
+    return showElectrodeDiagramDialog(
+      context: context,
+      projectName: widget.project.projectName,
+      siteName: siteName,
+      aFt: row.record.spacingFeet,
+      pinInFt: row.insideFeet,
+      pinOutFt: row.outsideFeet,
+      exportDirectoryBuilder: builder,
     );
   }
 
@@ -1688,10 +1734,32 @@ class _TablePanelState extends ConsumerState<TablePanel> {
     return KeyEventResult.ignored;
   }
 
+  void _maybeShowTroubleshooter(String? raw) {
+    final issue = TroubleshootOhmega.detect(raw);
+    if (issue == null) {
+      return;
+    }
+    if (_lastTroubleshooterCode == issue.code) {
+      return;
+    }
+    _lastTroubleshooterCode = issue.code;
+    if (!mounted) {
+      return;
+    }
+    unawaited(
+      showTroubleshooterBanner(
+        context: context,
+        issue: issue,
+        onLogFixAttempt: widget.onLogTroubleshooter,
+      ),
+    );
+  }
+
   void _editInterpretation(_RowConfig row) async {
     final existing = row.record.interpretation ?? '';
     final controller = TextEditingController(text: existing);
     final presets = SpacingRecord.interpretationPresets.toList()..sort();
+    _lastTroubleshooterCode = null;
     final result = await showDialog<String?>(
       context: context,
       builder: (context) {
@@ -1711,6 +1779,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                   labelText: 'Interpretation',
                   border: OutlineInputBorder(),
                 ),
+                onChanged: _maybeShowTroubleshooter,
               ),
               const SizedBox(height: 12),
               Wrap(
@@ -1720,7 +1789,10 @@ class _TablePanelState extends ConsumerState<TablePanel> {
                   for (final preset in presets)
                     ActionChip(
                       label: Text(preset),
-                      onPressed: () => Navigator.of(context).pop(preset),
+                      onPressed: () {
+                        _maybeShowTroubleshooter(preset);
+                        Navigator.of(context).pop(preset);
+                      },
                     ),
                 ],
               ),
@@ -1741,6 +1813,7 @@ class _TablePanelState extends ConsumerState<TablePanel> {
       },
     );
     if (result != null) {
+      _maybeShowTroubleshooter(result);
       widget.onInterpretationChanged(row.record.spacingFeet, result);
     }
   }
@@ -2579,9 +2652,14 @@ class TablePanelDebugFixture extends StatelessWidget {
       displayName: 'Debug Site',
       spacings: spacings,
     );
+    final project = ProjectRecord.newProject(
+      projectId: 'debug-project',
+      projectName: 'Debug Project',
+    );
 
     return ProviderScope(
       child: TablePanel(
+        project: project,
         site: site,
         projectDefaultStacks: 4,
         showOutliers: true,
@@ -2600,6 +2678,7 @@ class TablePanelDebugFixture extends StatelessWidget {
         }) {},
         onShowHistory: (_, __) async {},
         onFocusChanged: (_, __) {},
+        onLogTroubleshooter: (_) async {},
         isSaving: false,
         saveStatusLabel: 'Saved',
       ),
