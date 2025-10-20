@@ -137,7 +137,7 @@ class _RightRailState extends State<RightRail> {
         _buildMenuItem(
           _RightRailMenuAction.exportExcel,
           Icons.grid_on,
-          'Export Excel (THG)…',
+          'Export Excel…',
         ),
       );
     }

@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:collection/collection.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/logging.dart';
@@ -11,6 +13,8 @@ import '../../models/project.dart';
 import '../../models/site.dart';
 import '../../services/import/import_models.dart';
 import '../../services/import/import_service.dart';
+import '../../services/troubleshoot_ohmega.dart';
+import '../widgets/troubleshooter_banner.dart';
 import 'widgets/column_map_row.dart';
 
 class ImportSheetOutcome {
@@ -33,10 +37,12 @@ class ImportSheet extends StatefulWidget {
     super.key,
     required this.project,
     this.initialSiteId,
+    this.onLogTroubleshooter,
   });
 
   final ProjectRecord project;
   final String? initialSiteId;
+  final Future<void> Function(String note)? onLogTroubleshooter;
 
   @override
   State<ImportSheet> createState() => _ImportSheetState();
@@ -58,6 +64,7 @@ class _ImportSheetState extends State<ImportSheet> {
   bool _overwrite = false;
   SharedPreferences? _prefs;
   ImportDistanceUnit? _lastPreferredUnit;
+  String? _lastTroubleshooterCode;
 
   @override
   void initState() {
@@ -77,6 +84,46 @@ class _ImportSheetState extends State<ImportSheet> {
     _siteIdController.dispose();
     _displayNameController.dispose();
     super.dispose();
+  }
+
+  bool _showTroubleshooterIfNeeded(String? raw) {
+    final issue = TroubleshootOhmega.detect(raw);
+    if (issue == null) {
+      return false;
+    }
+    if (_lastTroubleshooterCode == issue.code) {
+      return true;
+    }
+    _lastTroubleshooterCode = issue.code;
+    if (!mounted) {
+      return true;
+    }
+    final callback = widget.onLogTroubleshooter ?? (_) async {};
+    unawaited(
+      showTroubleshooterBanner(
+        context: context,
+        issue: issue,
+        onLogFixAttempt: callback,
+      ),
+    );
+    return true;
+  }
+
+  void _scanPreviewForTroubleshooter(ImportPreview preview) {
+    for (final row in preview.previewRows) {
+      for (final cell in row) {
+        if (_showTroubleshooterIfNeeded(cell)) {
+          return;
+        }
+      }
+    }
+    for (final descriptor in preview.columns) {
+      for (final sample in descriptor.samples) {
+        if (_showTroubleshooterIfNeeded(sample)) {
+          return;
+        }
+      }
+    }
   }
 
   @override
@@ -807,6 +854,12 @@ class _ImportSheetState extends State<ImportSheet> {
       _mapping = null;
       _validation = null;
     });
+
+    late Uint8List selectedBytes;
+    late String selectedName;
+    var origin = 'file_picker';
+    var hasSelection = false;
+
     try {
       LOG.info('import_picker_open',
           extra: {'project': widget.project.projectId});
@@ -837,11 +890,84 @@ class _ImportSheetState extends State<ImportSheet> {
         });
         return;
       }
-      LOG.info('import_picker_selected', extra: {
-        'file': file.name,
-        'bytes': file.bytes?.length ?? 0,
+      selectedName = file.name;
+      selectedBytes = file.bytes!;
+      hasSelection = true;
+    } on PlatformException catch (error, stackTrace) {
+      if (!_isPortalUnavailable(error)) {
+        _handlePickerFailure(error, stackTrace);
+        return;
+      }
+      LOG.warn('import_picker_portal_missing', extra: {
+        'project': widget.project.projectId,
+        'code': error.code,
+        'message': error.message,
+        'details': error.details?.toString(),
+        'stack': stackTrace.toString(),
       });
-      final source = ImportSource(name: file.name, bytes: file.bytes!);
+      if (!mounted) {
+        return;
+      }
+      final fallback = await _promptForManualPath();
+      if (!mounted) {
+        return;
+      }
+      if (fallback == null) {
+        LOG.info(
+          'import_picker_fallback_cancelled',
+          extra: {'project': widget.project.projectId},
+        );
+        setState(() {
+          _loading = false;
+          _error =
+              'Import cancelled: desktop file picker is unavailable (missing xdg-desktop-portal).';
+        });
+        return;
+      }
+      origin = 'manual_path';
+      selectedName = fallback.name;
+      selectedBytes = fallback.bytes;
+      hasSelection = true;
+    } catch (error, stackTrace) {
+      _handlePickerFailure(error, stackTrace);
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+    if (!hasSelection) {
+      setState(() {
+        _loading = false;
+        _error = 'Unable to read file contents.';
+      });
+      return;
+    }
+
+    await _loadImportSelection(
+      name: selectedName,
+      bytes: selectedBytes,
+      origin: origin,
+    );
+  }
+
+  Future<void> _loadImportSelection({
+    required String name,
+    required Uint8List bytes,
+    required String origin,
+  }) async {
+    try {
+      LOG.info(
+        origin == 'file_picker'
+            ? 'import_picker_selected'
+            : 'import_picker_fallback_selected',
+        extra: {
+          'project': widget.project.projectId,
+          'file': name,
+          'bytes': bytes.length,
+        },
+      );
+      final source = ImportSource(name: name, bytes: bytes);
       final session = await _service.load(source);
       if (!mounted) {
         return;
@@ -858,10 +984,13 @@ class _ImportSheetState extends State<ImportSheet> {
         _validation = null;
         _loading = false;
       });
+      _lastTroubleshooterCode = null;
+      _scanPreviewForTroubleshooter(session.preview);
       LOG.info('import_picker_loaded', extra: {
-        'file': file.name,
+        'file': name,
         'columns': session.preview.columnCount,
         'rows': session.preview.rowCount,
+        'origin': origin,
       });
     } catch (error, stackTrace) {
       LOG.error(
@@ -875,6 +1004,142 @@ class _ImportSheetState extends State<ImportSheet> {
         _loading = false;
         _error = 'Import failed: $error';
       });
+    }
+  }
+
+  void _handlePickerFailure(Object error, StackTrace stackTrace) {
+    LOG.error(
+      'import_picker_failure',
+      extra: {'project': widget.project.projectId},
+      error: error,
+      stackTrace: stackTrace,
+    );
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _error = 'Import failed: $error';
+    });
+  }
+
+  bool _isPortalUnavailable(PlatformException error) {
+    final code = error.code.toLowerCase();
+    final message = (error.message ?? '').toLowerCase();
+    final details = error.details?.toString().toLowerCase() ?? '';
+    return message.contains('org.freedesktop.portal.desktop') ||
+        message.contains('dbus.error.serviceunknown') ||
+        details.contains('org.freedesktop.portal.desktop') ||
+        code.contains('org.freedesktop.portal.desktop');
+  }
+
+  Future<_FallbackFileSelection?> _promptForManualPath() async {
+    final controller = TextEditingController();
+    try {
+      return await showDialog<_FallbackFileSelection>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          String? errorText;
+          var busy = false;
+          return StatefulBuilder(
+            builder: (dialogContext, setState) {
+              Future<void> handleSubmit() async {
+                final rawPath = controller.text.trim();
+                if (rawPath.isEmpty) {
+                  setState(() {
+                    errorText = 'Enter a file path.';
+                  });
+                  return;
+                }
+                setState(() {
+                  busy = true;
+                  errorText = null;
+                });
+                try {
+                  final file = File(rawPath);
+                  final resolved = await file.readAsBytes();
+                  if (resolved.isEmpty) {
+                    setState(() {
+                      busy = false;
+                      errorText = 'File is empty.';
+                    });
+                    return;
+                  }
+                  if (!dialogContext.mounted) {
+                    return;
+                  }
+                  Navigator.of(dialogContext).pop(
+                    _FallbackFileSelection(
+                      name: p.basename(rawPath),
+                      bytes: resolved,
+                    ),
+                  );
+                } on FileSystemException catch (error) {
+                  setState(() {
+                    busy = false;
+                    errorText =
+                        error.osError?.message ?? 'Unable to read file.';
+                  });
+                } catch (error) {
+                  setState(() {
+                    busy = false;
+                    errorText = 'Unable to read file: $error';
+                  });
+                }
+              }
+
+              return AlertDialog(
+                title: const Text('Desktop file picker unavailable'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'ResiCheck could not open the system file picker. '
+                      'Enter the full path to your CSV, TXT, DAT, or XLSX export.',
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        labelText: 'File path',
+                        hintText: '/home/user/data/export.xlsx',
+                        errorText: errorText,
+                      ),
+                      onSubmitted: (_) {
+                        if (!busy) {
+                          handleSubmit();
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: busy
+                        ? null
+                        : () {
+                            Navigator.of(dialogContext).pop();
+                          },
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: busy ? null : handleSubmit,
+                    child: busy
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Import'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      controller.dispose();
     }
   }
 
@@ -975,6 +1240,16 @@ class _ImportSheetState extends State<ImportSheet> {
       ImportSheetOutcome.merge(mergeIntoSiteId: targetId, site: merged),
     );
   }
+}
+
+class _FallbackFileSelection {
+  _FallbackFileSelection({
+    required this.name,
+    required this.bytes,
+  });
+
+  final String name;
+  final Uint8List bytes;
 }
 
 /// Keeps form controls outside the tile so nested inputs don't trigger layout

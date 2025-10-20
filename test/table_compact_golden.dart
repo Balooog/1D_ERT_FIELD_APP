@@ -3,17 +3,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:resicheck/models/direction_reading.dart';
+import 'package:resicheck/models/project.dart';
 import 'package:resicheck/models/site.dart';
 import 'package:resicheck/ui/project_workflow/table_panel.dart';
 
 void main() {
   testWidgets('table panel uses compact centered layout', (tester) async {
     final site = _buildSite();
+    final project = ProjectRecord.newProject(
+      projectId: 'compact-proj',
+      projectName: 'Compact Project',
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: Material(
           child: ProviderScope(
             child: TablePanel(
+              project: project,
               site: site,
               projectDefaultStacks: 4,
               showOutliers: true,
@@ -32,6 +38,7 @@ void main() {
               }) {},
               onShowHistory: (_, __) async {},
               onFocusChanged: (_, __) {},
+              onLogTroubleshooter: (_) async {},
             ),
           ),
         ),

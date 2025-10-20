@@ -51,6 +51,17 @@ flutter run -d linux  # pick your device/emulator
 
 The `scripts/ci/test_wsl.sh` helper wraps `dart format`, `flutter analyze`, and the project’s test matrix and is safe to run repeatedly.
 
+### Secret scanning hook
+
+Run `scripts/git-hooks/install.sh` once per clone to install a managed `pre-push` hook that scans outgoing commits for SSH/private-key blocks (e.g., `-----BEGIN OPENSSH PRIVATE KEY-----`). The hook blocks the push and prints the file/line when it detects a match so you can remove the material before retrying. To intentionally bypass (not recommended), push with `RESICHECK_SKIP_SECRET_SCAN=1 git push`, or uninstall the hook with `scripts/git-hooks/install.sh --uninstall`.
+
+#### Optional git-secrets layer
+
+For broader pattern coverage, install [`git-secrets`](https://github.com/awslabs/git-secrets) locally, then run `scripts/security/git-secrets-setup.sh`. The setup script registers AWS defaults plus repo-specific patterns (Stripe-style keys, dense SSH blocks) while avoiding duplicates. Once installed:
+
+- The managed `pre-push` hook will automatically invoke `git secrets --scan` on touched files whenever the tool is on `PATH`, blocking pushes that match forbidden regexes.
+- You can manually audit with `scripts/security/git-secrets-scan.sh` (accepts optional file paths) or `git secrets --scan-history` for a full history sweep.
+
 ## Repository Layout
 
 ```

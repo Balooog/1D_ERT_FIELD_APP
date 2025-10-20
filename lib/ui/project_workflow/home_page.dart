@@ -61,7 +61,10 @@ class _ProjectWorkflowHomePageState extends State<ProjectWorkflowHomePage> {
     final outcome = await showModalBottomSheet<ImportSheetOutcome>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => ImportSheet(project: tempProject),
+      builder: (context) => ImportSheet(
+        project: tempProject,
+        onLogTroubleshooter: (_) async {},
+      ),
     );
     if (!mounted) return;
     if (outcome == null) {

@@ -138,9 +138,8 @@ class PlotsPanel extends StatelessWidget {
       LineChartData(
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
-            tooltipBgColor: theme.colorScheme.surface.withValues(
-              alpha: (0.9 * 255).round().toDouble(),
-            ),
+            getTooltipColor: (touchedSpot) =>
+                theme.colorScheme.surface.withValues(alpha: 0.9),
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
                 final spacing = math.pow(10, spot.x).toDouble();
